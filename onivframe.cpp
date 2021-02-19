@@ -1,0 +1,126 @@
+#include "onivframe.h"
+#include "onivadapter.h"
+#include "onivpacket.h"
+#include "onivtunnel.h"
+
+const char* OnivFrame::Layer3Hdr() const
+{
+    return frame.c_str() + 14;
+}
+
+OnivFrame::OnivFrame() : ingress(nullptr)
+{
+
+}
+
+OnivFrame::OnivFrame(const OnivFrame &of) : frame(of.frame), ingress(of.ingress)
+{
+
+}
+
+OnivFrame::OnivFrame(OnivFrame &&of) : frame(of.frame), ingress(of.ingress)
+{
+
+}
+
+OnivFrame& OnivFrame::operator=(const OnivFrame &of)
+{
+    this->frame = of.frame;
+    ingress = of.ingress;
+    return *this;
+}
+
+OnivFrame& OnivFrame::operator=(OnivFrame &&of)
+{
+    this->frame = of.frame;
+    ingress = of.ingress;
+    return *this;
+}
+
+OnivFrame::~OnivFrame()
+{
+
+}
+
+OnivFrame::OnivFrame(const char *buf, const size_t size, OnivPort *port)
+    : frame(buf, size), ingress(port)
+{
+
+}
+
+OnivFrame::OnivFrame(const OnivPacket &op)
+    : frame(op.data(), op.size() - op.HdrSize()), ingress(op.IngressPort())
+{
+
+}
+
+OnivPort* OnivFrame::IngressPort() const
+{
+    return ingress;
+}
+
+bool OnivFrame::empty() const
+{
+    return frame.empty();
+}
+
+size_t OnivFrame::size() const
+{
+    return frame.length();
+}
+
+const char* OnivFrame::data() const
+{
+    return frame.c_str();
+}
+
+const char* OnivFrame::DestHwAddr() const
+{
+    return frame.c_str();
+}
+
+const char* OnivFrame::SrcHwAddr() const
+{
+    return frame.c_str() + 6;
+}
+
+bool OnivFrame::IsBroadcast()
+{
+    return string(DestHwAddr(), 6) == string(6, 0xFF);
+}
+
+bool OnivFrame::AddressResolutionProtocol()
+{
+    return *(u_int16_t*)(frame.c_str() + 12) == htons(0x0806);
+}
+
+bool OnivFrame::InternetProtocol() const
+{
+    return *(u_int16_t*)(frame.c_str() + 12) == htons(0x0800);
+}
+
+in_addr_t OnivFrame::SrcIPAddr() const
+{
+    if(InternetProtocol()){
+        return *(in_addr_t*)(Layer3Hdr() + 12);
+    }
+    else return 0;
+}
+
+in_addr_t OnivFrame::DestIPAddr() const
+{
+    if(InternetProtocol()){
+        return *(in_addr_t*)(Layer3Hdr() + 16);
+    }
+    else return 0;
+}
+
+bool OnivFrame::TransferControlProtocol() const
+{
+    return false;
+}
+
+bool OnivFrame::UserDatagramProtocol() const
+{
+    return false;
+}

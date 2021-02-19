@@ -1,108 +1,71 @@
 #ifndef _ONIVD_H_
 #define _ONIVD_H_
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <deque>
-// #include <list>
+#include <list>
+#include <map>
 #include <string>
 
 #include <arpa/inet.h>
-#include <err.h>
 #include <asm-generic/errno.h>
 #include <linux/un.h>
 #include <pthread.h>
 #include <signal.h>
 #include <sys/epoll.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
+#include "onivadapter.h"
 #include "onivcmd.h"
 #include "oniverr.h"
+#include "onivfdb.h"
+#include "onivframe.h"
 #include "onivglobal.h"
+#include "onivpacket.h"
+#include "onivport.h"
+#include "onivtunnel.h"
 
-using std::deque;
+using std::find_if;
+using std::list;
+using std::make_pair;
+using std::map;
+using std::pair;
 using std::string;
-
-class WorkerQueue
-{
-private:
-    deque<int> ReadyFileDescriptor;
-    pthread_mutex_t mtx;
-    pthread_cond_t cond;
-public:
-    WorkerQueue()
-    {
-        pthread_mutex_init(&mtx, NULL);
-        pthread_cond_init(&cond, NULL);
-    }
-    int lock()
-    {
-        return pthread_mutex_lock(&mtx);
-    }
-    int unlock()
-    {
-        return pthread_mutex_unlock(&mtx);
-    }
-    int signal()
-    {
-        return pthread_cond_signal(&cond);
-    }
-    int wait()
-    {
-        return pthread_cond_wait(&cond, &mtx);
-    }
-    int front()
-    {
-        return ReadyFileDescriptor.front();
-    }
-    void PushFront(int fd)
-    {
-        return ReadyFileDescriptor.push_front(fd);
-    }
-    void Dequeue()
-    {
-        return ReadyFileDescriptor.pop_front();
-    }
-    int back()
-    {
-        return ReadyFileDescriptor.back();
-    }
-    void Enqueue(int fd)
-    {
-        return ReadyFileDescriptor.push_back(fd);
-    }
-    void PopBack()
-    {
-        return ReadyFileDescriptor.pop_back();
-    }
-    bool IsEmpty()
-    {
-        return ReadyFileDescriptor.empty();
-    }
-};
-
-class ThreadPool
-{
-    
-};
 
 class Onivd
 {
 private:
-    WorkerQueue wq;
-    pthread_t ServerThreadID;
-    int ListenSocket, epfd;
+    pthread_t ServerThreadID, AdapterThreadID, TunnelThreadID, EgressThreadID;
+    int ListenSocket, EpollAdapter, EpollTunnel, EpollEgress;
 
-    static void* OnivSwitcherServerThread(void* para);
-    static void* Worker(void* para);
-    OnivErr CreateSwitcherServerSocket(const string &ControllerSocketPath);
-    OnivErr ProcessCommand(const char* CmdBuf, size_t BufSize);
-    OnivErr CreateSwitcherServer();
-    OnivErr CreateThreadPool();
+    typedef map<string, OnivAdapter>::iterator AdapterIter;
+    map<string, OnivAdapter> adapters;
+
+    typedef list<OnivTunnel>::iterator TunnelIter;
+    list<OnivTunnel> tunnels; // 第一个隧道类似listen()，其余隧道类似accept()
+    OnivFDB fdb;
+
+    static void* SwitchServerThread(void* para);
+    static void* AdapterThread(void* para);
+    static void* TunnelThread(void* para);
+    static void* EgressThread(void* para);
+    OnivErr CreateSwitchServerSocket(const string &ControllerSocketPath);
+    OnivErr AuxAddAdapter(const string &name, in_addr_t address, uint32_t vni, int mtu);
+    OnivErr AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int mtu);
+    OnivErr AddAdapter(const char* cmd, size_t length);
+    OnivErr DelAdapter(const char* cmd, size_t length);
+    OnivErr ClrAdapter();
+    OnivErr AddTunnel(const char* cmd, size_t length);
+    OnivErr DelTunnel(const char* cmd, size_t length);
+    OnivErr ClrTunnel();
+    OnivErr ProcessCommand(const char* cmd, size_t length);
+    OnivErr CreateSwitchServer();
+    OnivErr CreateAdapterThread();
+    OnivErr CreateTunnelThread(const string &TunnelAdapterName);
+    OnivErr CreateEgressThread();
 public:
-    Onivd();
-    void DispatchIO();
+    Onivd(const string &TunnelAdapterName);
+    void run();
 };
 
 #endif

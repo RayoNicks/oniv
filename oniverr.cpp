@@ -5,28 +5,6 @@ OnivErr::OnivErr(const OnivErrCode &ec) : Code(ec)// , Msg(ErrCodeToErrMsg(ec))
 
 }
 
-// OnivErr::OnivErr(const OnivErr &oe)
-// {
-//     Code = oe.Code;
-// }
-
-// OnivErr::OnivErr(OnivErr &&oe)
-// {
-//     Code = oe.Code;
-// }
-
-// OnivErr& OnivErr::operator=(const OnivErr &oe)
-// {
-//     Code = oe.Code;
-//     // Msg = oe.Msg;
-// }
-
-// OnivErr& OnivErr::operator=(OnivErr &&oe)
-// {
-//     Code = oe.Code;
-//     // Msg = oe.Msg;
-// }
-
 const string& OnivErr::ErrCodeToErrMsg(const OnivErrCode &ec)
 {
     if(ec >= OnivErrCode::ERROR_UNKNOWN) return ErrMsgs.back();
@@ -50,6 +28,11 @@ bool OnivErr::occured()
 
 const vector<string> OnivErr::ErrMsgs = {
     "Successful",
+    "Wrong IPv4 address",
+    "Create tunnel socket failed",
+    "Bind tunnel socket failed",
+    "Add tunnel to epoll failed",
+    // server message
     "Create server thread failed",
     "Create server socket failed",
     "Remove server socket file failed",
@@ -58,9 +41,23 @@ const vector<string> OnivErr::ErrMsgs = {
     "Accept controller connection failed",
     "Read controller command failed",
     "Parse controller command",
-    "Close controller connection failed",
+    // "Close controller connection failed",
+    "Create adapter failed",
+    "Adapter exists",
+    "Create tunnel interface failed",
+    "Tunnel exists",
+    // adapter thread error
+    "Create adapter thread failed",
+    "Send frame to adapter failed",
+    "Receive frame from adapter failed",
+    // tunnel thread error
+    "Create tunnel thread failed",
+    "Send packet to tunnel failed",
+    "Receive packet from tunnel failed",
+    // switch message
     "Create epoll instance failed",
     "Wait epoll failed",
+    "Add adapter failed",
 
     "Unknown error",
 };

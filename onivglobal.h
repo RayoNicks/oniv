@@ -9,11 +9,13 @@ using std::string;
 class OnivGlobal
 {
 public:
-    static const string SwitcherServerPath;
-    static const string SwitcherServerTmpPath;
-    static const size_t SwitcherServerCmdBufSize;
+    static const string SwitchServerPath;
+    static const string SwitchServerTmpPath;
+    static const size_t SwitchServerCmdBufSize;
     static const size_t MaxEpollEvents;
-    static const size_t OverlayNetworkMTU = 1500;
+    static const int AdapterMTU;
+    static const int TunnelMTU;
+    static const uint16_t TunnelPortNo;
 };
 
 #endif
