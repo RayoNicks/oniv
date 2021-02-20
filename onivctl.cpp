@@ -1,5 +1,5 @@
-#include <cstdio>
 #include <cstring>
+#include <iostream>
 #include <string>
 
 #include <arpa/inet.h>
@@ -46,7 +46,7 @@ string ParseCommand(int argc, char* argv[])
     if(strcmp(argv[1], "add-adp") == 0 && argc == 6){
         string name(argv[2]);
         in_addr_t address = inet_addr(argv[3]);
-        uint32_t vni = stoi(argv[4]);
+        uint32_t vni = htonl(stoi(argv[4]));
         int mtu = stoi(argv[5]);
         name.resize(IFNAMSIZ);
         cmd.push_back(static_cast<char>(COMMAND_ADD_ADP));
@@ -68,7 +68,7 @@ string ParseCommand(int argc, char* argv[])
     }
     else if(strcmp(argv[1], "add-tun") == 0 && argc == 4){
         in_addr_t address = inet_addr(argv[2]);
-        uint32_t vni = stoi(argv[3]);
+        uint32_t vni = htonl(stoi(argv[3]));
         cmd.push_back(static_cast<char>(COMMAND_ADD_TUN));
         cmd.push_back(static_cast<char>(sizeof(in_addr_t) + sizeof(uint32_t)));
         cmd += convert((char*)&address, sizeof(in_addr_t));
@@ -112,6 +112,7 @@ int main(int argc, char* argv[])
 {
     int ClientSocket, WriteNumber, size;
     string CmdBuf;
+    char result[256] = { 0 };
 
     if(argc < 2){
         usage();
@@ -128,6 +129,9 @@ int main(int argc, char* argv[])
     if((WriteNumber = write(ClientSocket, CmdBuf.c_str(), CmdBuf.size()) < 0)){
         err(EXIT_FAILURE, "Write command failed");
     }
+
+    read(ClientSocket, result, sizeof(result));
+    cout << result << endl;
 
     return 0;
 }

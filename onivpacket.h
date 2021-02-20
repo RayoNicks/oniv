@@ -37,6 +37,7 @@ public:
     OnivPacket(const char *buf, const size_t size, OnivTunnel *tunnel, const sockaddr_in &RemoteSocketAddress);
     OnivPacket(const OnivFrame &of);
 
+    void dump() const;
     OnivTunnel* IngressPort() const;
     in_port_t RemotePortNo() const;
     in_addr_t RemoteIPAddress() const;

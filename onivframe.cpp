@@ -64,6 +64,7 @@ void OnivFrame::dump() const
         }
         cout << '\n';
     }
+    cout << '\n';
 }
 
 OnivPort* OnivFrame::IngressPort() const
@@ -101,14 +102,14 @@ bool OnivFrame::IsBroadcast()
     return string(DestHwAddr(), 6) == string(6, 0xFF);
 }
 
-bool OnivFrame::ARP()
+bool OnivFrame::ARP() const
 {
-    return *(u_int16_t*)(frame.c_str() + 12) == htons(0x0806);
+    return *(u_int16_t*)(data() + 12) == htons(0x0806);
 }
 
 bool OnivFrame::IP() const
 {
-    return *(u_int16_t*)(frame.c_str() + 12) == htons(0x0800);
+    return *(u_int16_t*)(data() + 12) == htons(0x0800);
 }
 
 in_addr_t OnivFrame::SrcIPAddr() const
@@ -129,10 +130,12 @@ in_addr_t OnivFrame::DestIPAddr() const
 
 bool OnivFrame::TCP() const
 {
+    // TODO
     return false;
 }
 
 bool OnivFrame::UDP() const
 {
+    // TODO
     return false;
 }

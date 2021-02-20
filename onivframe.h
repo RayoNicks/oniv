@@ -46,7 +46,7 @@ public:
     const char* DestHwAddr() const;
     const char* SrcHwAddr() const;
     bool IsBroadcast();
-    bool ARP();
+    bool ARP() const;
     bool IP() const;
     in_addr_t SrcIPAddr() const;
     in_addr_t DestIPAddr() const;

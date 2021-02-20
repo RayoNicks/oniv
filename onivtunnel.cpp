@@ -7,7 +7,7 @@ OnivTunnel::~OnivTunnel()
 }
 
 OnivTunnel::OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int TunnelMTU)
-    : OnivPort(TunnelMTU)
+    : OnivPort(TunnelMTU, UINT32_MAX)
 {
     struct sockaddr_in LocalTunnelSockAddress;
     memset(&LocalTunnelSockAddress, 0, sizeof(struct sockaddr_in));

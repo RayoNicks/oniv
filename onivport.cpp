@@ -1,8 +1,7 @@
 #include "onivport.h"
 #include "onivframe.h"
 
-OnivPort::OnivPort(int mtu, uint32_t vni, const OnivQueue &sq)
-    : mtu(mtu), vni(vni)
+OnivPort::OnivPort(int mtu, uint32_t vni) : mtu(mtu), vni(vni)
 {
 
 }

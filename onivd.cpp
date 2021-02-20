@@ -17,6 +17,9 @@ void* Onivd::SwitchServerThread(void* para)
             if(oe.occured()){
                 warn("%s", oe.ErrMsg().c_str());
             }
+            else{
+                write(AcceptSocket, "success", strlen("success"));
+            }
         }
         else{
             warn("%s", OnivErr(OnivErrCode::ERROR_READ_CONTROLLER_CMD).ErrMsg().c_str());
@@ -53,7 +56,7 @@ void* Onivd::AdapterThread(void* para)
                 if(!frame.ARP() && !frame.IP()){
                     continue;
                 }
-                frame.dump();
+                // frame.dump();
                 if(frame.IsBroadcast()){ // 从广播域内的隧道发送
                     for(TunnelIter iter = ++oniv->tunnels.begin(); iter != oniv->tunnels.end(); iter++)
                     {
@@ -102,6 +105,7 @@ void* Onivd::TunnelThread(void* para)
                 if(oe.occured()){
                     continue;
                 }
+                // packet.dump();
                 TunnelIter iter = find_if(oniv->tunnels.begin(), oniv->tunnels.end(),
                 [&packet](const OnivTunnel &tunnel)
                 {
@@ -371,44 +375,37 @@ OnivErr Onivd::ClrTunnel()
 
 OnivErr Onivd::ProcessCommand(const char* cmd, size_t length)
 {
-    printf("length=%ld\n", length);
     u_int8_t type = *cmd, len;
     OnivErr ParseCmdError(OnivErrCode::ERROR_PARSE_CONTROLLER_CMD);
     switch(type)
     {
     case COMMAND_ADD_ADP:
         if(length != 1 && length == 2 + *(cmd + 1)){
-            printf("add-adp\n");
             return AddAdapter(cmd + 2, *(cmd + 1));
         }
         break;
     case COMMAND_DEL_ADP:
         if(length != 1 && length == 2 + *(cmd + 1)){
-            printf("del-adp\n");
             return DelAdapter(cmd + 2, *(cmd + 1));
         }
         break;
     case COMMAND_CLR_ADP:
         if(length == 1){
-            printf("clr-adp\n");
             return ClrAdapter();
         }
         break;
     case COMMAND_ADD_TUN:
         if(length != 1 && length == 2 + *(cmd + 1)){
-            printf("add-tun\n");
             return AddTunnel(cmd + 2, *(cmd + 1));
         }
         break;
     case COMMAND_DEL_TUN:
         if(length != 1 && length == 2 + *(cmd + 1)){
-            printf("del-tun\n");
             return DelTunnel(cmd + 2, *(cmd + 1));
         }
         break;
     case COMMAND_CLR_TUN:
         if(length == 1){
-            printf("clr-tun\n");
             return ClrTunnel();
         }
         break;

@@ -15,7 +15,7 @@ protected:
     uint32_t vni;
     OnivQueue sq;
 public:
-    OnivPort(const int mtu, const uint32_t vni = 0, const OnivQueue &sq = OnivQueue());
+    OnivPort(const int mtu, const uint32_t vni);
     OnivPort() = delete;
     OnivPort(const OnivPort &port) = delete;
     OnivPort& operator=(const OnivPort &port) = delete;

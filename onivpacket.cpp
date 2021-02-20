@@ -56,6 +56,19 @@ OnivPacket::OnivPacket(const OnivFrame &of)
     packet.append(of.data(), of.size());
 }
 
+void OnivPacket::dump() const
+{
+    for(size_t i = 0; i < packet.size(); i += 16)
+    {
+        for(size_t j = 0; j < 16 && i + j < packet.size(); j++)
+        {
+            cout << hex << setw(2) << setfill('0') << (packet[i + j] & 0xff) << ' ';
+        }
+        cout << '\n';
+    }
+    cout << '\n';
+}
+
 OnivTunnel* OnivPacket::IngressPort() const
 {
     return ingress;
@@ -73,7 +86,7 @@ in_addr_t OnivPacket::RemoteIPAddress() const
 
 uint32_t OnivPacket::BroadcastID() const
 {
-    return static_cast<uint32_t>(*(packet.c_str() + 2));
+    return *(uint32_t*)(data() + 2);
 }
 
 OnivFrame OnivPacket::ConvertToFrame() const
@@ -116,5 +129,5 @@ bool OnivPacket::belong(const OnivTunnel &tunnel) const
 
 void OnivPacket::ResetIngressTunnel(OnivTunnel *tunnel)
 {
-    this->ingress = tunnel;
+    ingress = tunnel;
 }
