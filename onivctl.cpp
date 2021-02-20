@@ -1,59 +1,84 @@
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 #include <arpa/inet.h>
 #include <err.h>
 #include <linux/un.h>
+#include <net/if.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #include "onivcmd.h"
 #include "onivglobal.h"
 
-using std::to_string;
+using namespace std;
 
 void usage()
 {
     printf(
         "onivctl [command]\n"
         "command:\n"
-        "\tadd-dev <name>\n"
-        "\tdel-dev <name>\n"
-        "\tclear-dev\n"
-        "\tadd-tun <name> x.x.x.x\n"
-        "\tdel-tun <name>\n"
-        "\tclear-tun\n"
+        "\tadd-adp <name> <ipv4> <vni> <mtu>\n"
+        "\tdel-adp <name>\n"
+        "\tclr-adp\n"
+        "\tadd-tun <ipv4> <vni>\n"
+        "\tdel-tun <ipv4>\n"
+        "\tclr-tun\n"
         "\tstop\n"
     );
+}
+
+string convert(char* buf, size_t len)
+{
+    string ret;
+    while(len > 0){
+        ret.push_back(*buf);
+        buf += 1;
+        len--;
+    }
+    return ret;
 }
 
 string ParseCommand(int argc, char* argv[])
 {
     string cmd;
-    if(strcmp(argv[1], "add-dev") == 0 && argc == 3){
-        cmd.push_back(static_cast<char>(COMMAND_ADD_DEV));
-        cmd.push_back(static_cast<char>(strlen(argv[2])));
-        cmd += argv[2];
+    if(strcmp(argv[1], "add-adp") == 0 && argc == 6){
+        string name(argv[2]);
+        in_addr_t address = inet_addr(argv[3]);
+        uint32_t vni = stoi(argv[4]);
+        int mtu = stoi(argv[5]);
+        name.resize(IFNAMSIZ);
+        cmd.push_back(static_cast<char>(COMMAND_ADD_ADP));
+        cmd.push_back(static_cast<char>(IFNAMSIZ + sizeof(in_addr_t) + sizeof(uint32_t) + sizeof(int)));
+        cmd += name;
+        cmd += convert((char*)&address, sizeof(in_addr_t));
+        cmd += convert((char*)&vni, sizeof(uint32_t));
+        cmd += convert((char*)&mtu, sizeof(int));
     }
-    else if(strcmp(argv[1], "del-dev") == 0 && argc == 3){
-        cmd.push_back(static_cast<char>(COMMAND_DEL_DEV));
-        cmd.push_back(static_cast<char>(strlen(argv[2])));
-        cmd += argv[2];
+    else if(strcmp(argv[1], "del-adp") == 0 && argc == 3){
+        string name(argv[2]);
+        name.resize(IFNAMSIZ);
+        cmd.push_back(static_cast<char>(COMMAND_DEL_ADP));
+        cmd.push_back(static_cast<char>(IFNAMSIZ));
+        cmd += name;
     }
-    else if(strcmp(argv[1], "clr-dev") == 0 && argc == 2){
-        cmd.push_back(static_cast<char>(COMMAND_CLR_DEV));
+    else if(strcmp(argv[1], "clr-adp") == 0 && argc == 2){
+        cmd.push_back(static_cast<char>(COMMAND_CLR_ADP));
     }
     else if(strcmp(argv[1], "add-tun") == 0 && argc == 4){
+        in_addr_t address = inet_addr(argv[2]);
+        uint32_t vni = stoi(argv[3]);
         cmd.push_back(static_cast<char>(COMMAND_ADD_TUN));
-        cmd.push_back(static_cast<char>(strlen(argv[2])));
-        cmd += argv[2];
-        cmd.push_back('\0');
-        cmd += to_string(inet_addr(argv[3]));
+        cmd.push_back(static_cast<char>(sizeof(in_addr_t) + sizeof(uint32_t)));
+        cmd += convert((char*)&address, sizeof(in_addr_t));
+        cmd += convert((char*)&vni, sizeof(uint32_t));
     }
     else if(strcmp(argv[1], "del-tun") == 0 && argc == 3){
+        in_addr_t address = inet_addr(argv[2]);
         cmd.push_back(static_cast<char>(COMMAND_DEL_TUN));
-        cmd.push_back(static_cast<char>(strlen(argv[2])));
-        cmd += argv[2];
+        cmd.push_back(static_cast<char>(sizeof(in_addr_t)));
+        cmd += convert((char*)&address, sizeof(in_addr_t));
     }
     else if(strcmp(argv[1], "clr-tun") == 0 && argc == 2){
         cmd.push_back(static_cast<char>(COMMAND_CLR_TUN));
@@ -94,8 +119,12 @@ int main(int argc, char* argv[])
     }
 
     CmdBuf = ParseCommand(argc, argv);
+    if(CmdBuf.empty()){
+        usage();
+        return 0;
+    }
 
-    ClientSocket = ConnectControllerSocket(OnivGlobal::SwitcherServerTmpPath.c_str());
+    ClientSocket = ConnectControllerSocket(OnivGlobal::SwitchServerTmpPath.c_str());
     if((WriteNumber = write(ClientSocket, CmdBuf.c_str(), CmdBuf.size()) < 0)){
         err(EXIT_FAILURE, "Write command failed");
     }
