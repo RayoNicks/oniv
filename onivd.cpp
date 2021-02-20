@@ -70,8 +70,7 @@ void* Onivd::AdapterThread(void* para)
                         continue;
                     }
                     ent->egress->EnSendingQueue(frame); // 唤醒发送线程
-                    // 更新转发表
-                    oniv->fdb.update(frame);
+                    oniv->fdb.update(frame); // 更新转发表
                 }
             }
         }
@@ -480,7 +479,7 @@ OnivErr Onivd::CreateEgressThread()
     }
 }
 
-Onivd::Onivd(const string &TunnelAdapterName)// : tunnel(TunnelAdapterName)
+Onivd::Onivd(const string &TunnelAdapterName)
 {
     OnivErr oe;
     oe = CreateSwitchServer();

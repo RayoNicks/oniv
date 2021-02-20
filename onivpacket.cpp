@@ -99,6 +99,11 @@ OnivPacketType OnivPacket::type() const
 
 const char* OnivPacket::data() const
 {
+    return packet.c_str();
+}
+
+const char* OnivPacket::frame() const
+{
     return packet.c_str() + HdrSize();
 }
 

@@ -47,6 +47,7 @@ public:
     size_t HdrSize() const;
     OnivPacketType type() const;
     const char* data() const;
+    const char* frame() const;
 
     bool belong(const OnivTunnel &tunnel) const;
     void ResetIngressTunnel(OnivTunnel *tunnel);

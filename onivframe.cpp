@@ -49,7 +49,7 @@ OnivFrame::OnivFrame(const char *buf, const size_t size, OnivPort *port)
 }
 
 OnivFrame::OnivFrame(const OnivPacket &op)
-    : frame(op.data(), op.size() - op.HdrSize()), ingress(op.IngressPort())
+    : frame(op.frame(), op.size() - op.HdrSize()), ingress(op.IngressPort())
 {
 
 }
