@@ -16,8 +16,9 @@ protected:
     OnivQueue sq;
 public:
     OnivPort(const int mtu, const uint32_t vni = 0, const OnivQueue &sq = OnivQueue());
-    OnivPort(const OnivPort &port);
-    OnivPort& operator=(const OnivPort &port);
+    OnivPort() = delete;
+    OnivPort(const OnivPort &port) = delete;
+    OnivPort& operator=(const OnivPort &port) = delete;
     virtual ~OnivPort();
     virtual OnivErr send() = 0;
     virtual OnivErr send(const OnivFrame &of) = 0;

@@ -15,7 +15,7 @@ void* Onivd::SwitchServerThread(void* para)
         if((ReadNumber = read(AcceptSocket, cmd, sizeof(cmd))) > 0){
             oe = object->ProcessCommand(cmd, ReadNumber);
             if(oe.occured()){
-                ;
+                warn("%s", oe.ErrMsg().c_str());
             }
         }
         else{
@@ -50,11 +50,15 @@ void* Onivd::AdapterThread(void* para)
                 if(oe.occured()){
                     continue;
                 }
+                if(!frame.ARP() && !frame.IP()){
+                    continue;
+                }
+                frame.dump();
                 if(frame.IsBroadcast()){ // 从广播域内的隧道发送
-                    for(OnivTunnel &tunnel : oniv->tunnels)
+                    for(TunnelIter iter = ++oniv->tunnels.begin(); iter != oniv->tunnels.end(); iter++)
                     {
-                        if(tunnel.BroadcastID() == adapter->BroadcastID()){
-                            tunnel.EnSendingQueue(frame); // 唤醒发送线程
+                        if(iter->BroadcastID() == adapter->BroadcastID()){
+                            iter->EnSendingQueue(frame); // 唤醒发送线程
                         }
                     }
                     oniv->fdb.update(frame); // 更新转发表
@@ -62,6 +66,9 @@ void* Onivd::AdapterThread(void* para)
                 else{
                     // 查找密钥表，封装第一种身份信息
                     const OnivEntry* ent = oniv->fdb.search(frame);
+                    if(ent == nullptr){
+                        continue;
+                    }
                     ent->egress->EnSendingQueue(frame);
                     // 唤醒发送线程
                     // 更新转发表
@@ -118,20 +125,23 @@ void* Onivd::TunnelThread(void* para)
                 if(frame.IsBroadcast()){ // 发送到广播域
                     for(AdapterIter iter = oniv->adapters.begin(); iter != oniv->adapters.end(); iter++)
                     {
-                        if(iter->second.BroadcastID() == packet.BroadcastID()){
-                            iter->second.EnSendingQueue(frame); // 唤醒发送线程
+                        if(iter->BroadcastID() == packet.BroadcastID()){
+                            iter->EnSendingQueue(frame); // 唤醒发送线程
                         }
                     }
-                    for(OnivTunnel &tunnel : oniv->tunnels)
+                    for(TunnelIter iter = ++oniv->tunnels.begin(); iter != oniv->tunnels.end(); iter++)
                     {
-                        if(AcceptTunnel != &tunnel && tunnel.BroadcastID() == packet.BroadcastID()){
-                            tunnel.EnSendingQueue(frame); // 唤醒发送线程
+                        if(AcceptTunnel != &(*iter) && iter->BroadcastID() == packet.BroadcastID()){
+                            iter->EnSendingQueue(frame); // 唤醒发送线程
                         }
                     }
                     oniv->fdb.update(frame); // 更新转发表
                 }
                 else{
                     const OnivEntry* ent = oniv->fdb.search(frame);
+                    if(ent == nullptr){
+                        continue;
+                    }
                     ent->egress->EnSendingQueue(frame); // 唤醒发送线程
                     oniv->fdb.update(frame); // 更新转发表
                 }
@@ -235,37 +245,21 @@ OnivErr Onivd::CreateSwitchServerSocket(const string &SwitchServerSocketPath)
 
 OnivErr Onivd::AuxAddAdapter(const string &name, in_addr_t address, uint32_t vni, int mtu)
 {
-    pair<AdapterIter, bool> p = adapters.insert(make_pair(name, OnivAdapter(name, address, vni, mtu)));
-    if(!p.second || !p.first->second.IsUp()){
-        return OnivErr(OnivErrCode::ERROR_CREATE_ADAPTER);
-    }
+    adapters.emplace_back(name, address, vni, mtu);
 
     struct epoll_event ev;
     ev.events = EPOLLIN;
-    ev.data.ptr = &p.first->second;
-    if(epoll_ctl(EpollAdapter, EPOLL_CTL_ADD, p.first->second.handle(), &ev) == -1){
+    ev.data.ptr = &adapters.back();
+    if(epoll_ctl(EpollAdapter, EPOLL_CTL_ADD, adapters.back().handle(), &ev) == -1){
         return OnivErr(OnivErrCode::ERROR_ADD_ADAPTER);
     }
 
     ev.events = EPOLLIN;
-    ev.data.ptr = &p.first->second;
-    if(epoll_ctl(EpollEgress, EPOLL_CTL_ADD, p.first->second.EventHandle(), &ev) == -1){
+    ev.data.ptr = &adapters.back();
+    if(epoll_ctl(EpollEgress, EPOLL_CTL_ADD, adapters.back().EventHandle(), &ev) == -1){
         return OnivErr(OnivErrCode::ERROR_ADD_ADAPTER);
     };
 
-    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
-}
-
-OnivErr Onivd::AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int mtu)
-{
-    tunnels.emplace_back(address, PortNo, vni, mtu);
-
-    struct epoll_event ev;
-    ev.events = EPOLLIN;
-    ev.data.ptr = &tunnels.back();
-        if(epoll_ctl(EpollEgress, EPOLL_CTL_ADD, tunnels.back().EventHandle(), &ev) == -1){
-        return OnivErr(OnivErrCode::ERROR_CREATE_TUNNEL);
-    };
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
@@ -279,7 +273,14 @@ OnivErr Onivd::AddAdapter(const char* cmd, size_t length)
     in_addr_t AdapterAddress = *(in_addr_t*)(cmd + IFNAMSIZ);
     uint32_t vni = *(uint32_t*)(cmd + IFNAMSIZ + sizeof(in_addr_t));
     int mtu = *(int*)(cmd + IFNAMSIZ + sizeof(in_addr_t) + sizeof(uint32_t));
-    if(adapters.find(AdapterName) != adapters.end()){
+
+    AdapterIter iter = find_if(adapters.begin(), adapters.end(),
+            [AdapterName](const OnivAdapter &adapter)
+            {
+                return adapter.name() == AdapterName;
+            }
+            );
+    if(iter != adapters.end()){
         return OnivErr(OnivErrCode::ERROR_ADAPTER_EXISTS);
     }
     else{
@@ -289,11 +290,18 @@ OnivErr Onivd::AddAdapter(const char* cmd, size_t length)
 
 OnivErr Onivd::DelAdapter(const char* cmd, size_t length)
 {
-    string name(cmd, length);
-    AdapterIter iter = adapters.find(name);
-    if(iter != adapters.end()){
-        adapters.erase(iter);
+    if(length != IFNAMSIZ){
+        return OnivErr(OnivErrCode::ERROR_PARSE_CONTROLLER_CMD);
     }
+
+    string name(cmd, length);
+    adapters.remove_if(
+        [&name](const OnivAdapter &adapter)
+        {
+            return adapter.name() == name;
+        }
+    );
+
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
@@ -302,19 +310,33 @@ OnivErr Onivd::ClrAdapter()
     adapters.clear();
 }
 
+OnivErr Onivd::AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int mtu)
+{
+    tunnels.emplace_back(address, PortNo, vni, mtu);
+
+    struct epoll_event ev;
+    ev.events = EPOLLIN;
+    ev.data.ptr = &tunnels.back();
+    if(epoll_ctl(EpollEgress, EPOLL_CTL_ADD, tunnels.back().EventHandle(), &ev) == -1){
+        return OnivErr(OnivErrCode::ERROR_CREATE_TUNNEL);
+    };
+
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
 OnivErr Onivd::AddTunnel(const char* cmd, size_t length)
 {
     if(length != sizeof(in_addr_t) + sizeof(uint32_t)){
         return OnivErr(OnivErrCode::ERROR_PARSE_CONTROLLER_CMD);
     }
+
     in_addr_t address = *(in_addr_t*)(cmd);
     uint32_t vni = *(uint32_t*)(cmd + sizeof(in_addr_t));
 
     TunnelIter iter = find_if(tunnels.begin(), tunnels.end(),
                 [address, vni](const OnivTunnel &tunnel)
                 {
-                    return tunnel.BroadcastID() == vni
-                        && tunnel.RemotePortNo() == OnivGlobal::TunnelPortNo
+                    return tunnel.RemotePortNo() == htons(OnivGlobal::TunnelPortNo)
                         && tunnel.RemoteIPAddress() == address;
                 }
                 );
@@ -322,7 +344,7 @@ OnivErr Onivd::AddTunnel(const char* cmd, size_t length)
         return OnivErr(OnivErrCode::ERROR_TUNNEL_EXISTS);
     }
     else{
-        return AuxAddTunnel(address, OnivGlobal::TunnelPortNo, vni, OnivGlobal::TunnelMTU);
+        return AuxAddTunnel(address, htons(OnivGlobal::TunnelPortNo), vni, OnivGlobal::TunnelMTU);
     }
 }
 
@@ -339,6 +361,7 @@ OnivErr Onivd::DelTunnel(const char* cmd, size_t length)
             return tunnel.RemoteIPAddress() == address;
         }
     );
+
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
@@ -357,37 +380,37 @@ OnivErr Onivd::ProcessCommand(const char* cmd, size_t length)
     {
     case COMMAND_ADD_ADP:
         if(length != 1 && length == 2 + *(cmd + 1)){
-            printf("add-adp %s\n", cmd + 2);
+            printf("add-adp\n");
             return AddAdapter(cmd + 2, *(cmd + 1));
         }
         break;
     case COMMAND_DEL_ADP:
         if(length != 1 && length == 2 + *(cmd + 1)){
-            printf("del-adp %s\n", cmd + 2);
+            printf("del-adp\n");
             return DelAdapter(cmd + 2, *(cmd + 1));
         }
         break;
     case COMMAND_CLR_ADP:
         if(length == 1){
-            printf("clr-adp %s\n", cmd + 2);
+            printf("clr-adp\n");
             return ClrAdapter();
         }
         break;
     case COMMAND_ADD_TUN:
-        if(length != 1 && length == 2 + *(cmd + 1) + 1 + 4){
-            printf("add-tun %s %x\n", cmd + 2, *(in_addr_t*)(cmd + 2 + len + 1));
-            return AddTunnel(cmd, *(cmd + 1));
+        if(length != 1 && length == 2 + *(cmd + 1)){
+            printf("add-tun\n");
+            return AddTunnel(cmd + 2, *(cmd + 1));
         }
         break;
     case COMMAND_DEL_TUN:
         if(length != 1 && length == 2 + *(cmd + 1)){
-            printf("del-tun %s\n", cmd + 2);
-            return DelTunnel(cmd, *(cmd + 1));
+            printf("del-tun\n");
+            return DelTunnel(cmd + 2, *(cmd + 1));
         }
         break;
     case COMMAND_CLR_TUN:
         if(length == 1){
-            printf("clr-tun %s\n", cmd + 2);
+            printf("clr-tun\n");
             return ClrTunnel();
         }
         break;
@@ -432,7 +455,7 @@ OnivErr Onivd::CreateTunnelThread(const string &TunnelAdapterName)
         return OnivErr(OnivErrCode::ERROR_CREATE_EPOLL_INSTANCE);
     }
 
-    tunnels.emplace_back(TunnelAdapterName);
+    tunnels.emplace_back(TunnelAdapterName, htons(OnivGlobal::TunnelPortNo), OnivGlobal::TunnelMTU);
 
     struct epoll_event ev;
     ev.events = EPOLLIN;

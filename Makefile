@@ -43,19 +43,21 @@ OBJECTS = \
 		onivqueue.o \
 		onivtunnel.o
 
+FLAGS = -g -std=c++11
+
 all: onivd onivctl
 
 onivd: main.o onivadapter.o onivd.o oniventry.o oniverr.o onivfdb.o onivframe.o onivglobal.o onivpacket.o onivport.o onivqueue.o onivtunnel.o
 	g++ $^ -o $@ -lpthread
 
 onivctl: onivctl.cpp onivglobal.o onivcmd.h onivglobal.h
-	g++ $^ -o $@ -std=c++11
+	g++ $^ -o $@ $(FLAGS)
 
 main.o: main.cpp
-	g++ $< -c -o $@ -std=c++11
+	g++ $< -c -o $@ $(FLAGS)
 
 %.o: %.cpp %.h
-	g++ $< -c -o $@ -std=c++11
+	g++ $< -c -o $@ $(FLAGS)
 
 clean:
 	rm -rf *.o

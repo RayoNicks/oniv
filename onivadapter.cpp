@@ -15,11 +15,18 @@ OnivAdapter::OnivAdapter(const string &name, in_addr_t address, uint32_t vni, in
         close(FrameFD);
     }
 
-    // 设定覆盖网络地址
-    struct sockaddr_in sa;
-    if((CtrlFD  = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
+    // 开启网卡
+    if((CtrlFD = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
         return;
     }
+    ifr.ifr_flags = IFF_UP;
+    if(ioctl(CtrlFD, SIOCSIFFLAGS, &ifr) < 0){
+        close(CtrlFD);
+        close(FrameFD);
+    }
+
+    // 设定覆盖网络地址
+    struct sockaddr_in sa;
     memset(&sa, 0, sizeof(struct sockaddr_in));
     sa.sin_family = AF_INET;
     sa.sin_addr.s_addr = address;
@@ -29,12 +36,6 @@ OnivAdapter::OnivAdapter(const string &name, in_addr_t address, uint32_t vni, in
         close(FrameFD);
     }
 
-    // 开启网卡
-    ifr.ifr_flags = IFF_UP;
-    if(ioctl(CtrlFD, SIOCSIFFLAGS, &ifr) < 0){
-        close(CtrlFD);
-        close(FrameFD);
-    }
     up = true;
 }
 

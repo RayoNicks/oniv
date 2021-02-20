@@ -54,6 +54,18 @@ OnivFrame::OnivFrame(const OnivPacket &op)
 
 }
 
+void OnivFrame::dump() const
+{
+    for(size_t i = 0; i < frame.size(); i += 16)
+    {
+        for(size_t j = 0; j < 16 && i + j < frame.size(); j++)
+        {
+            cout << hex << setw(2) << setfill('0') << (frame[i + j] & 0xff) << ' ';
+        }
+        cout << '\n';
+    }
+}
+
 OnivPort* OnivFrame::IngressPort() const
 {
     return ingress;
@@ -89,19 +101,19 @@ bool OnivFrame::IsBroadcast()
     return string(DestHwAddr(), 6) == string(6, 0xFF);
 }
 
-bool OnivFrame::AddressResolutionProtocol()
+bool OnivFrame::ARP()
 {
     return *(u_int16_t*)(frame.c_str() + 12) == htons(0x0806);
 }
 
-bool OnivFrame::InternetProtocol() const
+bool OnivFrame::IP() const
 {
     return *(u_int16_t*)(frame.c_str() + 12) == htons(0x0800);
 }
 
 in_addr_t OnivFrame::SrcIPAddr() const
 {
-    if(InternetProtocol()){
+    if(IP()){
         return *(in_addr_t*)(Layer3Hdr() + 12);
     }
     else return 0;
@@ -109,18 +121,18 @@ in_addr_t OnivFrame::SrcIPAddr() const
 
 in_addr_t OnivFrame::DestIPAddr() const
 {
-    if(InternetProtocol()){
+    if(IP()){
         return *(in_addr_t*)(Layer3Hdr() + 16);
     }
     else return 0;
 }
 
-bool OnivFrame::TransferControlProtocol() const
+bool OnivFrame::TCP() const
 {
     return false;
 }
 
-bool OnivFrame::UserDatagramProtocol() const
+bool OnivFrame::UDP() const
 {
     return false;
 }

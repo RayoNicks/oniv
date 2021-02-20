@@ -4,11 +4,19 @@
 #include <cstring>
 #include <string>
 
-#include <arpa/inet.h>
+#include <iomanip>
+#include <iostream>
+
+#include <netinet/in.h>
 
 #include "onivglobal.h"
 
 using std::string;
+
+using std::cout;
+using std::hex;
+using std::setfill;
+using std::setw;
 
 class OnivPort;
 class OnivPacket;
@@ -28,7 +36,8 @@ public:
     ~OnivFrame();
     OnivFrame(const char *buf, const size_t size, OnivPort *port);
     OnivFrame(const OnivPacket &op);
-    
+
+    void dump() const;
     OnivPort* IngressPort() const;
 
     bool empty() const;
@@ -37,12 +46,12 @@ public:
     const char* DestHwAddr() const;
     const char* SrcHwAddr() const;
     bool IsBroadcast();
-    bool AddressResolutionProtocol();
-    bool InternetProtocol() const;
+    bool ARP();
+    bool IP() const;
     in_addr_t SrcIPAddr() const;
     in_addr_t DestIPAddr() const;
-    bool TransferControlProtocol() const;
-    bool UserDatagramProtocol() const;
+    bool TCP() const;
+    bool UDP() const;
 };
 
 #endif

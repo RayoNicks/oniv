@@ -1,13 +1,18 @@
 #include "onivtunnel.h"
 #include "onivpacket.h"
 
+OnivTunnel::~OnivTunnel()
+{
+
+}
+
 OnivTunnel::OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int TunnelMTU)
     : OnivPort(TunnelMTU)
 {
     struct sockaddr_in LocalTunnelSockAddress;
     memset(&LocalTunnelSockAddress, 0, sizeof(struct sockaddr_in));
     LocalTunnelSockAddress.sin_family = AF_INET;
-    LocalTunnelSockAddress.sin_port = htons(PortNo);
+    LocalTunnelSockAddress.sin_port = PortNo;
     LocalTunnelSockAddress.sin_addr.s_addr = AdapterNameToAddr(TunnelAdapterName);
 
     if((LocalTunnelSocket = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
@@ -42,13 +47,8 @@ OnivTunnel::OnivTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int Tu
 {
     memset(&RemoteSocket, 0, sizeof(struct sockaddr_in));
     RemoteSocket.sin_family = AF_INET;
-    RemoteSocket.sin_port = htons(PortNo);
+    RemoteSocket.sin_port = PortNo;
     RemoteSocket.sin_addr.s_addr = address;
-}
-
-OnivTunnel::~OnivTunnel()
-{
-
 }
 
 OnivErr OnivTunnel::send()

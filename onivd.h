@@ -37,13 +37,13 @@ class Onivd
 private:
     pthread_t ServerThreadID, AdapterThreadID, TunnelThreadID, EgressThreadID;
     int ListenSocket, EpollAdapter, EpollTunnel, EpollEgress;
+    OnivFDB fdb;
 
-    typedef map<string, OnivAdapter>::iterator AdapterIter;
-    map<string, OnivAdapter> adapters;
+    typedef list<OnivAdapter>::iterator AdapterIter;
+    list<OnivAdapter> adapters;
 
     typedef list<OnivTunnel>::iterator TunnelIter;
     list<OnivTunnel> tunnels; // 第一个隧道类似listen()，其余隧道类似accept()
-    OnivFDB fdb;
 
     static void* SwitchServerThread(void* para);
     static void* AdapterThread(void* para);
@@ -51,10 +51,10 @@ private:
     static void* EgressThread(void* para);
     OnivErr CreateSwitchServerSocket(const string &ControllerSocketPath);
     OnivErr AuxAddAdapter(const string &name, in_addr_t address, uint32_t vni, int mtu);
-    OnivErr AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int mtu);
     OnivErr AddAdapter(const char* cmd, size_t length);
     OnivErr DelAdapter(const char* cmd, size_t length);
     OnivErr ClrAdapter();
+    OnivErr AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int mtu);
     OnivErr AddTunnel(const char* cmd, size_t length);
     OnivErr DelTunnel(const char* cmd, size_t length);
     OnivErr ClrTunnel();

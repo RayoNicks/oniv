@@ -119,6 +119,10 @@ int main(int argc, char* argv[])
     }
 
     CmdBuf = ParseCommand(argc, argv);
+    if(CmdBuf.empty()){
+        usage();
+        return 0;
+    }
 
     ClientSocket = ConnectControllerSocket(OnivGlobal::SwitchServerTmpPath.c_str());
     if((WriteNumber = write(ClientSocket, CmdBuf.c_str(), CmdBuf.size()) < 0)){

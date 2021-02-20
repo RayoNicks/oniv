@@ -5,18 +5,6 @@ OnivQueue::OnivQueue()
     event = eventfd(0, 0);
 }
 
-OnivQueue::OnivQueue(const OnivQueue &q) : df(q.df)
-{
-    event = eventfd(0, 0);
-}
-
-OnivQueue& OnivQueue::operator=(const OnivQueue &q)
-{
-    df = q.df;
-    event = eventfd(0, 0);
-    return *this;
-}
-
 OnivQueue::~OnivQueue()
 {
     close(event);

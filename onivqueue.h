@@ -20,8 +20,8 @@ private:
     int event;
 public:
     OnivQueue();
-    OnivQueue(const OnivQueue &q);
-    OnivQueue& operator=(const OnivQueue &q);
+    OnivQueue(const OnivQueue &q) = delete;
+    OnivQueue& operator=(const OnivQueue &q) = delete;
     ~OnivQueue();
     void enqueue(const OnivFrame &of);
     void dequeue(OnivFrame &of);

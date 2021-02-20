@@ -7,18 +7,6 @@ OnivPort::OnivPort(int mtu, uint32_t vni, const OnivQueue &sq)
 
 }
 
-OnivPort::OnivPort(const OnivPort &port) : mtu(port.mtu), vni(port.vni), sq(port.sq)
-{
-
-}
-
-OnivPort& OnivPort::operator=(const OnivPort &port)
-{
-    mtu = port.mtu;
-    vni = port.vni;
-    sq = port.sq;
-}
-
 OnivPort::~OnivPort()
 {
 

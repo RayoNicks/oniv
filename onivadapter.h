@@ -20,7 +20,10 @@ private:
     bool up;
     string AdapterName;
 public:
-    OnivAdapter(const string &name, in_addr_t address, uint32_t vni, int AdapterMTU = OnivGlobal::AdapterMTU);
+    OnivAdapter(const string &name, in_addr_t address, uint32_t vni, int AdapterMTU);
+    OnivAdapter() = delete;
+    OnivAdapter(const OnivAdapter &adapter) = delete;
+    OnivAdapter& operator=(const OnivAdapter &adapter) = delete;
     virtual ~OnivAdapter() override;
 
     virtual OnivErr send() override;

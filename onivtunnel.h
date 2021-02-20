@@ -29,10 +29,13 @@ private:
     sockaddr_in RemoteSocket;
     in_addr_t AdapterNameToAddr(const string &TunnelAdapterName);
 public:
-    OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo = OnivGlobal::TunnelPortNo, int TunnelMTU = OnivGlobal::TunnelMTU);
+    OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int TunnelMTU);
     OnivTunnel(in_addr_t address, in_port_t PortNo,  uint32_t vni, int TunnelMTU);
+    OnivTunnel() = delete;
+    OnivTunnel(const OnivTunnel &tunnel) = delete;
+    OnivTunnel& operator=(const OnivTunnel &tunnel) = delete;
     virtual ~OnivTunnel() override;
-
+    
     virtual OnivErr send() override;
     virtual OnivErr send(const OnivFrame &frame) override;
     virtual OnivErr recv(OnivFrame &frame) override;
