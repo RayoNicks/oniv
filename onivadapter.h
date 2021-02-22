@@ -3,7 +3,7 @@
 
 #include <cstring>
 
-#include <arpa/inet.h>
+// #include <arpa/inet.h>
 #include <fcntl.h>
 #include <linux/if_tun.h>
 #include <net/if.h>
@@ -16,11 +16,11 @@
 class OnivAdapter : public OnivPort
 {
 private:
-    int FrameFD, CtrlFD;
+    int fd, ctrl;
     bool up;
     string AdapterName;
 public:
-    OnivAdapter(const string &name, in_addr_t address, uint32_t vni, int AdapterMTU);
+    OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu);
     OnivAdapter() = delete;
     OnivAdapter(const OnivAdapter &adapter) = delete;
     OnivAdapter& operator=(const OnivAdapter &adapter) = delete;

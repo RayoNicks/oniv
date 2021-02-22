@@ -1,39 +1,56 @@
 #include "onivadapter.h"
 
-OnivAdapter::OnivAdapter(const string &name, in_addr_t address, uint32_t vni, int AdapterMTU)
-    : OnivPort(AdapterMTU, vni), FrameFD(-1), CtrlFD(-1), AdapterName(name)
+OnivAdapter::OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu)
+    : OnivPort(mtu, vni), fd(-1), ctrl(-1), AdapterName(name)
 {
     // 创建隧道设备
     struct ifreq ifr;
-    if((FrameFD = open("/dev/net/tun", O_RDWR)) < 0){
+    if((fd = open("/dev/net/tun", O_RDWR)) < 0){
         return;
     }
     memset(&ifr, 0, sizeof(struct ifreq));
     ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
     strncpy(ifr.ifr_name, name.c_str(), IFNAMSIZ);
-    if(ioctl(FrameFD, TUNSETIFF, &ifr) < 0){
-        close(FrameFD);
+    if(ioctl(fd, TUNSETIFF, &ifr) < 0){
+        close(fd);
     }
 
-    // 开启网卡
-    if((CtrlFD = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
-        return;
-    }
-    ifr.ifr_flags = IFF_UP;
-    if(ioctl(CtrlFD, SIOCSIFFLAGS, &ifr) < 0){
-        close(CtrlFD);
-        close(FrameFD);
-    }
-
-    // 设定覆盖网络地址
     struct sockaddr_in sa;
     memset(&sa, 0, sizeof(struct sockaddr_in));
+    if((ctrl = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
+        return;
+    }
+    
+    // 设置地址
     sa.sin_family = AF_INET;
     sa.sin_addr.s_addr = address;
     memcpy(&ifr.ifr_addr, &sa, sizeof(struct sockaddr_in));
-    if(ioctl(CtrlFD, SIOCSIFADDR, &ifr) < 0){
-        close(CtrlFD);
-        close(FrameFD);
+    if(ioctl(ctrl, SIOCSIFADDR, &ifr) < 0){
+        close(ctrl);
+        close(fd);
+    }
+
+    // 设置掩码
+    sa.sin_family = AF_INET;
+    sa.sin_addr.s_addr = mask;
+    memcpy(&ifr.ifr_netmask, &sa, sizeof(struct sockaddr_in));
+    if(ioctl(ctrl, SIOCSIFNETMASK, &ifr) < 0){
+        close(ctrl);
+        close(fd);
+    }
+
+    // 设置mtu
+    ifr.ifr_mtu = mtu;
+    if(ioctl(ctrl, SIOCSIFMTU, &ifr) < 0){
+        close(ctrl);
+        close(fd);
+    }
+
+    // 开启网卡
+    ifr.ifr_flags = IFF_UP;
+    if(ioctl(ctrl, SIOCSIFFLAGS, &ifr) < 0){
+        close(ctrl);
+        close(fd);
     }
 
     up = true;
@@ -41,8 +58,8 @@ OnivAdapter::OnivAdapter(const string &name, in_addr_t address, uint32_t vni, in
 
 OnivAdapter::~OnivAdapter()
 {
-    close(CtrlFD);
-    close(FrameFD);
+    close(ctrl);
+    close(fd);
 }
 
 OnivErr OnivAdapter::send()
@@ -79,7 +96,7 @@ OnivErr OnivAdapter::recv(OnivFrame &frame)
 
 int OnivAdapter::handle() const
 {
-    return FrameFD;
+    return fd;
 }
 
 bool OnivAdapter::IsUp() const

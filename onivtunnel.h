@@ -29,8 +29,8 @@ private:
     sockaddr_in RemoteSocket;
     in_addr_t AdapterNameToAddr(const string &TunnelAdapterName);
 public:
-    OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int TunnelMTU);
-    OnivTunnel(in_addr_t address, in_port_t PortNo,  uint32_t vni, int TunnelMTU);
+    OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int mtu);
+    OnivTunnel(in_addr_t address, in_port_t PortNo,  uint32_t vni, int mtu);
     OnivTunnel() = delete;
     OnivTunnel(const OnivTunnel &tunnel) = delete;
     OnivTunnel& operator=(const OnivTunnel &tunnel) = delete;

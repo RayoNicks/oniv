@@ -44,8 +44,11 @@ const vector<string> OnivErr::ErrMsgs = {
     // "Close controller connection failed",
     "Create adapter failed",
     "Adapter exists",
+    "Unknown adapter",
     "Create tunnel interface failed",
     "Tunnel exists",
+    "Add route failed",
+    "Delete route failed",
     // adapter thread error
     "Create adapter thread failed",
     "Send frame to adapter failed",

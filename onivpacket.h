@@ -25,7 +25,7 @@ class OnivPacket
 {
 private:
     string packet;
-    OnivTunnel* ingress;
+    OnivTunnel *ingress;
     sockaddr_in remote;
 public:
     OnivPacket();

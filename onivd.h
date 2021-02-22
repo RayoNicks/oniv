@@ -11,8 +11,8 @@
 #include <arpa/inet.h>
 #include <asm-generic/errno.h>
 #include <linux/un.h>
+#include <net/route.h>
 #include <pthread.h>
-#include <signal.h>
 #include <sys/epoll.h>
 
 #include "onivadapter.h"
@@ -45,20 +45,30 @@ private:
     typedef list<OnivTunnel>::iterator TunnelIter;
     list<OnivTunnel> tunnels; // 第一个隧道类似listen()，其余隧道类似accept()
 
-    static void* SwitchServerThread(void* para);
-    static void* AdapterThread(void* para);
-    static void* TunnelThread(void* para);
-    static void* EgressThread(void* para);
+    static void* SwitchServerThread(void *para);
+    static void* AdapterThread(void *para);
+    static void* TunnelThread(void *para);
+    static void* EgressThread(void *para);
+
     OnivErr CreateSwitchServerSocket(const string &ControllerSocketPath);
-    OnivErr AuxAddAdapter(const string &name, in_addr_t address, uint32_t vni, int mtu);
-    OnivErr AddAdapter(const char* cmd, size_t length);
-    OnivErr DelAdapter(const char* cmd, size_t length);
+
+    OnivErr AuxAddAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu);
+    OnivErr AddAdapter(const char *cmd, size_t length);
+    OnivErr DelAdapter(const char *cmd, size_t length);
     OnivErr ClrAdapter();
+
     OnivErr AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int mtu);
-    OnivErr AddTunnel(const char* cmd, size_t length);
-    OnivErr DelTunnel(const char* cmd, size_t length);
+    OnivErr AddTunnel(const char *cmd, size_t length);
+    OnivErr DelTunnel(const char *cmd, size_t length);
     OnivErr ClrTunnel();
-    OnivErr ProcessCommand(const char* cmd, size_t length);
+
+    OnivErr ManipulateRoute(in_addr_t dest, in_addr_t mask, in_addr_t gateway, const string &name);
+    OnivErr AddRoute(const char *cmd, size_t length);
+    // OnivErr AuxDelRoute(in_addr_t dest, in_addr_t mask, const string &name);
+    OnivErr DelRoute(const char *cmd, size_t length);
+
+    OnivErr ProcessCommand(const char *cmd, size_t length);
+
     OnivErr CreateSwitchServer();
     OnivErr CreateAdapterThread();
     OnivErr CreateTunnelThread(const string &TunnelAdapterName);

@@ -1,13 +1,24 @@
 #include "onivtunnel.h"
 #include "onivpacket.h"
 
-OnivTunnel::~OnivTunnel()
+in_addr_t OnivTunnel::AdapterNameToAddr(const string &TunnelAdapterName)
 {
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(struct ifreq));
+    strncpy(ifr.ifr_name, TunnelAdapterName.c_str(), min((size_t)IFNAMSIZ, TunnelAdapterName.length()));
 
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if(fd < 0){
+        err(EXIT_FAILURE, "%s", OnivErr(OnivErrCode::ERROR_CREATE_TUNNEL_SOCKET).ErrMsg().c_str());
+    }
+    if(ioctl(fd, SIOCGIFADDR, &ifr) < 0){
+        err(EXIT_FAILURE,"%s", OnivErr(OnivErrCode::ERROR_CREATE_TUNNEL_SOCKET).ErrMsg().c_str());
+    }
+    return ((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr;
 }
 
-OnivTunnel::OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int TunnelMTU)
-    : OnivPort(TunnelMTU, UINT32_MAX)
+OnivTunnel::OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int mtu)
+    : OnivPort(mtu, UINT32_MAX)
 {
     struct sockaddr_in LocalTunnelSockAddress;
     memset(&LocalTunnelSockAddress, 0, sizeof(struct sockaddr_in));
@@ -26,29 +37,18 @@ OnivTunnel::OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int Tu
     vni = UINT32_MAX;
 }
 
-in_addr_t OnivTunnel::AdapterNameToAddr(const string &TunnelAdapterName)
-{
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof(struct ifreq));
-    strncpy(ifr.ifr_name, TunnelAdapterName.c_str(), min((size_t)IFNAMSIZ, TunnelAdapterName.length()));
-
-    int CtrlFD = socket(AF_INET, SOCK_DGRAM, 0);
-    if(CtrlFD < 0){
-        err(EXIT_FAILURE, "%s", OnivErr(OnivErrCode::ERROR_CREATE_TUNNEL_SOCKET).ErrMsg().c_str());
-    }
-    if(ioctl(CtrlFD, SIOCGIFADDR, &ifr) < 0){
-        err(EXIT_FAILURE,"%s", OnivErr(OnivErrCode::ERROR_CREATE_TUNNEL_SOCKET).ErrMsg().c_str());
-    }
-    return ((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr;
-}
-
-OnivTunnel::OnivTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int TunnelMTU)
-    : OnivPort(TunnelMTU, vni)
+OnivTunnel::OnivTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int mtu)
+    : OnivPort(mtu, vni)
 {
     memset(&RemoteSocket, 0, sizeof(struct sockaddr_in));
     RemoteSocket.sin_family = AF_INET;
     RemoteSocket.sin_port = PortNo;
     RemoteSocket.sin_addr.s_addr = address;
+}
+
+OnivTunnel::~OnivTunnel()
+{
+
 }
 
 OnivErr OnivTunnel::send()

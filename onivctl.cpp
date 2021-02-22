@@ -19,42 +19,50 @@ void usage()
     printf(
         "onivctl [command]\n"
         "command:\n"
-        "\tadd-adp <name> <ipv4> <vni> <mtu>\n"
+        "\tadd-adp <name> <ipv4> <mask> <vni> <mtu>\n"
         "\tdel-adp <name>\n"
         "\tclr-adp\n"
         "\tadd-tun <ipv4> <vni>\n"
         "\tdel-tun <ipv4>\n"
         "\tclr-tun\n"
+        "\tadd-route <dest> <mask> <gateway> <name>"
+        "\tdel-route <dest> <mask> <name>"
         "\tstop\n"
     );
 }
 
-string convert(char* buf, size_t len)
+string convert(void *buf, size_t len)
 {
     string ret;
+    char *p = (char*)buf;
     while(len > 0){
-        ret.push_back(*buf);
-        buf += 1;
+        ret.push_back(*p);
+        p++;
         len--;
     }
     return ret;
 }
 
-string ParseCommand(int argc, char* argv[])
+string ParseCommand(int argc, char *argv[])
 {
     string cmd;
-    if(strcmp(argv[1], "add-adp") == 0 && argc == 6){
+    if(strcmp(argv[1], "stop") == 0 && argc == 2){
+        cmd.push_back(static_cast<char>(COMMAND_STOP));
+    }
+    else if(strcmp(argv[1], "add-adp") == 0 && argc == 7){
         string name(argv[2]);
         in_addr_t address = inet_addr(argv[3]);
-        uint32_t vni = htonl(stoi(argv[4]));
-        int mtu = stoi(argv[5]);
+        in_addr_t mask = inet_addr(argv[4]);
+        uint32_t vni = htonl(stoi(argv[5]));
+        int mtu = stoi(argv[6]);
         name.resize(IFNAMSIZ);
         cmd.push_back(static_cast<char>(COMMAND_ADD_ADP));
-        cmd.push_back(static_cast<char>(IFNAMSIZ + sizeof(in_addr_t) + sizeof(uint32_t) + sizeof(int)));
+        cmd.push_back(static_cast<char>(IFNAMSIZ + sizeof(in_addr_t) * 2 + sizeof(uint32_t) + sizeof(int)));
         cmd += name;
-        cmd += convert((char*)&address, sizeof(in_addr_t));
-        cmd += convert((char*)&vni, sizeof(uint32_t));
-        cmd += convert((char*)&mtu, sizeof(int));
+        cmd += convert(&address, sizeof(in_addr_t));
+        cmd += convert(&mask, sizeof(in_addr_t));
+        cmd += convert(&vni, sizeof(uint32_t));
+        cmd += convert(&mtu, sizeof(int));
     }
     else if(strcmp(argv[1], "del-adp") == 0 && argc == 3){
         string name(argv[2]);
@@ -71,25 +79,46 @@ string ParseCommand(int argc, char* argv[])
         uint32_t vni = htonl(stoi(argv[3]));
         cmd.push_back(static_cast<char>(COMMAND_ADD_TUN));
         cmd.push_back(static_cast<char>(sizeof(in_addr_t) + sizeof(uint32_t)));
-        cmd += convert((char*)&address, sizeof(in_addr_t));
-        cmd += convert((char*)&vni, sizeof(uint32_t));
+        cmd += convert(&address, sizeof(in_addr_t));
+        cmd += convert(&vni, sizeof(uint32_t));
     }
     else if(strcmp(argv[1], "del-tun") == 0 && argc == 3){
         in_addr_t address = inet_addr(argv[2]);
         cmd.push_back(static_cast<char>(COMMAND_DEL_TUN));
         cmd.push_back(static_cast<char>(sizeof(in_addr_t)));
-        cmd += convert((char*)&address, sizeof(in_addr_t));
+        cmd += convert(&address, sizeof(in_addr_t));
     }
     else if(strcmp(argv[1], "clr-tun") == 0 && argc == 2){
         cmd.push_back(static_cast<char>(COMMAND_CLR_TUN));
     }
-    else if(strcmp(argv[1], "stop") == 0 && argc == 2){
-        cmd.push_back(static_cast<char>(COMMAND_STOP));
+    else if(strcmp(argv[1], "add-route") == 0 && argc == 6){
+        in_addr_t dest = inet_addr(argv[2]);
+        in_addr_t mask = inet_addr(argv[3]);
+        in_addr_t gateway = inet_addr(argv[4]);
+        string name(argv[5]);
+        name.resize(IFNAMSIZ);
+        cmd.push_back(static_cast<char>(COMMAND_ADD_ROU));
+        cmd.push_back(static_cast<char>(sizeof(in_addr_t) * 3 + IFNAMSIZ));
+        cmd += convert(&dest, sizeof(in_addr_t));
+        cmd += convert(&mask, sizeof(in_addr_t));
+        cmd += convert(&gateway, sizeof(in_addr_t));
+        cmd += name;
+    }
+    else if(strcmp(argv[1], "del-route") == 0 && argc == 5){
+        in_addr_t dest = inet_addr(argv[2]);
+        in_addr_t mask = inet_addr(argv[3]);
+        string name(argv[4]);
+        name.resize(IFNAMSIZ);
+        cmd.push_back(static_cast<char>(COMMAND_DEL_ROU));
+        cmd.push_back(static_cast<char>(sizeof(in_addr_t) * 2 + IFNAMSIZ));
+        cmd += convert(&dest, sizeof(in_addr_t));
+        cmd += convert(&mask, sizeof(in_addr_t));
+        cmd += name;
     }
     return cmd;
 }
 
-int ConnectControllerSocket(const char* ControllerSocketPath)
+int ConnectControllerSocket(const char *ControllerSocketPath)
 {
     int ClientSocket;
     struct sockaddr_un ControllerAddress;
@@ -108,7 +137,7 @@ int ConnectControllerSocket(const char* ControllerSocketPath)
     return ClientSocket;
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     int ClientSocket, WriteNumber, size;
     string CmdBuf;

@@ -14,7 +14,7 @@ struct OnivEntry
 {
     string HwAddr;
     // 第一种身份信息相关字段
-    OnivPort* egress;
+    OnivPort *egress;
     OnivEntry(const string &HwAddr, OnivPort *egress);
     OnivEntry(const OnivEntry &ent);
     OnivEntry& operator=(const OnivEntry &ent);

@@ -6,10 +6,10 @@ using namespace std;
 
 void usage()
 {
-    cout << "onivd [local address for creating tunnel]" << endl;
+    cout << "onivd [local interface name for creating tunnel]" << endl;
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     if(argc != 2){
         usage();

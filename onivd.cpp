@@ -1,8 +1,8 @@
 #include "onivd.h"
 
-void* Onivd::SwitchServerThread(void* para)
+void* Onivd::SwitchServerThread(void *para)
 {
-    Onivd* oniv = (Onivd*)para;
+    Onivd *oniv = (Onivd*)para;
     OnivErr oe;
     while(1){
         int AcceptSocket, ReadNumber;
@@ -16,6 +16,7 @@ void* Onivd::SwitchServerThread(void* para)
             oe = oniv->ProcessCommand(cmd, ReadNumber);
             if(oe.occured()){
                 warn("%s", oe.ErrMsg().c_str());
+                // write(AcceptSocket, oe.ErrMsg().c_str(), oe.ErrMsg().length());
             }
             else{
                 write(AcceptSocket, "success", strlen("success"));
@@ -28,9 +29,9 @@ void* Onivd::SwitchServerThread(void* para)
     }
 }
 
-void* Onivd::AdapterThread(void* para)
+void* Onivd::AdapterThread(void *para)
 {
-    Onivd* oniv = (Onivd*)para;
+    Onivd *oniv = (Onivd*)para;
     int ready, i;
     struct epoll_event evlist[OnivGlobal::MaxEpollEvents];
     while(1){
@@ -47,7 +48,7 @@ void* Onivd::AdapterThread(void* para)
         {
             if(evlist[i].events & EPOLLIN){
                 OnivErr oe;
-                OnivAdapter* adapter = (OnivAdapter*)evlist[i].data.ptr;
+                OnivAdapter *adapter = (OnivAdapter*)evlist[i].data.ptr;
                 OnivFrame frame;
                 oe = adapter->recv(frame);
                 if(oe.occured()){
@@ -68,7 +69,7 @@ void* Onivd::AdapterThread(void* para)
                 }
                 else{
                     // 查找密钥表，封装第一种身份信息
-                    const OnivEntry* ent = oniv->fdb.search(frame);
+                    const OnivEntry *ent = oniv->fdb.search(frame);
                     if(ent == nullptr){
                         continue;
                     }
@@ -80,9 +81,9 @@ void* Onivd::AdapterThread(void* para)
     }
 }
 
-void* Onivd::TunnelThread(void* para)
+void* Onivd::TunnelThread(void *para)
 {
-    Onivd* oniv = (Onivd*)para;
+    Onivd *oniv = (Onivd*)para;
     int ready, i;
     struct epoll_event evlist[OnivGlobal::MaxEpollEvents];
     while(1){
@@ -140,7 +141,7 @@ void* Onivd::TunnelThread(void* para)
                     oniv->fdb.update(frame); // 更新转发表
                 }
                 else{
-                    const OnivEntry* ent = oniv->fdb.search(frame);
+                    const OnivEntry *ent = oniv->fdb.search(frame);
                     if(ent == nullptr){
                         continue;
                     }
@@ -152,9 +153,9 @@ void* Onivd::TunnelThread(void* para)
     }
 }
 
-void* Onivd::EgressThread(void* para)
+void* Onivd::EgressThread(void *para)
 {
-    Onivd* oniv = (Onivd*)para;
+    Onivd *oniv = (Onivd*)para;
 
     int ready, i;
     struct epoll_event evlist[OnivGlobal::MaxEpollEvents];
@@ -245,9 +246,9 @@ OnivErr Onivd::CreateSwitchServerSocket(const string &SwitchServerSocketPath)
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::AuxAddAdapter(const string &name, in_addr_t address, uint32_t vni, int mtu)
+OnivErr Onivd::AuxAddAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu)
 {
-    adapters.emplace_back(name, address, vni, mtu);
+    adapters.emplace_back(name, address, mask, vni, mtu);
 
     struct epoll_event ev;
     ev.events = EPOLLIN;
@@ -265,51 +266,53 @@ OnivErr Onivd::AuxAddAdapter(const string &name, in_addr_t address, uint32_t vni
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::AddAdapter(const char* cmd, size_t length)
+OnivErr Onivd::AddAdapter(const char *cmd, size_t length)
 {
-    if(length != IFNAMSIZ + sizeof(in_addr_t) + sizeof(uint32_t) + sizeof(int)){
+    if(length != IFNAMSIZ + sizeof(in_addr_t) * 2 + sizeof(uint32_t) + sizeof(int)){
         return OnivErr(OnivErrCode::ERROR_PARSE_CONTROLLER_CMD);
     }
 
-    string AdapterName(cmd, IFNAMSIZ);
-    in_addr_t AdapterAddress = *(in_addr_t*)(cmd + IFNAMSIZ);
-    uint32_t vni = *(uint32_t*)(cmd + IFNAMSIZ + sizeof(in_addr_t));
-    int mtu = *(int*)(cmd + IFNAMSIZ + sizeof(in_addr_t) + sizeof(uint32_t));
+    string name(cmd, IFNAMSIZ);
+    in_addr_t address = *(in_addr_t*)(cmd + IFNAMSIZ);
+    in_addr_t mask = *(in_addr_t*)(cmd + IFNAMSIZ + sizeof(in_addr_t));
+    uint32_t vni = *(uint32_t*)(cmd + IFNAMSIZ + sizeof(in_addr_t) * 2);
+    int mtu = *(int*)(cmd + IFNAMSIZ + sizeof(in_addr_t) * 2 + sizeof(uint32_t));
 
     AdapterIter iter = find_if(adapters.begin(), adapters.end(),
-            [AdapterName](const OnivAdapter &adapter)
+            [&name](const OnivAdapter &adapter)
             {
-                return adapter.name() == AdapterName;
+                return adapter.name() == name;
             }
             );
     if(iter != adapters.end()){
         return OnivErr(OnivErrCode::ERROR_ADAPTER_EXISTS);
     }
     else{
-        return AuxAddAdapter(AdapterName, AdapterAddress, vni, mtu);
+        return AuxAddAdapter(name, address, mask, vni, mtu);
     }
 }
 
-OnivErr Onivd::DelAdapter(const char* cmd, size_t length)
+OnivErr Onivd::DelAdapter(const char *cmd, size_t length)
 {
     if(length != IFNAMSIZ){
         return OnivErr(OnivErrCode::ERROR_PARSE_CONTROLLER_CMD);
     }
 
     string name(cmd, length);
+
     adapters.remove_if(
         [&name](const OnivAdapter &adapter)
         {
             return adapter.name() == name;
         }
     );
-
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
 OnivErr Onivd::ClrAdapter()
 {
     adapters.clear();
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
 OnivErr Onivd::AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int mtu)
@@ -322,11 +325,10 @@ OnivErr Onivd::AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, i
     if(epoll_ctl(EpollEgress, EPOLL_CTL_ADD, tunnels.back().EventHandle(), &ev) == -1){
         return OnivErr(OnivErrCode::ERROR_CREATE_TUNNEL);
     };
-
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::AddTunnel(const char* cmd, size_t length)
+OnivErr Onivd::AddTunnel(const char *cmd, size_t length)
 {
     if(length != sizeof(in_addr_t) + sizeof(uint32_t)){
         return OnivErr(OnivErrCode::ERROR_PARSE_CONTROLLER_CMD);
@@ -350,20 +352,20 @@ OnivErr Onivd::AddTunnel(const char* cmd, size_t length)
     }
 }
 
-OnivErr Onivd::DelTunnel(const char* cmd, size_t length)
+OnivErr Onivd::DelTunnel(const char *cmd, size_t length)
 {
     if(length != sizeof(in_addr_t)){
         return OnivErr(OnivErrCode::ERROR_PARSE_CONTROLLER_CMD);
     }
 
     in_addr_t address = *(in_addr_t*)(cmd);
+
     tunnels.remove_if(
         [address](const OnivTunnel &tunnel)
         {
             return tunnel.RemoteIPAddress() == address;
         }
     );
-
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
@@ -373,12 +375,111 @@ OnivErr Onivd::ClrTunnel()
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::ProcessCommand(const char* cmd, size_t length)
+OnivErr Onivd::ManipulateRoute(in_addr_t dest, in_addr_t mask, in_addr_t gateway, const string &name)
+{
+    struct rtentry rt;
+    struct sockaddr_in *sa;
+    unsigned long request = gateway != 0 ? SIOCADDRT : SIOCDELRT;
+    char device[IFNAMSIZ];
+
+    strncpy(device, name.c_str(), IFNAMSIZ);
+    memset(&rt, 0, sizeof(struct rtentry));
+
+    rt.rt_flags = RTF_UP;
+    // 地址
+    sa = (struct sockaddr_in*)&rt.rt_dst;
+    sa->sin_family = AF_INET;
+    sa->sin_addr.s_addr = dest;
+    // 掩码
+    sa = (struct sockaddr_in*)&rt.rt_genmask;
+    sa->sin_family = AF_INET;
+    sa->sin_addr.s_addr = mask;
+    // 网关
+    if(gateway != 0){
+        sa = (struct sockaddr_in*)&rt.rt_gateway;
+        sa->sin_family = AF_INET;
+        sa->sin_addr.s_addr = gateway;
+        rt.rt_flags |= RTF_GATEWAY;
+    }
+    // 接口
+    rt.rt_dev = device;
+
+    int udpfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if(ioctl(udpfd, request, &rt) < 0){
+        if(request == SIOCADDRT){
+            return OnivErr(OnivErrCode::ERROR_ADD_ROUTE);
+        }
+        else{
+            return OnivErr(OnivErrCode::ERROR_DEL_ROUTE);
+        }
+    }
+    else{
+        return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+    }
+}
+
+OnivErr Onivd::AddRoute(const char *cmd, size_t length)
+{
+    if(length != sizeof(in_addr_t) * 3 + IFNAMSIZ){
+        return OnivErr(OnivErrCode::ERROR_PARSE_CONTROLLER_CMD);
+    }
+
+    in_addr_t dest = *(in_addr_t*)cmd;
+    in_addr_t mask = *(in_addr_t*)(cmd + sizeof(in_addr_t));
+    in_addr_t gateway = *(in_addr_t*)(cmd + sizeof(in_addr_t) * 2);
+    string name(cmd + sizeof(in_addr_t) * 3, IFNAMSIZ);
+
+    AdapterIter iter = find_if(adapters.begin(), adapters.end(),
+            [&name](const OnivAdapter &adapter)
+            {
+                return adapter.name() == name;
+            }
+            );
+    if(iter == adapters.end()){
+        return OnivErr(OnivErrCode::ERROR_UNKNOWN_ADAPTER);
+    }
+    else{
+        return ManipulateRoute(dest, mask, gateway, name);
+    }
+}
+
+OnivErr Onivd::DelRoute(const char *cmd, size_t length)
+{
+    if(length != sizeof(in_addr_t) * 2 + IFNAMSIZ){
+        return OnivErr(OnivErrCode::ERROR_PARSE_CONTROLLER_CMD);
+    }
+
+    in_addr_t dest = *(in_addr_t*)cmd;
+    in_addr_t mask = *(in_addr_t*)(cmd + sizeof(in_addr_t));
+    string name(cmd + sizeof(in_addr_t) * 2, IFNAMSIZ);
+
+    AdapterIter iter = find_if(adapters.begin(), adapters.end(),
+            [&name](const OnivAdapter &adapter)
+            {
+                return adapter.name() == name;
+            }
+            );
+    if(iter == adapters.end()){
+        return OnivErr(OnivErrCode::ERROR_UNKNOWN_ADAPTER);
+    }
+    else{
+        return ManipulateRoute(dest, mask, 0, name);
+    }
+}
+
+OnivErr Onivd::ProcessCommand(const char *cmd, size_t length)
 {
     u_int8_t type = *cmd, len;
     OnivErr ParseCmdError(OnivErrCode::ERROR_PARSE_CONTROLLER_CMD);
     switch(type)
     {
+    case COMMAND_STOP:
+        if(length == 1){
+            printf("stop\n");
+            // pthread_cancel();
+            exit(EXIT_SUCCESS);
+        }
+        break;
     case COMMAND_ADD_ADP:
         if(length != 1 && length == 2 + *(cmd + 1)){
             return AddAdapter(cmd + 2, *(cmd + 1));
@@ -409,12 +510,12 @@ OnivErr Onivd::ProcessCommand(const char* cmd, size_t length)
             return ClrTunnel();
         }
         break;
-    case COMMAND_STOP:
-        if(length == 1){
-            printf("stop\n");
-            // pthread_cancel();
-            exit(EXIT_SUCCESS);
+    case COMMAND_ADD_ROU:
+        if(length != 1 && length == 2 + *(cmd + 1)){
+            return AddRoute(cmd + 2, *(cmd + 1));
         }
+        break;
+    case COMMAND_DEL_ROU:
         break;
     default:
         break;
