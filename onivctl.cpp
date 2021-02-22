@@ -25,8 +25,8 @@ void usage()
         "\tadd-tun <ipv4> <vni>\n"
         "\tdel-tun <ipv4>\n"
         "\tclr-tun\n"
-        "\tadd-route <dest> <mask> <gateway> <name>"
-        "\tdel-route <dest> <mask> <name>"
+        "\tadd-route <dest> <mask> <gateway> <name>\n"
+        "\tdel-route <dest> <mask> <name>\n"
         "\tstop\n"
     );
 }

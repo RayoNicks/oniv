@@ -13,7 +13,7 @@ public:
     static const string SwitchServerTmpPath;
     static const size_t SwitchServerCmdBufSize;
     static const size_t MaxEpollEvents;
-    static const int AdapterMTU;
+    static const int AdapterExtraMTU;
     static const int TunnelMTU;
     static const uint16_t TunnelPortNo;
 };

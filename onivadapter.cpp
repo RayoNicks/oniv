@@ -83,9 +83,10 @@ OnivErr OnivAdapter::send(const OnivFrame &frame)
 
 OnivErr OnivAdapter::recv(OnivFrame &frame)
 {
-    char buf[mtu] = { 0 };
+    // mtu一般不包含以太网帧头部，需要增加14字节的以太网头部大小
+    char buf[mtu + OnivGlobal::AdapterExtraMTU] = { 0 };
     size_t FrameSize;
-    FrameSize = read(handle(), buf, mtu);
+    FrameSize = read(handle(), buf, sizeof(buf));
     if(FrameSize < 0){
         return OnivErr(OnivErrCode::ERROR_RECV_ADAPTER);
     }
