@@ -49,7 +49,8 @@ private:
     static void* AdapterThread(void *para);
     static void* TunnelThread(void *para);
     static void* EgressThread(void *para);
-
+    
+    // server线程使用的函数
     OnivErr CreateSwitchServerSocket(const string &ControllerSocketPath);
 
     OnivErr AuxAddAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu);
@@ -64,10 +65,14 @@ private:
 
     OnivErr ManipulateRoute(in_addr_t dest, in_addr_t mask, in_addr_t gateway, const string &name);
     OnivErr AddRoute(const char *cmd, size_t length);
-    // OnivErr AuxDelRoute(in_addr_t dest, in_addr_t mask, const string &name);
     OnivErr DelRoute(const char *cmd, size_t length);
 
     OnivErr ProcessCommand(const char *cmd, size_t length);
+
+    // 隧道接收线程使用的函数
+    OnivErr ProcessTunKeyAgrReq(const OnivPacket &packet);
+    OnivErr ProcessTunKeyAgrRes(const OnivPacket &packet);
+    OnivErr ProcessRecord(OnivPacket &packet);
 
     OnivErr CreateSwitchServer();
     OnivErr CreateAdapterThread();

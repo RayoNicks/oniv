@@ -1,53 +1,64 @@
 HEADERS = \
+		oniv.h \
 		onivadapter.h \
 		onivcmd.h \
+		onivcrypto.h \
 		onivctl.h \
 		onivd.h \
 		oniventry.h \
 		oniverr.h \
 		onivfdb.h \
+		onivfirst.h \
 		onivframe.h \
 		onivglobal.h \
 		onivpacket.h \
 		onivport.h \
 		onivqueue.h \
+		onivsecond.h \
 		onivtunnel.h
 
 SOURCES = \
 		main.cpp \
+		oniv.cpp \
 		onivadapter.cpp \
+		onivcrypto.cpp \
 		onivctl.cpp \
 		onivd.cpp \
 		oniventry.h \
 		oniverr.cpp \
 		onivfdb.cpp \
+		onivfirst.cpp \
 		onivframe.cpp \
 		onivglobal.cpp \
 		onivpacket.cpp \
 		onivport.cpp \
 		onivqueue.cpp \
+		onivsecond.cpp \
 		onivtunnel.cpp
 
-OBJECTS = \
+ONIVD_OBJECTS = \
 		main.o \
+		oniv.o \
 		onivadapter.o \
-		onivctl.o \
+		onivcrypto.o \
 		onivd.o \
-		oniventry.h \
+		oniventry.o \
 		oniverr.o \
 		onivfdb.o \
+		onivfirst.o \
 		onivframe.o \
 		onivglobal.o \
 		onivpacket.o \
 		onivport.o \
 		onivqueue.o \
+		onivsecond.o \
 		onivtunnel.o
 
 FLAGS = -g -std=c++11
 
 all: onivd onivctl
 
-onivd: main.o onivadapter.o onivd.o oniventry.o oniverr.o onivfdb.o onivframe.o onivglobal.o onivpacket.o onivport.o onivqueue.o onivtunnel.o
+onivd: $(ONIVD_OBJECTS)
 	g++ $^ -o $@ -lpthread
 
 onivctl: onivctl.cpp onivglobal.o onivcmd.h onivglobal.h
@@ -56,7 +67,7 @@ onivctl: onivctl.cpp onivglobal.o onivcmd.h onivglobal.h
 main.o: main.cpp
 	g++ $< -c -o $@ $(FLAGS)
 
-%.o: %.cpp %.h
+%.o: %.cpp
 	g++ $< -c -o $@ $(FLAGS)
 
 clean:

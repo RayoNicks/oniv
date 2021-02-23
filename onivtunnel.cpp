@@ -53,38 +53,33 @@ OnivTunnel::~OnivTunnel()
 
 OnivErr OnivTunnel::send()
 {
-    OnivFrame of;
-    while(1){
-        sq.dequeue(of);
-        if(of.empty()){
-            break;
+    if(RemoteUUID.empty()){ // 构造隧道密钥协商请求
+        OnivTunReq req;
+        sendto(LocalTunnelSocket, req.request(), req.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+        BlockSendingQueue(); // 暂时阻塞发送队列
+    }
+    else if(AuthCertPass){
+        if(TunSK.empty()){ // 构造隧道密钥协商响应
+            OnivTunRes res(VerifyAlg, KeyAgrAlg);
+            sendto(LocalTunnelSocket, res.response(), res.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+            BlockSendingQueue(); // 暂时阻塞发送队列
         }
-        OnivPacket packet(of);
-        sendto(handle(), packet.data(), packet.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+        else{
+            OnivFrame frame;
+            while(1){
+                sq.dequeue(frame);
+                if(frame.empty()){
+                    break;
+                }
+                OnivPacket packet(frame); // 封装第二种身份信息的相关参数
+                sendto(LocalTunnelSocket, packet.data(), packet.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+            }
+            BlockSendingQueue();
+        }
     }
-    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
-}
-
-OnivErr OnivTunnel::send(const OnivFrame &frame)
-{
-    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
-}
-
-OnivErr OnivTunnel::recv(OnivFrame &frame)
-{
-    sockaddr_in remote;
-    socklen_t len = sizeof(struct sockaddr_in);
-    char buf[mtu] = { 0 };
-    size_t FrameSize;
-    FrameSize = recvfrom(LocalTunnelSocket, buf, mtu, 0, (struct sockaddr*)&remote, &len);
-    if(FrameSize < 0){
-        return OnivErr(OnivErrCode::ERROR_RECV_TUNNEL);
+    else{ // 构造隧道密钥协商失败消息
+        // TODO
     }
-
-    OnivPacket packet(buf, FrameSize, this, remote);
-
-    frame = packet.ConvertToFrame();
-
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
@@ -99,6 +94,30 @@ OnivErr OnivTunnel::recv(OnivPacket &packet)
         return OnivErr(OnivErrCode::ERROR_RECV_TUNNEL);
     }
     packet = OnivPacket(buf, PacketSize, this, remote);
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
+OnivErr OnivTunnel::AuthCert(const OnivPacket &packet)
+{
+    if(packet.type() == OnivPacketType::TUN_KA_REQ){
+        OnivTunReq req(packet);
+        AuthCertPass = req.AuthCert();
+        if(AuthCertPass){
+            RemoteUUID.assign((char*)req.common.UUID, sizeof(req.common.UUID));
+            VerifyAlg = req.PreVerifyAlg;
+            KeyAgrAlg = req.PreKeyAgrAlg;
+        }
+    }
+    else if(packet.type() == OnivPacketType::TUN_KA_RES){
+        OnivTunRes res(packet);
+        AuthCertPass = res.AuthCert();
+        if(AuthCertPass){
+            RemoteUUID.assign((char*)res.common.UUID, sizeof(res.common.UUID));
+            VerifyAlg = res.VerifyAlg;
+            KeyAgrAlg = res.KeyAgrAlg;
+            TunSK = res.pk; // 计算隧道会话密钥
+        }
+    }
 
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
@@ -106,6 +125,11 @@ OnivErr OnivTunnel::recv(OnivPacket &packet)
 int OnivTunnel::handle() const
 {
     return LocalTunnelSocket;
+}
+
+string OnivTunnel::RemoteID() const
+{
+    return RemoteUUID;
 }
 
 in_port_t OnivTunnel::RemotePortNo() const

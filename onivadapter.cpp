@@ -64,20 +64,15 @@ OnivAdapter::~OnivAdapter()
 
 OnivErr OnivAdapter::send()
 {
-    OnivFrame of;
+    OnivFrame frame;
     while(1){
-        sq.dequeue(of);
-        if(of.empty()){
+        sq.dequeue(frame);
+        if(frame.empty()){
             break;
         }
-        write(handle(), of.data(), of.size());
+        write(handle(), frame.data(), frame.size());
     }
 
-    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
-}
-
-OnivErr OnivAdapter::send(const OnivFrame &frame)
-{
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 

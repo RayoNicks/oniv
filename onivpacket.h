@@ -6,17 +6,8 @@
 #include <netinet/in.h>
 #include <unistd.h>
 
+#include "oniv.h"
 #include "onivglobal.h"
-
-enum class OnivPacketType
-{
-    UNKNOWN,
-    TUN_KA_REQ,
-    TUN_KA_RES,
-    ONIV_RECORD,
-    LNK_KA_REQ,
-    LNK_KA_RES,
-};
 
 class OnivFrame;
 class OnivTunnel;
@@ -35,10 +26,11 @@ public:
     OnivPacket& operator=(OnivPacket &&op);
     ~OnivPacket();
     OnivPacket(const char *buf, const size_t size, OnivTunnel *tunnel, const sockaddr_in &RemoteSocketAddress);
-    OnivPacket(const OnivFrame &of);
+    OnivPacket(const OnivFrame &frame);
 
     void dump() const;
     OnivTunnel* IngressPort() const;
+    string SenderID() const;
     in_port_t RemotePortNo() const;
     in_addr_t RemoteIPAddress() const;
     uint32_t BroadcastID() const;

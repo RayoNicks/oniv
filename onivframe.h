@@ -35,7 +35,7 @@ public:
     OnivFrame& operator=(OnivFrame &&of);
     ~OnivFrame();
     OnivFrame(const char *buf, const size_t size, OnivPort *port);
-    OnivFrame(const OnivPacket &op);
+    OnivFrame(const OnivPacket &packet);
 
     void dump() const;
     OnivPort* IngressPort() const;

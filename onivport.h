@@ -2,6 +2,7 @@
 #define _ONIV_PORT_H_
 
 // #include <arpa/inet.h>
+#include <sys/eventfd.h>
 
 #include "oniverr.h"
 #include "onivqueue.h"
@@ -14,6 +15,7 @@ protected:
     int mtu;
     uint32_t vni;
     OnivQueue sq;
+    int event;
 public:
     OnivPort(const int mtu, const uint32_t vni);
     OnivPort() = delete;
@@ -21,11 +23,11 @@ public:
     OnivPort& operator=(const OnivPort &port) = delete;
     virtual ~OnivPort();
     virtual OnivErr send() = 0;
-    virtual OnivErr send(const OnivFrame &of) = 0;
-    virtual OnivErr recv(OnivFrame &of) = 0;
     uint32_t BroadcastID() const;
     int MTU() const;
-    void EnSendingQueue(const OnivFrame &of);
+    void EnSendingQueue(const OnivFrame &frame);
+    void NotifySendingQueue();
+    void BlockSendingQueue();
     int EventHandle() const;
 };
 

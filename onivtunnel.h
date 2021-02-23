@@ -13,6 +13,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "onivsecond.h"
+#include "onivcrypto.h"
 #include "onivglobal.h"
 #include "onivport.h"
 
@@ -27,6 +29,9 @@ class OnivTunnel : public OnivPort
 private:
     static int LocalTunnelSocket;
     sockaddr_in RemoteSocket;
+    string RemoteUUID, RemotePubKey, TunSK;
+    uint16_t VerifyAlg, KeyAgrAlg;
+    bool AuthCertPass;
     in_addr_t AdapterNameToAddr(const string &TunnelAdapterName);
 public:
     OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int mtu);
@@ -37,12 +42,12 @@ public:
     virtual ~OnivTunnel() override;
     
     virtual OnivErr send() override;
-    virtual OnivErr send(const OnivFrame &frame) override;
-    virtual OnivErr recv(OnivFrame &frame) override;
-
     OnivErr recv(OnivPacket &packet);
 
+    OnivErr AuthCert(const OnivPacket &packet);
+
     int handle() const;
+    string RemoteID() const;
     in_port_t RemotePortNo() const;
     in_addr_t RemoteIPAddress() const;
 };

@@ -4,7 +4,6 @@
 #include <mutex>
 #include <queue>
 
-#include <sys/eventfd.h>
 #include <unistd.h>
 
 #include "onivframe.h"
@@ -17,15 +16,14 @@ class OnivQueue
 private:
     queue<OnivFrame> df;
     mutex mtx;
-    int event;
 public:
     OnivQueue();
     OnivQueue(const OnivQueue &q) = delete;
     OnivQueue& operator=(const OnivQueue &q) = delete;
     ~OnivQueue();
-    void enqueue(const OnivFrame &of);
-    void dequeue(OnivFrame &of);
-    int EventHandle() const;
+    void enqueue(const OnivFrame &frame);
+    void dequeue(OnivFrame &frame);
+    // int EventHandle() const;
 };
 
 #endif

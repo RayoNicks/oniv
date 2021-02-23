@@ -100,53 +100,32 @@ void* Onivd::TunnelThread(void *para)
         {
             if(evlist[i].events & EPOLLIN){
                 OnivErr oe;
-                OnivTunnel *ListenTunnel = (OnivTunnel*)evlist[i].data.ptr, *AcceptTunnel;
+                OnivTunnel *ListenTunnel = (OnivTunnel*)evlist[i].data.ptr;
                 OnivPacket packet;
                 oe = ListenTunnel->recv(packet);
                 if(oe.occured()){
                     continue;
                 }
                 // packet.dump();
-                TunnelIter iter = find_if(oniv->tunnels.begin(), oniv->tunnels.end(),
-                [&packet](const OnivTunnel &tunnel)
+                switch (packet.type())
                 {
-                    return packet.belong(tunnel);
-                }
-                );
-                if(iter == oniv->tunnels.end()){
-                    oe = oniv->AuxAddTunnel(packet.RemoteIPAddress(), packet.RemotePortNo(), packet.BroadcastID(), OnivGlobal::TunnelMTU);
-                    if(oe.occured()){
-                        continue;
-                    }
-                    AcceptTunnel = &oniv->tunnels.back();
-                }
-                else{
-                    AcceptTunnel = &*iter;
-                }
-                packet.ResetIngressTunnel(AcceptTunnel);
-                OnivFrame frame(packet);
-                if(frame.IsBroadcast()){ // 发送到广播域
-                    for(AdapterIter iter = oniv->adapters.begin(); iter != oniv->adapters.end(); iter++)
-                    {
-                        if(iter->BroadcastID() == packet.BroadcastID()){
-                            iter->EnSendingQueue(frame); // 唤醒发送线程
-                        }
-                    }
-                    for(TunnelIter iter = ++oniv->tunnels.begin(); iter != oniv->tunnels.end(); iter++)
-                    {
-                        if(AcceptTunnel != &(*iter) && iter->BroadcastID() == packet.BroadcastID()){
-                            iter->EnSendingQueue(frame); // 唤醒发送线程
-                        }
-                    }
-                    oniv->fdb.update(frame); // 更新转发表
-                }
-                else{
-                    const OnivEntry *ent = oniv->fdb.search(frame);
-                    if(ent == nullptr){
-                        continue;
-                    }
-                    ent->egress->EnSendingQueue(frame); // 唤醒发送线程
-                    oniv->fdb.update(frame); // 更新转发表
+                case OnivPacketType::TUN_KA_REQ:
+                    oniv->ProcessTunKeyAgrReq(packet);
+                    break;
+                case OnivPacketType::TUN_KA_RES:
+                    oniv->ProcessTunKeyAgrRes(packet);
+                    break;
+                case OnivPacketType::TUN_KA_FIN:
+                    break;
+                case OnivPacketType::TUN_KA_FAIL:
+                    break;
+                case OnivPacketType::TUN_IV_ERR:
+                    break;
+                case OnivPacketType::ONIV_RECORD:
+                    oniv->ProcessRecord(packet);
+                    break;
+                default:
+                    break;
                 }
             }
         }
@@ -254,13 +233,13 @@ OnivErr Onivd::AuxAddAdapter(const string &name, in_addr_t address, in_addr_t ma
     ev.events = EPOLLIN;
     ev.data.ptr = &adapters.back();
     if(epoll_ctl(EpollAdapter, EPOLL_CTL_ADD, adapters.back().handle(), &ev) == -1){
-        return OnivErr(OnivErrCode::ERROR_ADD_ADAPTER);
+        return OnivErr(OnivErrCode::ERROR_EPOLL_ADAPTER);
     }
 
     ev.events = EPOLLIN;
     ev.data.ptr = &adapters.back();
     if(epoll_ctl(EpollEgress, EPOLL_CTL_ADD, adapters.back().EventHandle(), &ev) == -1){
-        return OnivErr(OnivErrCode::ERROR_ADD_ADAPTER);
+        return OnivErr(OnivErrCode::ERROR_EPOLL_ADAPTER);
     };
 
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
@@ -521,6 +500,103 @@ OnivErr Onivd::ProcessCommand(const char *cmd, size_t length)
         break;
     }
     return ParseCmdError;
+}
+
+OnivErr Onivd::ProcessTunKeyAgrReq(const OnivPacket &packet)
+{
+    OnivTunnel *AcceptTunnel;
+    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
+    {
+        if(tunnel.RemoteID() == packet.SenderID()){
+            return true;
+        }
+        else{
+            return tunnel.RemotePortNo() == packet.RemotePortNo()
+                && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
+        }
+    }
+    );
+    if(iter == tunnels.end()){ // 没有配置反向隧道
+        OnivErr oe = AuxAddTunnel(packet.RemoteIPAddress(), packet.RemotePortNo(), packet.BroadcastID(), OnivGlobal::TunnelMTU);
+        if(oe.occured()){
+            return oe;
+        }
+        else{
+            AcceptTunnel = &tunnels.back();
+        }
+    }
+    else{ // 配置了反向隧道
+        AcceptTunnel = &*iter;
+    }
+    AcceptTunnel->AuthCert(packet);
+    iter->NotifySendingQueue(); // 唤醒发送进程，发送隧道密钥协商响应或者失败消息
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
+OnivErr Onivd::ProcessTunKeyAgrRes(const OnivPacket &packet)
+{
+    OnivTunnel *AcceptTunnel;
+    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
+    {
+        return tunnel.RemotePortNo() == packet.RemotePortNo()
+            && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
+    }
+    );
+    if(iter == tunnels.end()){
+        return OnivErr(OnivErrCode::ERROR_UNKNOWN);
+    }
+    AcceptTunnel = &*iter;
+    AcceptTunnel->AuthCert(packet);
+    iter->NotifySendingQueue(); // 唤醒发送进程，发送数据帧或者隧道密钥协商失败消息
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
+OnivErr Onivd::ProcessRecord(OnivPacket &packet)
+{
+    OnivTunnel *AcceptTunnel;
+    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
+    {
+        return packet.belong(tunnel);
+    }
+    );
+    if(iter == tunnels.end()){
+        OnivErr oe = AuxAddTunnel(packet.RemoteIPAddress(), packet.RemotePortNo(), packet.BroadcastID(), OnivGlobal::TunnelMTU);
+        if(oe.occured()){
+            return oe;
+        }
+        else{
+            AcceptTunnel = &tunnels.back();
+        }
+    }
+    else{
+        AcceptTunnel = &*iter;
+    }
+    packet.ResetIngressTunnel(AcceptTunnel);
+    OnivFrame frame(packet);
+    if(frame.IsBroadcast()){ // 发送到广播域
+        for(AdapterIter iter = adapters.begin(); iter != adapters.end(); iter++)
+        {
+            if(iter->BroadcastID() == packet.BroadcastID()){
+                iter->EnSendingQueue(frame); // 唤醒发送线程
+            }
+        }
+        for(TunnelIter iter = ++tunnels.begin(); iter != tunnels.end(); iter++)
+        {
+            if(AcceptTunnel != &(*iter) && iter->BroadcastID() == packet.BroadcastID()){
+                iter->EnSendingQueue(frame); // 唤醒发送线程
+            }
+        }
+        fdb.update(frame); // 更新转发表
+    }
+    else{
+        const OnivEntry *ent = fdb.search(frame);
+        if(ent == nullptr){
+            return OnivErr(OnivErrCode::ERROR_NO_FORWARD_ENTRY);
+        }
+        ent->egress->EnSendingQueue(frame); // 唤醒发送线程
+        fdb.update(frame); // 更新转发表
+    }
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
 OnivErr Onivd::CreateSwitchServer()

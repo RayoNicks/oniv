@@ -2,37 +2,37 @@
 
 OnivQueue::OnivQueue()
 {
-    event = eventfd(0, 0);
+    // event = eventfd(0, 0);
 }
 
 OnivQueue::~OnivQueue()
 {
-    close(event);
+    // close(event);
 }
 
-void OnivQueue::enqueue(const OnivFrame &of)
+void OnivQueue::enqueue(const OnivFrame &frame)
 {
     mtx.lock();
-    df.push(of);
+    df.push(frame);
     mtx.unlock();
-    eventfd_write(event, 1);
+    // eventfd_write(event, 1);
 }
 
-void OnivQueue::dequeue(OnivFrame &of)
+void OnivQueue::dequeue(OnivFrame &frame)
 {
     mtx.lock();
     if(!df.empty()){
-        of = df.front();
+        frame = df.front();
         df.pop();
     }
     else{
-        of = OnivFrame();
-        eventfd_read(event, nullptr);
+        frame = OnivFrame();
+        // eventfd_read(event, nullptr);
     }
     mtx.unlock();
 }
 
-int OnivQueue::EventHandle() const
-{
-    return event;
-}
+// int OnivQueue::EventHandle() const
+// {
+//     return event;
+// }

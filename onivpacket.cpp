@@ -44,16 +44,16 @@ OnivPacket::OnivPacket(const char *buf, const size_t size, OnivTunnel *tunnel, c
     memcpy(&remote, &RemoteSocketAddress, sizeof(struct sockaddr_in));
 }
 
-OnivPacket::OnivPacket(const OnivFrame &of)
+OnivPacket::OnivPacket(const OnivFrame &frame)
 {
     packet.push_back(static_cast<char>(OnivPacketType::ONIV_RECORD));
     packet.push_back(0x00); // flags
-    uint32_t vni = htonl(of.IngressPort()->BroadcastID());
+    uint32_t vni = htonl(frame.IngressPort()->BroadcastID());
     packet.push_back(static_cast<char>(vni >> 24));
     packet.push_back(static_cast<char>(vni >> 16));
     packet.push_back(static_cast<char>(vni >> 8));
     packet.push_back(static_cast<char>(vni));
-    packet.append(of.data(), of.size());
+    packet.append(frame.data(), frame.size());
 }
 
 void OnivPacket::dump() const
@@ -72,6 +72,11 @@ void OnivPacket::dump() const
 OnivTunnel* OnivPacket::IngressPort() const
 {
     return ingress;
+}
+
+string OnivPacket::SenderID() const
+{
+    return string(packet.c_str() + 4, 16);
 }
 
 in_port_t OnivPacket::RemotePortNo() const

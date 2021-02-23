@@ -45,6 +45,7 @@ const vector<string> OnivErr::ErrMsgs = {
     "Create adapter failed",
     "Adapter exists",
     "Unknown adapter",
+    "Epoll adapter failed",
     "Create tunnel interface failed",
     "Tunnel exists",
     "Add route failed",
@@ -57,10 +58,11 @@ const vector<string> OnivErr::ErrMsgs = {
     "Create tunnel thread failed",
     "Send packet to tunnel failed",
     "Receive packet from tunnel failed",
+    "Wrong packet type",
     // switch message
     "Create epoll instance failed",
     "Wait epoll failed",
-    "Add adapter failed",
+    "Can't not find forwarding entry",
 
     "Unknown error",
 };

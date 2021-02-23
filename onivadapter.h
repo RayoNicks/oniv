@@ -27,8 +27,7 @@ public:
     virtual ~OnivAdapter() override;
 
     virtual OnivErr send() override;
-    virtual OnivErr send(const OnivFrame &frame) override;
-    virtual OnivErr recv(OnivFrame &frame) override;
+    OnivErr recv(OnivFrame &frame);
 
     int handle() const;
     bool IsUp() const;
