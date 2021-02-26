@@ -1,7 +1,6 @@
 #ifndef _ONIV_H_
 #define _ONIV_H_
 
-// #include <ctime>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -12,7 +11,7 @@
 using std::string;
 using std::vector;
 
-enum class OnivPacketType : uint8_t
+enum class OnivPacketType : uint16_t
 {
     UNKNOWN,
     TUN_KA_REQ,
@@ -31,9 +30,9 @@ enum class OnivPacketType : uint8_t
 enum class OnivPacketFlag : uint16_t
 {
     NONE = 0x0000,
-    UDP_ID = 0x0001,
+    UPD_ID = 0x0001,
     UPD_SEND = 0x0002,
-    UDP_RECV = 0x0004,
+    UPD_RECV = 0x0004,
     ACK_ID = 0x00010,
     ACK_SEND = 0x0020,
     ACK_RECV = 0x0040,

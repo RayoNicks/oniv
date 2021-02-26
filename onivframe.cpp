@@ -3,11 +3,6 @@
 #include "onivpacket.h"
 #include "onivtunnel.h"
 
-const char* OnivFrame::Layer3Hdr() const
-{
-    return frame.c_str() + 14;
-}
-
 OnivFrame::OnivFrame() : ingress(nullptr)
 {
 
@@ -66,7 +61,26 @@ void OnivFrame::dump() const
     }
     cout << '\n';
 }
+/*
+vector<OnivFrame> OnivFrame::encapsulate(const string &LnkSK, OnivVerifyAlg VerifyAlg)
+{
+    vector<OnivFrame> frames;
+    if(IsARP()){
+        string UserData = frame.substr(Layer3Hdr() - Layer2Hdr());
 
+    }
+    else if(IsIP()){
+        ;
+    }
+
+    return frames;
+}
+
+void OnivFrame::decapsulate(const string &LnkSK, OnivVerifyAlg VerifyAlg)
+{
+    ;
+}
+*/
 OnivPort* OnivFrame::IngressPort() const
 {
     return ingress;
@@ -82,60 +96,251 @@ size_t OnivFrame::size() const
     return frame.length();
 }
 
-const char* OnivFrame::data() const
+OnivPacketType OnivFrame::type() const
+{
+    return static_cast<OnivPacketType>(*OnivHdr());
+}
+
+const char* OnivFrame::buffer() const
 {
     return frame.c_str();
 }
 
-const char* OnivFrame::DestHwAddr() const
+const char* OnivFrame::Layer2Hdr() const
 {
-    return frame.c_str();
+    return buffer();
 }
 
-const char* OnivFrame::SrcHwAddr() const
+const char* OnivFrame::Layer3Hdr() const
 {
-    return frame.c_str() + 6;
+    if(IsARP() || IsIP()){
+        return Layer2Hdr() + 14;
+    }
+    else{
+        return nullptr;
+    }
 }
 
-bool OnivFrame::IsBroadcast()
+const char* OnivFrame::Layer4Hdr() const
+{
+    if(IsIP()){
+        return Layer3Hdr() + IPHdrLen();
+    }
+    else{
+        return nullptr;
+    }
+}
+
+const char* OnivFrame::TCPHdr() const
+{
+    return Layer4Hdr();
+}
+
+const char* OnivFrame::UDPHdr() const
+{
+    return Layer4Hdr();
+}
+
+const string OnivFrame::UserData() const
+{
+    const char *p;
+    if(IsARP()){
+        p = Layer3Hdr();
+        return string(p, buffer() + size() - p);
+    }
+    else if(IsIP()){
+        p = Layer4Hdr();
+        return string(p, buffer() + size() - p);
+    }
+    else{
+        return string();
+    }
+}
+/*
+const char* OnivFrame::UserData() const
+{
+    if(IsLayer3Oniv()){
+        return nullptr;
+    }
+    else if(IsLayer4Oniv()){
+        return nullptr;
+    }
+    else if(IsARP()){
+        return Layer3Hdr();
+    }
+    else if(IsIP()){
+        return Layer4Hdr();
+    }
+    else{
+        return nullptr;
+    }
+}
+
+size_t OnivFrame::UserDataSize() const
+{
+    const char *p = UserData();
+    if(p != nullptr){
+        return buffer() + size() - p;
+    }
+    else{
+        return 0;
+    }
+}
+*/
+const char* OnivFrame::OnivHdr() const
+{
+    if(IsLayer3Oniv()){
+        return Layer3Hdr();
+    }
+    else if(IsLayer4Oniv()){
+        return Layer4Hdr() + 8; // 8字节UDP首部
+    }
+    else{
+        return nullptr;
+    }
+}
+
+bool OnivFrame::IsLayer3Oniv() const
+{
+    return ntohs(*(u_int16_t*)(buffer() + 12)) == OnivGlobal::OnivType;
+}
+
+bool OnivFrame::IsLayer4Oniv() const
+{
+    return IsUDP() && (SrcPort() == htons(OnivGlobal::TunnelPortNo) || DestPort() == htons(OnivGlobal::TunnelPortNo));
+}
+
+bool OnivFrame::IsOniv() const
+{
+    return IsLayer3Oniv() || IsLayer4Oniv();
+}
+
+uint8_t OnivFrame::Layer4Protocol() const
+{
+    if(IsICMP()){
+        return 0x01;
+    }
+    else if(IsTCP()){
+        return 0x06;
+    }
+    else if(IsUDP()){
+        return 0x11;
+    }
+    else{
+        return 0;
+    }
+}
+
+const string OnivFrame::DestHwAddr() const
+{
+    return string(Layer2Hdr(), 6);
+}
+
+const string OnivFrame::SrcHwAddr() const
+{
+    return string(Layer2Hdr() + 6, 6);
+}
+
+bool OnivFrame::IsBroadcast() const
 {
     return string(DestHwAddr(), 6) == string(6, 0xFF);
 }
 
-bool OnivFrame::ARP() const
+bool OnivFrame::IsARP() const
 {
-    return *(u_int16_t*)(data() + 12) == htons(0x0806);
+    return ntohs(*(u_int16_t*)(buffer() + 12)) == 0x0806;
 }
 
-bool OnivFrame::IP() const
+bool OnivFrame::IsIP() const
 {
-    return *(u_int16_t*)(data() + 12) == htons(0x0800);
+    return ntohs(*(u_int16_t*)(buffer() + 12)) == 0x0800;
+}
+
+uint8_t OnivFrame::IPHdrLen() const
+{
+    return (*Layer3Hdr() & 0x0F) * 4;
 }
 
 in_addr_t OnivFrame::SrcIPAddr() const
 {
-    if(IP()){
+    if(IsARP()){
+        return *(in_addr_t*)(Layer3Hdr() + 14);
+    }
+    else if(IsIP()){
         return *(in_addr_t*)(Layer3Hdr() + 12);
     }
-    else return 0;
+    else{
+        return 0;
+    }
 }
 
 in_addr_t OnivFrame::DestIPAddr() const
 {
-    if(IP()){
+    if(IsARP()){
+        return *(in_addr_t*)(Layer3Hdr() + 24);
+    }
+    else if(IsIP()){
         return *(in_addr_t*)(Layer3Hdr() + 16);
     }
-    else return 0;
+    else{
+        return 0;
+    }
 }
 
-bool OnivFrame::TCP() const
+bool OnivFrame::IsICMP() const
 {
-    // TODO
-    return false;
+    return IsIP() && *(Layer3Hdr() + 10) == 0x01;
 }
 
-bool OnivFrame::UDP() const
+bool OnivFrame::IsTCP() const
 {
-    // TODO
-    return false;
+    return IsIP() && *(Layer3Hdr() + 10) == 0x06;
+}
+
+bool OnivFrame::IsUDP() const
+{
+    return IsIP() && *(Layer3Hdr() + 10) == 0x11;
+}
+
+in_port_t OnivFrame::SrcPort() const
+{
+    if(IsTCP() || IsUDP()){
+        return *(in_port_t*)Layer4Hdr();
+    }
+    else{
+        return 0;
+    }
+}
+
+in_port_t OnivFrame::DestPort() const
+{
+    if(IsTCP() || IsUDP()){
+        return *(in_port_t*)(Layer4Hdr() + 2);
+    }
+    else{
+        return 0;
+    }
+}
+
+void OnivFrame::reverse()
+{
+    size_t offset = 0;
+    for(size_t i = 0; i < 6; i++)
+    {
+        swap(frame[offset + i], frame[offset + i + 6]);
+    }
+    if(IsIP()){
+        offset = 14 + 12;
+        for(size_t i = 0; i < 4; i++)
+        {
+            swap(frame[offset + i], frame[offset + i + 4]);
+        }
+        if(IsUDP()){
+            offset = 14 + IPHdrLen();
+            for(size_t i = 0; i < 2; i++)
+            {
+                swap(frame[offset + i], frame[offset + i + 2]);
+            }
+        }
+    }
 }

@@ -23,9 +23,10 @@ public:
     OnivPort& operator=(const OnivPort &port) = delete;
     virtual ~OnivPort();
     virtual OnivErr send() = 0;
-    uint32_t BroadcastID() const;
+    uint32_t BroadcastDomain() const;
     int MTU() const;
     void EnSendingQueue(const OnivFrame &frame);
+    void EnSendingQueue(const vector<OnivFrame> &frames);
     void NotifySendingQueue();
     void BlockSendingQueue();
     int EventHandle() const;

@@ -16,7 +16,7 @@ int OnivPort::MTU() const
     return mtu;
 }
 
-uint32_t OnivPort::BroadcastID() const
+uint32_t OnivPort::BroadcastDomain() const
 {
     return vni;
 }
@@ -24,6 +24,15 @@ uint32_t OnivPort::BroadcastID() const
 void OnivPort::EnSendingQueue(const OnivFrame &frame)
 {
     sq.enqueue(frame);
+    NotifySendingQueue();
+}
+
+void OnivPort::EnSendingQueue(const vector<OnivFrame> &frames)
+{
+    for(const OnivFrame &frame : frames)
+    {
+        sq.enqueue(frame);
+    }
     NotifySendingQueue();
 }
 

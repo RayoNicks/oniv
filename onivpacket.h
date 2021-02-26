@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "oniv.h"
+#include "onivcrypto.h"
 #include "onivglobal.h"
 
 class OnivFrame;
@@ -33,13 +34,12 @@ public:
     string SenderID() const;
     in_port_t RemotePortNo() const;
     in_addr_t RemoteIPAddress() const;
-    uint32_t BroadcastID() const;
-    OnivFrame ConvertToFrame() const;
+    uint32_t BroadcastDomain() const;
 
     size_t size() const;
     size_t HdrSize() const;
     OnivPacketType type() const;
-    const char* data() const;
+    const char* buffer() const;
     const char* frame() const;
 
     bool belong(const OnivTunnel &tunnel) const;

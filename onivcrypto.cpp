@@ -5,14 +5,14 @@ string OnivCrypto::UUID()
     return string();
 }
 
-uint16_t OnivCrypto::VerifyAlgSet()
+OnivVerifyAlg OnivCrypto::VerifyAlgSet()
 {
-    return 0xFFFF;
+    return OnivVerifyAlg::ALL;
 }
 
-uint16_t OnivCrypto::KeyAgrAlgSet()
+OnivKeyAgrAlg OnivCrypto::KeyAgrAlgSet()
 {
-    return 0xFFFF;
+    return OnivKeyAgrAlg::ALL;
 }
 
 vector<string> OnivCrypto::CertChain()
@@ -20,12 +20,99 @@ vector<string> OnivCrypto::CertChain()
     return vector<string>();
 }
 
-string OnivCrypto::GenSignature()
+string OnivCrypto::GenSignature(const string &data)
 {
     return string();
 }
 
-string OnivCrypto::GetPublicKey(uint16_t KeyAgrAlg)
+string OnivCrypto::AcqPriKey(OnivKeyAgrAlg KeyAgrAlg)
 {
-    return string();
+    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
+        return string("testing  private  key");
+    }
+    else{
+        return string();
+    }
+}
+
+string OnivCrypto::AcqPubKey(OnivKeyAgrAlg KeyAgrAlg)
+{
+    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
+        return string("testing  public  key");
+    }
+    else{
+        return string();
+    }
+}
+
+string OnivCrypto::GenPriKey(OnivKeyAgrAlg KeyAgrAlg)
+{
+    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
+        return string("generated private key");
+    }
+    else{
+        return string();
+    }
+}
+
+string OnivCrypto::GenPubKey(OnivKeyAgrAlg KeyAgrAlg, const string &PubKey)
+{
+    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
+        return string("generated public key");
+    }
+    else{
+        return string();
+    }
+}
+
+string OnivCrypto::ComputeSessionKey(OnivKeyAgrAlg KeyAgrAlg, const string &PubKey, const string &PriKey)
+{
+    string key;
+    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
+        for(size_t i = 0; i < PubKey.size() && PriKey.size(); i++)
+        {
+            key.push_back(PubKey[i] ^ PriKey[i]);
+        }
+    }
+    else{
+        return key;
+    }
+}
+
+string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg, const string &SK, const string &UserData)
+{
+    string code;
+    if(VerifyAlg == OnivVerifyAlg::IV_SIMPLE_XOR){
+        size_t i = 0;
+        while(i < UserData.length()){
+            for(size_t j = 0; j < SK.length(); j++)
+            {
+                code.push_back(0x00);
+            }
+        }
+        return code;
+    }
+    else{
+        return string();
+    }
+}
+
+size_t OnivCrypto::PubKeySize(OnivKeyAgrAlg KeyAgrAlg)
+{
+    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
+        return sizeof("generated public key");
+    }
+    else{
+        return 0;
+    }
+}
+
+size_t OnivCrypto::MsgAuthCodeSize(OnivVerifyAlg VerifyAlg)
+{
+    if(VerifyAlg == OnivVerifyAlg::IV_SIMPLE_XOR){
+        return 16;
+    }
+    else{
+        return 0;
+    }
 }

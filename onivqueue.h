@@ -14,7 +14,7 @@ using std::queue;
 class OnivQueue
 {
 private:
-    queue<OnivFrame> df;
+    queue<OnivFrame> qf;
     mutex mtx;
 public:
     OnivQueue();
@@ -23,7 +23,6 @@ public:
     ~OnivQueue();
     void enqueue(const OnivFrame &frame);
     void dequeue(OnivFrame &frame);
-    // int EventHandle() const;
 };
 
 #endif

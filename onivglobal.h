@@ -16,6 +16,7 @@ public:
     static const int AdapterExtraMTU;
     static const int TunnelMTU;
     static const uint16_t TunnelPortNo;
+    static const uint16_t OnivType;
 };
 
 #endif

@@ -5,7 +5,6 @@
 #include <cstdio>
 #include <cstring>
 #include <list>
-#include <map>
 #include <string>
 
 #include <arpa/inet.h>
@@ -19,6 +18,7 @@
 #include "onivcmd.h"
 #include "oniverr.h"
 #include "onivfdb.h"
+#include "onivfirst.h"
 #include "onivframe.h"
 #include "onivglobal.h"
 #include "onivpacket.h"
@@ -27,8 +27,6 @@
 
 using std::find_if;
 using std::list;
-using std::make_pair;
-using std::map;
 using std::pair;
 using std::string;
 
@@ -38,6 +36,10 @@ private:
     pthread_t ServerThreadID, AdapterThreadID, TunnelThreadID, EgressThreadID;
     int ListenSocket, EpollAdapter, EpollTunnel, EpollEgress;
     OnivFDB fdb;
+    OnivKDB kdb;
+
+    typedef list<OnivFrame>::iterator FrameIter;
+    list<OnivFrame> Blocked;
 
     typedef list<OnivAdapter>::iterator AdapterIter;
     list<OnivAdapter> adapters;
@@ -72,7 +74,11 @@ private:
     // 隧道接收线程使用的函数
     OnivErr ProcessTunKeyAgrReq(const OnivPacket &packet);
     OnivErr ProcessTunKeyAgrRes(const OnivPacket &packet);
-    OnivErr ProcessRecord(OnivPacket &packet);
+    OnivErr ProcessTunRecord(OnivPacket &packet);
+    // 隧道记录协议使用的函数
+    OnivErr ProcessLnkKeyAgrReq(const OnivFrame &frame);
+    OnivErr ProcessLnkKeyAgrRes(const OnivFrame &frame);
+    OnivErr ProcessLnkRecord(const OnivFrame &frame);
 
     OnivErr CreateSwitchServer();
     OnivErr CreateAdapterThread();

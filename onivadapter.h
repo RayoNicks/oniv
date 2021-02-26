@@ -19,6 +19,8 @@ private:
     int fd, ctrl;
     bool up;
     string AdapterName;
+    in_addr_t addr, NetMask;
+    string HwAddr;
 public:
     OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu);
     OnivAdapter() = delete;
@@ -32,6 +34,8 @@ public:
     int handle() const;
     bool IsUp() const;
     const string name() const;
+    in_addr_t address() const;
+    const string MAC() const;
 };
 
 #endif

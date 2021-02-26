@@ -1,7 +1,7 @@
 #include "onivadapter.h"
 
 OnivAdapter::OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu)
-    : OnivPort(mtu, vni), fd(-1), ctrl(-1), AdapterName(name)
+    : OnivPort(mtu, vni), fd(-1), ctrl(-1), AdapterName(name), addr(address), NetMask(mask)
 {
     // 创建隧道设备
     struct ifreq ifr;
@@ -53,6 +53,13 @@ OnivAdapter::OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, 
         close(fd);
     }
 
+    // 读取MAC地址
+    if(ioctl(ctrl, SIOCGIFHWADDR, &ifr) < 0){
+        close(ctrl);
+        close(fd);
+    }
+    HwAddr.assign(ifr.ifr_hwaddr.sa_data, 6);
+
     up = true;
 }
 
@@ -70,7 +77,7 @@ OnivErr OnivAdapter::send()
         if(frame.empty()){
             break;
         }
-        write(handle(), frame.data(), frame.size());
+        write(handle(), frame.buffer(), frame.size());
     }
 
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
@@ -103,4 +110,14 @@ bool OnivAdapter::IsUp() const
 const string OnivAdapter::name() const
 {
     return AdapterName;
+}
+
+in_addr_t OnivAdapter::address() const
+{
+    return addr;
+}
+
+const string OnivAdapter::MAC() const
+{
+    return HwAddr;
 }

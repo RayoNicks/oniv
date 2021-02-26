@@ -54,13 +54,13 @@ OnivTunnel::~OnivTunnel()
 OnivErr OnivTunnel::send()
 {
     if(RemoteUUID.empty()){ // 构造隧道密钥协商请求
-        OnivTunReq req;
+        OnivTunReq req(vni);
         sendto(LocalTunnelSocket, req.request(), req.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
         BlockSendingQueue(); // 暂时阻塞发送队列
     }
-    else if(AuthCertPass){
+    else if(ValidSignature){
         if(TunSK.empty()){ // 构造隧道密钥协商响应
-            OnivTunRes res(VerifyAlg, KeyAgrAlg);
+            OnivTunRes res(vni, VerifyAlg, KeyAgrAlg);
             sendto(LocalTunnelSocket, res.response(), res.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
             BlockSendingQueue(); // 暂时阻塞发送队列
         }
@@ -72,7 +72,7 @@ OnivErr OnivTunnel::send()
                     break;
                 }
                 OnivPacket packet(frame); // 封装第二种身份信息的相关参数
-                sendto(LocalTunnelSocket, packet.data(), packet.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+                sendto(LocalTunnelSocket, packet.buffer(), packet.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
             }
             BlockSendingQueue();
         }
@@ -101,24 +101,29 @@ OnivErr OnivTunnel::AuthCert(const OnivPacket &packet)
 {
     if(packet.type() == OnivPacketType::TUN_KA_REQ){
         OnivTunReq req(packet);
-        AuthCertPass = req.AuthCert();
-        if(AuthCertPass){
+        ValidSignature = req.VerifySignature();
+        if(ValidSignature){
             RemoteUUID.assign((char*)req.common.UUID, sizeof(req.common.UUID));
-            VerifyAlg = req.PreVerifyAlg;
-            KeyAgrAlg = req.PreKeyAgrAlg;
+            VerifyAlg = static_cast<OnivVerifyAlg>(req.PreVerifyAlg);
+            KeyAgrAlg = static_cast<OnivKeyAgrAlg>(req.PreKeyAgrAlg);
         }
     }
     else if(packet.type() == OnivPacketType::TUN_KA_RES){
         OnivTunRes res(packet);
-        AuthCertPass = res.AuthCert();
-        if(AuthCertPass){
+        ValidSignature = res.VerifySignature();
+        if(ValidSignature){
             RemoteUUID.assign((char*)res.common.UUID, sizeof(res.common.UUID));
-            VerifyAlg = res.VerifyAlg;
-            KeyAgrAlg = res.KeyAgrAlg;
-            TunSK = res.pk; // 计算隧道会话密钥
+            VerifyAlg = static_cast<OnivVerifyAlg>(res.VerifyAlg);
+            KeyAgrAlg = static_cast<OnivKeyAgrAlg>(res.KeyAgrAlg);
+            TunSK = OnivCrypto::ComputeSessionKey(KeyAgrAlg, res.pk, OnivCrypto::AcqPriKey(KeyAgrAlg));
         }
     }
 
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
+OnivErr OnivTunnel::VerifyPacket(const OnivPacket &packet)
+{
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 

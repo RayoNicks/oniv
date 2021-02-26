@@ -48,12 +48,12 @@ OnivPacket::OnivPacket(const OnivFrame &frame)
 {
     packet.push_back(static_cast<char>(OnivPacketType::ONIV_RECORD));
     packet.push_back(0x00); // flags
-    uint32_t vni = htonl(frame.IngressPort()->BroadcastID());
+    uint32_t vni = htonl(frame.IngressPort()->BroadcastDomain());
     packet.push_back(static_cast<char>(vni >> 24));
     packet.push_back(static_cast<char>(vni >> 16));
     packet.push_back(static_cast<char>(vni >> 8));
     packet.push_back(static_cast<char>(vni));
-    packet.append(frame.data(), frame.size());
+    packet.append(frame.buffer(), frame.size());
 }
 
 void OnivPacket::dump() const
@@ -76,7 +76,8 @@ OnivTunnel* OnivPacket::IngressPort() const
 
 string OnivPacket::SenderID() const
 {
-    return string(packet.c_str() + 4, 16);
+    return string((char*)(((OnivCommon*)buffer())->UUID), sizeof(OnivCommon::UUID));
+    // return string(packet.c_str() + 4, 16);
 }
 
 in_port_t OnivPacket::RemotePortNo() const
@@ -89,14 +90,9 @@ in_addr_t OnivPacket::RemoteIPAddress() const
     return remote.sin_addr.s_addr;
 }
 
-uint32_t OnivPacket::BroadcastID() const
+uint32_t OnivPacket::BroadcastDomain() const
 {
-    return *(uint32_t*)(data() + 2);
-}
-
-OnivFrame OnivPacket::ConvertToFrame() const
-{
-    return OnivFrame(packet.c_str() + HdrSize(), packet.size() - HdrSize(), ingress);
+    return *(uint32_t*)(buffer() + 2);
 }
 
 size_t OnivPacket::size() const
@@ -106,8 +102,7 @@ size_t OnivPacket::size() const
 
 size_t OnivPacket::HdrSize() const
 {
-    // TODO
-    return 2 + sizeof(uint32_t);
+    return sizeof(OnivCommon) + ((OnivCommon*)buffer())->len;
 }
 
 OnivPacketType OnivPacket::type() const
@@ -115,7 +110,7 @@ OnivPacketType OnivPacket::type() const
     return static_cast<OnivPacketType>(*packet.c_str());
 }
 
-const char* OnivPacket::data() const
+const char* OnivPacket::buffer() const
 {
     return packet.c_str();
 }
@@ -127,7 +122,7 @@ const char* OnivPacket::frame() const
 
 bool OnivPacket::belong(const OnivTunnel &tunnel) const
 {
-    return BroadcastID() == tunnel.BroadcastID()
+    return BroadcastDomain() == tunnel.BroadcastDomain()
         && RemotePortNo() == tunnel.RemotePortNo()
         && RemoteIPAddress() == tunnel.RemoteIPAddress();
 }

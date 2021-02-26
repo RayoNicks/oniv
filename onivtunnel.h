@@ -13,10 +13,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "onivsecond.h"
-#include "onivcrypto.h"
 #include "onivglobal.h"
 #include "onivport.h"
+#include "onivsecond.h"
 
 using std::map;
 using std::min;
@@ -30,8 +29,9 @@ private:
     static int LocalTunnelSocket;
     sockaddr_in RemoteSocket;
     string RemoteUUID, RemotePubKey, TunSK;
-    uint16_t VerifyAlg, KeyAgrAlg;
-    bool AuthCertPass;
+    OnivVerifyAlg VerifyAlg;
+    OnivKeyAgrAlg KeyAgrAlg;
+    bool ValidSignature;
     in_addr_t AdapterNameToAddr(const string &TunnelAdapterName);
 public:
     OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int mtu);
@@ -45,6 +45,7 @@ public:
     OnivErr recv(OnivPacket &packet);
 
     OnivErr AuthCert(const OnivPacket &packet);
+    OnivErr VerifyPacket(const OnivPacket &packet);
 
     int handle() const;
     string RemoteID() const;
