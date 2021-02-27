@@ -5,9 +5,9 @@ HEADERS = \
 		onivcrypto.h \
 		onivctl.h \
 		onivd.h \
+		onivdb.h \
 		oniventry.h \
 		oniverr.h \
-		onivfdb.h \
 		onivfirst.h \
 		onivframe.h \
 		onivglobal.h \
@@ -24,9 +24,9 @@ SOURCES = \
 		onivcrypto.cpp \
 		onivctl.cpp \
 		onivd.cpp \
+		onivdb.cpp \
 		oniventry.h \
 		oniverr.cpp \
-		onivfdb.cpp \
 		onivfirst.cpp \
 		onivframe.cpp \
 		onivglobal.cpp \
@@ -42,9 +42,9 @@ ONIVD_OBJECTS = \
 		onivadapter.o \
 		onivcrypto.o \
 		onivd.o \
+		onivdb.o \
 		oniventry.o \
 		oniverr.o \
-		onivfdb.o \
 		onivfirst.o \
 		onivframe.o \
 		onivglobal.o \

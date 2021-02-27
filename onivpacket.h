@@ -27,7 +27,7 @@ public:
     OnivPacket& operator=(OnivPacket &&op);
     ~OnivPacket();
     OnivPacket(const char *buf, const size_t size, OnivTunnel *tunnel, const sockaddr_in &RemoteSocketAddress);
-    OnivPacket(const OnivFrame &frame);
+    // OnivPacket(const OnivFrame &frame);
 
     void dump() const;
     OnivTunnel* IngressPort() const;
@@ -37,12 +37,12 @@ public:
     uint32_t BroadcastDomain() const;
 
     size_t size() const;
-    size_t HdrSize() const;
+    // size_t HdrSize() const;
     OnivPacketType type() const;
     const char* buffer() const;
     const char* frame() const;
 
-    bool belong(const OnivTunnel &tunnel) const;
+    // bool belong(const OnivTunnel &tunnel) const;
     void ResetIngressTunnel(OnivTunnel *tunnel);
 };
 

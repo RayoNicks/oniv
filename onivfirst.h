@@ -22,10 +22,12 @@ public:
     OnivCommon common;
     uint16_t PreVerifyAlg, SupVerifyAlg;
     uint16_t PreKeyAgrAlg, SupKeyAgrAlg;
-    time_t ts;
+    uint64_t ts;
     vector<string> CertChain;
     string signature;
     OnivLnkReq(const OnivFrame &frame);
+    OnivLnkReq(const OnivLnkReq &req) = delete;
+    OnivLnkReq& operator=(const OnivLnkReq &req) = delete;
     ~OnivLnkReq();
     bool VerifySignature();
     // 暂不考虑链路密钥协商过大导致的分片问题
@@ -43,12 +45,14 @@ public:
     OnivCommon common;
     uint16_t VerifyAlg, KeyAgrAlg;
     uint16_t RmdTp, AppTp;
-    time_t ReqTs, ResTs;
+    uint64_t ReqTs, ResTs;
     vector<string> CertChain;
     string pk;
     string signature;
     OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent); // 发送方构造函数
     OnivLnkRes(const OnivFrame &frame); // 接收方构造函数
+    OnivLnkRes(const OnivLnkRes &res) = delete;
+    OnivLnkRes& operator=(const OnivLnkRes &res) = delete;
     ~OnivLnkRes();
     bool VerifySignature();
     // vector<OnivFrame> response();
@@ -61,14 +65,16 @@ class OnivLnkRecord
 private:
     char *hdr, *buf;
     size_t HdrSize;
-    void ConstructRecord(const OnivFrame &frame, const OnivKeyEntry *keyent);
-    void ParseRecord(const OnivFrame &frame, const OnivKeyEntry *keyent);
+    void ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent);
+    void ParseRecord(const OnivFrame &frame, OnivKeyEntry *keyent);
 public:
     OnivCommon common;
-    time_t UpdTs, AckTs;
-    uint16_t OriginProtocol, OriginLength, OriginChecksum;
+    uint64_t UpdTs, AckTs;
+    uint16_t OriginProtocol, OriginLength;
     string pk, code, escrow, data;
-    OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent);
+    OnivLnkRecord(const OnivFrame &frame, OnivKeyEntry *keyent);
+    OnivLnkRecord(const OnivLnkRecord &rec) = delete;
+    OnivLnkRecord& operator=(const OnivLnkRecord &rec) = delete;
     ~OnivLnkRecord();
     // vector<OnivFrame> record();
     OnivFrame record();

@@ -1,5 +1,5 @@
-#ifndef _ONIV_FDB_H_
-#define _ONIV_FDB_H_
+#ifndef _ONIV_DB_H_
+#define _ONIV_DB_H_
 
 #include <mutex>
 #include <unordered_set>

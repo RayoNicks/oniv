@@ -53,14 +53,14 @@ OnivTunnel::~OnivTunnel()
 
 OnivErr OnivTunnel::send()
 {
-    if(RemoteUUID.empty()){ // 构造隧道密钥协商请求
+    if(keyent.RemoteUUID.empty()){ // 构造隧道密钥协商请求
         OnivTunReq req(vni);
         sendto(LocalTunnelSocket, req.request(), req.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
         BlockSendingQueue(); // 暂时阻塞发送队列
     }
     else if(ValidSignature){
-        if(TunSK.empty()){ // 构造隧道密钥协商响应
-            OnivTunRes res(vni, VerifyAlg, KeyAgrAlg);
+        if(keyent.SessionKey.empty()){ // 构造隧道密钥协商响应
+            OnivTunRes res(vni, keyent.VerifyAlg, keyent.KeyAgrAlg);
             sendto(LocalTunnelSocket, res.response(), res.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
             BlockSendingQueue(); // 暂时阻塞发送队列
         }
@@ -71,8 +71,10 @@ OnivErr OnivTunnel::send()
                 if(frame.empty()){
                     break;
                 }
-                OnivPacket packet(frame); // 封装第二种身份信息的相关参数
-                sendto(LocalTunnelSocket, packet.buffer(), packet.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+                OnivTunRecord rec(vni, frame, &keyent);
+                // OnivPacket packet(frame); // 封装第二种身份信息的相关参数
+                // sendto(LocalTunnelSocket, packet.buffer(), packet.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+                sendto(LocalTunnelSocket, rec.record(), rec.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
             }
             BlockSendingQueue();
         }
@@ -103,19 +105,26 @@ OnivErr OnivTunnel::AuthCert(const OnivPacket &packet)
         OnivTunReq req(packet);
         ValidSignature = req.VerifySignature();
         if(ValidSignature){
-            RemoteUUID.assign((char*)req.common.UUID, sizeof(req.common.UUID));
-            VerifyAlg = static_cast<OnivVerifyAlg>(req.PreVerifyAlg);
-            KeyAgrAlg = static_cast<OnivKeyAgrAlg>(req.PreKeyAgrAlg);
+            keyent.RemoteUUID.assign((char*)req.common.UUID, sizeof(req.common.UUID));
+            keyent.VerifyAlg = OnivCrypto::SelectVerifyAlg(static_cast<OnivVerifyAlg>(req.PreVerifyAlg), static_cast<OnivVerifyAlg>(req.SupVerifyAlg));
+            keyent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(static_cast<OnivKeyAgrAlg>(req.PreKeyAgrAlg), static_cast<OnivKeyAgrAlg>(req.SupKeyAgrAlg));
+            keyent.LocalPriKey = OnivCrypto::AcqPriKey(keyent.KeyAgrAlg);
+            keyent.LocalPubKey = OnivCrypto::AcqPubKey(keyent.KeyAgrAlg);
         }
     }
     else if(packet.type() == OnivPacketType::TUN_KA_RES){
         OnivTunRes res(packet);
         ValidSignature = res.VerifySignature();
         if(ValidSignature){
-            RemoteUUID.assign((char*)res.common.UUID, sizeof(res.common.UUID));
-            VerifyAlg = static_cast<OnivVerifyAlg>(res.VerifyAlg);
-            KeyAgrAlg = static_cast<OnivKeyAgrAlg>(res.KeyAgrAlg);
-            TunSK = OnivCrypto::ComputeSessionKey(KeyAgrAlg, res.pk, OnivCrypto::AcqPriKey(KeyAgrAlg));
+            keyent.RemoteUUID.assign((char*)res.common.UUID, sizeof(res.common.UUID));
+            keyent.VerifyAlg = static_cast<OnivVerifyAlg>(res.VerifyAlg);
+            keyent.KeyAgrAlg = static_cast<OnivKeyAgrAlg>(res.KeyAgrAlg);
+            keyent.RemotePubKey = res.pk;
+            keyent.LocalPriKey = OnivCrypto::AcqPriKey(keyent.KeyAgrAlg);
+            keyent.LocalPubKey = OnivCrypto::AcqPubKey(keyent.KeyAgrAlg);
+            keyent.SessionKey = OnivCrypto::ComputeSessionKey(keyent.KeyAgrAlg, keyent.RemotePubKey, keyent.LocalPriKey);
+            keyent.UpdPk = true;
+            keyent.AckPk = false;
         }
     }
 
@@ -134,7 +143,7 @@ int OnivTunnel::handle() const
 
 string OnivTunnel::RemoteID() const
 {
-    return RemoteUUID;
+    return keyent.RemoteUUID;
 }
 
 in_port_t OnivTunnel::RemotePortNo() const
@@ -145,6 +154,11 @@ in_port_t OnivTunnel::RemotePortNo() const
 in_addr_t OnivTunnel::RemoteIPAddress() const
 {
     return RemoteSocket.sin_addr.s_addr;
+}
+
+OnivKeyEntry* OnivTunnel::KeyEntry()
+{
+    return &keyent;
 }
 
 int OnivTunnel::LocalTunnelSocket = -1;

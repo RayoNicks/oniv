@@ -44,7 +44,7 @@ void OnivLnkReq::ConstructRequest(const OnivFrame &frame)
         common.len += CertChain[i].length();
     }
     signature = OnivCrypto::GenSignature(UUID);
-    common.len += sizeof(signature);
+    common.len += signature.length();
     if(frame.IsIP()){ // 修正hdr中的IP首部和UDP首部
         *(uint16_t*)(hdr + HdrSize + 4) = htons(8 + size()); // UDP首部长度字段
         *(uint16_t*)(hdr + 14 + 2) = htons(frame.IPHdrLen() + 8 + size()); // IP首部长度字段
@@ -61,7 +61,7 @@ void OnivLnkReq::ConstructRequest(const OnivFrame &frame)
     *(uint16_t*)p = htons(SupVerifyAlg), p += sizeof(SupVerifyAlg);
     *(uint16_t*)p = htons(PreKeyAgrAlg), p += sizeof(PreKeyAgrAlg);
     *(uint16_t*)p = htons(SupKeyAgrAlg), p += sizeof(SupKeyAgrAlg);
-    *(time_t*)p = ts, p += sizeof(ts);
+    *(uint64_t*)p = ts, p += sizeof(ts);
     p = LinearCertChain(CertChain, p);
     memcpy(p, signature.c_str(), signature.length());
 }
@@ -90,7 +90,7 @@ void OnivLnkReq::ParseRequest(const OnivFrame &frame)
     SupVerifyAlg = ntohs(*(uint16_t*)p), p += sizeof(SupVerifyAlg);
     PreKeyAgrAlg = ntohs(*(uint16_t*)p), p += sizeof(PreKeyAgrAlg);
     SupKeyAgrAlg = ntohs(*(uint16_t*)p), p += sizeof(SupKeyAgrAlg);
-    ts = *(time_t*)p, p += sizeof(ts);
+    ts = *(uint64_t*)p, p += sizeof(ts);
     p += StructureCertChain(p, CertChain);
     signature.assign(p, buf + OnivSize - p); // TODO
 }
@@ -176,7 +176,7 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent)
     VerifyAlg = static_cast<uint16_t>(keyent->VerifyAlg);
     KeyAgrAlg = static_cast<uint16_t>(keyent->KeyAgrAlg);
     RmdTp = 1, AppTp = 1;
-    ResTs = 0, ResTs = 0;
+    ReqTs = 0, ResTs = 0;
     CertChain = OnivCrypto::CertChain();
     common.len += sizeof(uint16_t) * CertChain.size();
     for(size_t i = 0; i < CertChain.size(); i++)
@@ -201,8 +201,8 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent)
     *(uint16_t*)p = htons(KeyAgrAlg), p += sizeof(KeyAgrAlg);
     *(uint16_t*)p = htons(RmdTp), p += sizeof(RmdTp);
     *(uint16_t*)p = htons(AppTp), p += sizeof(AppTp);
-    *(time_t*)p = ReqTs, p += sizeof(ReqTs);
-    *(time_t*)p = ResTs, p += sizeof(ResTs);
+    *(uint64_t*)p = ReqTs, p += sizeof(ReqTs);
+    *(uint64_t*)p = ResTs, p += sizeof(ResTs);
     p = LinearCertChain(CertChain, p);
     memcpy(p, pk.c_str(), pk.length()), p += pk.length();
     memcpy(p, signature.c_str(), signature.length());
@@ -232,8 +232,8 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame)
     KeyAgrAlg = ntohs(*(uint16_t*)p), p += sizeof(KeyAgrAlg);
     RmdTp = ntohs(*(uint16_t*)p), p += sizeof(RmdTp);
     AppTp = ntohs(*(uint16_t*)p), p += sizeof(AppTp);
-    ReqTs = *(time_t*)p, p += sizeof(ReqTs);
-    ResTs = *(time_t*)p, p += sizeof(ResTs);
+    ReqTs = *(uint64_t*)p, p += sizeof(ReqTs);
+    ResTs = *(uint64_t*)p, p += sizeof(ResTs);
     p += StructureCertChain(p, CertChain);
     size_t PubKeySize = OnivCrypto::PubKeySize(static_cast<OnivKeyAgrAlg>(KeyAgrAlg));
     pk.assign(p, PubKeySize), p += PubKeySize;
@@ -265,7 +265,7 @@ size_t OnivLnkRes::size()
     return sizeof(OnivCommon) + common.len;
 }
 
-void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
+void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent)
 {
     if(frame.IsBroadcast()){
         return;
@@ -281,7 +281,7 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, const OnivKeyEntry *
         hdr = new char[HdrSize + 8]; // UDP首部
         memcpy(hdr, frame.Layer2Hdr(), HdrSize);
         *(uint16_t*)(hdr + HdrSize) = htons(OnivGlobal::TunnelPortNo); // UDP源端口号
-        *(uint16_t*)(hdr + HdrSize + 2) = htons(OnivGlobal::TunnelPortNo); // UDP目的端口号
+        *(uint16_t*)(hdr + HdrSize + 2) = keyent->PortNo; // UDP目的端口号
         *(uint16_t*)(hdr + HdrSize + 6) = 0; // 校验和设置为0
     }
     else{
@@ -294,7 +294,14 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, const OnivKeyEntry *
         common.flag = static_cast<uint16_t>(OnivPacketFlag::UPD_SEND);
         UpdTs = 0;
         pk = keyent->LocalPubKey;
-        common.len = sizeof(UpdTs) + pk.size();
+        common.len = sizeof(UpdTs) + pk.length();
+    }
+    else if(keyent->AckPk){
+        common.flag = static_cast<uint16_t>(OnivPacketFlag::ACK_SEND);
+        UpdTs = keyent->ts;
+        AckTs = 0;
+        common.len = sizeof(UpdTs) + sizeof(AckTs);
+        keyent->AckPk = false;
     }
     else{
         common.flag = static_cast<uint16_t>(OnivPacketFlag::NONE);
@@ -309,18 +316,17 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, const OnivKeyEntry *
     else if(frame.IsIP()){
         OriginProtocol = frame.Layer4Protocol();
         OriginLength = ntohs(*(uint16_t*)(hdr + 14 + 2));
-        OriginChecksum = ntohs(*(uint16_t*)(hdr + 14 + 12));
-        common.len += sizeof(OriginProtocol) + sizeof(OriginLength) + sizeof(OriginChecksum);
+        common.len += sizeof(OriginProtocol) + sizeof(OriginLength);
     }
     else{
         return;
     }
     data = frame.UserData(); // data中包含原始的4层首部
-    code = OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->LnkSK, data);
-    common.len += code.size();
+    code = OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey, data);
+    common.len += code.length();
     escrow;
-    common.len += escrow.size();
-    common.len += data.size();
+    common.len += escrow.length();
+    common.len += data.length();
     if(frame.IsIP()){ // 修正hdr中的IP首部和UDP首部
         *(uint16_t*)(hdr + HdrSize + 4) = htons(8 + size()); // UDP首部长度字段
         *(uint16_t*)(hdr + 14 + 2) = htons(frame.IPHdrLen() + 8 + size()); // IP首部长度字段
@@ -335,25 +341,31 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, const OnivKeyEntry *
     p = LinearCommon(common, p);
     if(keyent->UpdPk){
         *(uint64_t*)p = UpdTs, p += sizeof(UpdTs);
-        memcpy(p, pk.c_str(), pk.size()), p += pk.size();
+        memcpy(p, pk.c_str(), pk.length()), p += pk.length();
+    }
+    else if(keyent->AckPk){
+        *(uint64_t*)p = UpdTs, p += sizeof(UpdTs);
+        *(uint64_t*)p = AckTs, p += sizeof(AckTs);
     }
     *(uint16_t*)p = htons(OriginProtocol), p += sizeof(OriginProtocol);
     if(frame.IsIP()){
         *(uint16_t*)p = htons(OriginLength), p += sizeof(OriginLength);
-        *(uint16_t*)p = htons(OriginChecksum), p += sizeof(OriginChecksum);
     }
-    memcpy(p, code.c_str(), code.size()), p += code.size();
-    memcpy(p, escrow.c_str(), escrow.size()), p += escrow.size();
-    memcpy(p, data.c_str(), data.size());
+    memcpy(p, code.c_str(), code.length()), p += code.length();
+    memcpy(p, escrow.c_str(), escrow.length()), p += escrow.length();
+    memcpy(p, data.c_str(), data.length());
 }
 
-void OnivLnkRecord::ParseRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
+void OnivLnkRecord::ParseRecord(const OnivFrame &frame, OnivKeyEntry *keyent)
 {
     if(frame.IsLayer3Oniv()){
         HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
     }
     else if(frame.IsLayer4Oniv()){
         HdrSize = frame.Layer4Hdr() - frame.Layer2Hdr();
+    }
+    else{
+        return;
     }
     hdr = new char[HdrSize];
     memcpy(hdr, frame.Layer2Hdr(), HdrSize);
@@ -377,8 +389,18 @@ void OnivLnkRecord::ParseRecord(const OnivFrame &frame, const OnivKeyEntry *keye
     p = buf + sizeof(OnivCommon);
 
     if(common.flag == static_cast<uint16_t>(OnivPacketFlag::UPD_SEND)){
-        UpdTs = *(time_t*)p, p += sizeof(UpdTs);
-        pk, p += pk.size(); // TODO
+        UpdTs = *(uint64_t*)p, p += sizeof(UpdTs);
+        pk.assign(p, OnivCrypto::PubKeySize(keyent->KeyAgrAlg)), p += pk.length();
+        keyent->RemotePubKey = pk;
+        keyent->SessionKey = OnivCrypto::ComputeSessionKey(keyent->KeyAgrAlg, keyent->RemotePubKey, keyent->LocalPriKey);
+        keyent->AckPk = true;
+        keyent->ts = UpdTs;
+    }
+    else if(common.flag == static_cast<uint16_t>(OnivPacketFlag::ACK_SEND)){
+        UpdTs = *(uint64_t*)p, p += sizeof(UpdTs);
+        AckTs = *(uint64_t*)p, p += sizeof(AckTs);
+        keyent->UpdPk = false;
+        keyent->ts = AckTs;
     }
     OriginProtocol = ntohs(*(uint16_t*)p), p += sizeof(OriginProtocol);
     if(frame.IsLayer3Oniv()){
@@ -386,10 +408,9 @@ void OnivLnkRecord::ParseRecord(const OnivFrame &frame, const OnivKeyEntry *keye
     }
     else if(frame.IsLayer4Oniv()){
         OriginLength = ntohs(*(uint16_t*)p), p += sizeof(OriginLength);
-        OriginChecksum = ntohs(*(uint16_t*)p), p += sizeof(OriginChecksum);
         *(hdr + 14 + 9) = OriginProtocol & 0xFF;
         *(uint16_t*)(hdr + 14 + 2) = htons(OriginLength);
-        *(uint16_t*)(hdr + 14 + 10) = htons(OriginChecksum); // TODO IP首部校验和
+        *(uint16_t*)(hdr + 14 + 10) = 0; // TODO IP首部校验和
     }
     else{
         return;
@@ -402,7 +423,7 @@ void OnivLnkRecord::ParseRecord(const OnivFrame &frame, const OnivKeyEntry *keye
     data.assign(p, buf + OnivSize - p);
 }
 
-OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
+OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, OnivKeyEntry *keyent)
 {
     if(frame.IsOniv()){
         ParseRecord(frame, keyent);

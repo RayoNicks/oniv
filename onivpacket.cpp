@@ -43,7 +43,7 @@ OnivPacket::OnivPacket(const char *buf, const size_t size, OnivTunnel *tunnel, c
 {
     memcpy(&remote, &RemoteSocketAddress, sizeof(struct sockaddr_in));
 }
-
+/*
 OnivPacket::OnivPacket(const OnivFrame &frame)
 {
     packet.push_back(static_cast<char>(OnivPacketType::ONIV_RECORD));
@@ -55,7 +55,7 @@ OnivPacket::OnivPacket(const OnivFrame &frame)
     packet.push_back(static_cast<char>(vni));
     packet.append(frame.buffer(), frame.size());
 }
-
+*/
 void OnivPacket::dump() const
 {
     for(size_t i = 0; i < packet.size(); i += 16)
@@ -92,29 +92,29 @@ in_addr_t OnivPacket::RemoteIPAddress() const
 
 uint32_t OnivPacket::BroadcastDomain() const
 {
-    return *(uint32_t*)(buffer() + 2);
+    return ntohs(*(uint32_t*)(buffer() + sizeof(OnivCommon)));
 }
 
 size_t OnivPacket::size() const
 {
     return packet.size();
 }
-
+/*
 size_t OnivPacket::HdrSize() const
 {
     return sizeof(OnivCommon) + ((OnivCommon*)buffer())->len;
 }
-
+*/
 OnivPacketType OnivPacket::type() const
 {
-    return static_cast<OnivPacketType>(*packet.c_str());
+    return static_cast<OnivPacketType>(ntohs(((OnivCommon*)buffer())->type));
 }
 
 const char* OnivPacket::buffer() const
 {
     return packet.c_str();
 }
-
+/*
 const char* OnivPacket::frame() const
 {
     return packet.c_str() + HdrSize();
@@ -126,7 +126,7 @@ bool OnivPacket::belong(const OnivTunnel &tunnel) const
         && RemotePortNo() == tunnel.RemotePortNo()
         && RemoteIPAddress() == tunnel.RemoteIPAddress();
 }
-
+*/
 void OnivPacket::ResetIngressTunnel(OnivTunnel *tunnel)
 {
     ingress = tunnel;

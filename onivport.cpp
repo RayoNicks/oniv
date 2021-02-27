@@ -38,12 +38,16 @@ void OnivPort::EnSendingQueue(const vector<OnivFrame> &frames)
 
 void OnivPort::NotifySendingQueue()
 {
+    mtx.lock();
     eventfd_write(event, 1);
+    mtx.unlock();
 }
 
 void OnivPort::BlockSendingQueue()
 {
+    mtx.lock();
     eventfd_read(event, nullptr);
+    mtx.unlock();
 }
 
 int OnivPort::EventHandle() const

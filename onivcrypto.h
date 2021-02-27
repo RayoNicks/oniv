@@ -28,6 +28,8 @@ public:
     static string UUID();
     static OnivVerifyAlg VerifyAlgSet();
     static OnivKeyAgrAlg KeyAgrAlgSet();
+    static OnivVerifyAlg SelectVerifyAlg(OnivVerifyAlg pre, OnivVerifyAlg sup);
+    static OnivKeyAgrAlg SelectKeyAgrAlg(OnivKeyAgrAlg pre, OnivKeyAgrAlg sup);
     static vector<string> CertChain();
     static string GenSignature(const string &data);
     static string AcqPriKey(OnivKeyAgrAlg KeyAgrAlg);

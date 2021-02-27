@@ -4,7 +4,7 @@ char* LinearCommon(const OnivCommon &common, char *p)
 {
     *(uint16_t*)p = htons(common.type), p += sizeof(common.type);
     *(uint16_t*)p = htons(common.flag), p += sizeof(common.flag);
-    *(uint16_t*)p = htonl(common.len), p += sizeof(common.len);
+    *(uint32_t*)p = htonl(common.len), p += sizeof(common.len);
     memcpy(p, common.UUID, sizeof(common.UUID)), p += sizeof(common.UUID);
     return p;
 }
@@ -23,13 +23,13 @@ char* LinearCertChain(const vector<string> &CertChain, char *p)
     *(uint16_t*)p = htons(CertNum), p += sizeof(uint16_t);
     for(uint16_t i = 0; i < CertNum; i++)
     {
-        *(uint16_t*)p = htons(CertChain[i].size());
+        *(uint16_t*)p = htons(CertChain[i].length());
         p += sizeof(uint16_t);
     }
     for(int16_t i = 0; i < CertNum; i++)
     {
-        memcpy(p, CertChain[i].c_str(), CertChain[i].size());
-        p += CertChain[i].size();
+        memcpy(p, CertChain[i].c_str(), CertChain[i].length());
+        p += CertChain[i].length();
     }
     return p;
 }

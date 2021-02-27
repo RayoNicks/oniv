@@ -16,6 +16,7 @@ protected:
     uint32_t vni;
     OnivQueue sq;
     int event;
+    mutex mtx;
 public:
     OnivPort(const int mtu, const uint32_t vni);
     OnivPort() = delete;

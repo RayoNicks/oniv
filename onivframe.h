@@ -38,7 +38,7 @@ public:
     OnivFrame& operator=(OnivFrame &&of);
     ~OnivFrame();
     OnivFrame(const char *buf, const size_t size, OnivPort *port);
-    OnivFrame(const OnivPacket &packet);
+    // OnivFrame(const OnivPacket &packet);
 
     void dump() const;
     // vector<OnivFrame> encapsulate(const string &LnkSK, OnivVerifyAlg VerifyAlg);

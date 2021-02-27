@@ -42,12 +42,14 @@ namespace std{
 struct OnivKeyEntry
 {
     // 可以不保存HwAddr
-    string HwAddr, RemoteUUID, RemotePubKey, LocalPriKey, LocalPubKey, LnkSK;
+    string HwAddr, RemoteUUID, RemotePubKey, LocalPriKey, LocalPubKey, SessionKey;
     in_addr_t address;
     in_port_t PortNo;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     bool UpdPk, AckPk;
+    uint64_t ts;
+    OnivKeyEntry();
     OnivKeyEntry(const string &HwAddr, in_addr_t address, in_port_t port, const string &RemoteUUID,
                     OnivKeyAgrAlg KeyAgrAlg, const string &RemotePubKey,
                     const string &LocalPriKey, const string &LocalPubKey,

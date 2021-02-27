@@ -42,13 +42,13 @@ OnivFrame::OnivFrame(const char *buf, const size_t size, OnivPort *port)
 {
 
 }
-
+/*
 OnivFrame::OnivFrame(const OnivPacket &packet)
     : frame(packet.frame(), packet.size() - packet.HdrSize()), ingress(packet.IngressPort())
 {
 
 }
-
+*/
 void OnivFrame::dump() const
 {
     for(size_t i = 0; i < frame.size(); i += 16)
@@ -98,7 +98,7 @@ size_t OnivFrame::size() const
 
 OnivPacketType OnivFrame::type() const
 {
-    return static_cast<OnivPacketType>(*OnivHdr());
+    return static_cast<OnivPacketType>(ntohs(((OnivCommon*)OnivHdr())->type));
 }
 
 const char* OnivFrame::buffer() const
@@ -113,7 +113,7 @@ const char* OnivFrame::Layer2Hdr() const
 
 const char* OnivFrame::Layer3Hdr() const
 {
-    if(IsARP() || IsIP()){
+    if(IsARP() || IsIP() || IsLayer3Oniv()){
         return Layer2Hdr() + 14;
     }
     else{
@@ -243,7 +243,7 @@ const string OnivFrame::SrcHwAddr() const
 
 bool OnivFrame::IsBroadcast() const
 {
-    return string(DestHwAddr(), 6) == string(6, 0xFF);
+    return DestHwAddr() == string(6, 0xFF);
 }
 
 bool OnivFrame::IsARP() const

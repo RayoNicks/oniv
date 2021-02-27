@@ -83,7 +83,7 @@ void* Onivd::AdapterThread(void *para)
                         oniv->Blocked.push_back(frame);
                     }
                     else{
-                        OnivLnkRecord rec(frame, keyent);
+                        OnivLnkRecord rec(frame, const_cast<OnivKeyEntry*>(keyent));
                         forent->egress->EnSendingQueue(rec.record());
                         oniv->fdb.update(frame); // 更新转发表
                     }
@@ -545,7 +545,7 @@ OnivErr Onivd::ProcessTunKeyAgrReq(const OnivPacket &packet)
         AcceptTunnel = &*iter;
     }
     AcceptTunnel->AuthCert(packet);
-    iter->NotifySendingQueue(); // 唤醒发送进程，发送隧道密钥协商响应或者失败消息
+    AcceptTunnel->NotifySendingQueue(); // 唤醒发送进程，发送隧道密钥协商响应或者失败消息
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
@@ -568,7 +568,7 @@ OnivErr Onivd::ProcessTunKeyAgrRes(const OnivPacket &packet)
     }
     AcceptTunnel = &*iter;
     AcceptTunnel->AuthCert(packet);
-    iter->NotifySendingQueue(); // 唤醒发送进程，发送数据帧或者隧道密钥协商失败消息
+    AcceptTunnel->NotifySendingQueue(); // 唤醒发送进程，发送数据帧或者隧道密钥协商失败消息
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
@@ -586,12 +586,13 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
     }
     AcceptTunnel = &*iter;
     packet.ResetIngressTunnel(AcceptTunnel);
-    OnivErr oe = AcceptTunnel->VerifyPacket(packet); // 隧道身份验证
-    if(oe.occured()){
-        return oe;
-    }
+    // OnivErr oe = AcceptTunnel->VerifyPacket(packet);
+    // if(oe.occured()){
+    //     return oe;
+    // }
 
-    OnivFrame frame(packet);
+    OnivTunRecord rec(packet, AcceptTunnel->KeyEntry()); // 隧道身份验证
+    OnivFrame frame(rec.frame(), rec.FrameSize(), packet.IngressPort());
     if(frame.IsBroadcast()){ // 发送到广播域
         for(AdapterIter iter = adapters.begin(); iter != adapters.end(); iter++)
         {
@@ -679,7 +680,7 @@ OnivErr Onivd::ProcessLnkKeyAgrRes(const OnivFrame &frame)
             FrameIter iter = Blocked.begin();
             while(iter != Blocked.end()){
                 if(iter->DestIPAddr() == keyent->address){
-                    OnivLnkRecord rec(frame, keyent);
+                    OnivLnkRecord rec(frame, const_cast<OnivKeyEntry*>(keyent));
                     frame.IngressPort()->EnSendingQueue(rec.record());
                     Blocked.erase(iter);
                 }
@@ -702,7 +703,7 @@ OnivErr Onivd::ProcessLnkRecord(const OnivFrame &frame)
         return OnivErr(OnivErrCode::ERROR_NO_FORWARD_ENTRY);
     }
     const OnivKeyEntry *keyent = kdb.SearchFrom(frame);
-    OnivLnkRecord rec(frame, keyent);
+    OnivLnkRecord rec(frame, const_cast<OnivKeyEntry*>(keyent));
     forent->egress->EnSendingQueue(rec.frame()); // 唤醒发送线程
     fdb.update(frame); // 更新转发表
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);

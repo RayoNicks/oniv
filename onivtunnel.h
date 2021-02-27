@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "onivglobal.h"
+#include "oniventry.h"
 #include "onivport.h"
 #include "onivsecond.h"
 
@@ -28,10 +29,12 @@ class OnivTunnel : public OnivPort
 private:
     static int LocalTunnelSocket;
     sockaddr_in RemoteSocket;
-    string RemoteUUID, RemotePubKey, TunSK;
-    OnivVerifyAlg VerifyAlg;
-    OnivKeyAgrAlg KeyAgrAlg;
+    // string RemoteUUID, RemotePubKey, TunSK;
+    // OnivVerifyAlg VerifyAlg;
+    // OnivKeyAgrAlg KeyAgrAlg;
     bool ValidSignature;
+    // bool UpdPk, AckPk;
+    OnivKeyEntry keyent;
     in_addr_t AdapterNameToAddr(const string &TunnelAdapterName);
 public:
     OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int mtu);
@@ -51,6 +54,7 @@ public:
     string RemoteID() const;
     in_port_t RemotePortNo() const;
     in_addr_t RemoteIPAddress() const;
+    OnivKeyEntry* KeyEntry();
 };
 
 #endif

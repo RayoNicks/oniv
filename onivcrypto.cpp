@@ -2,7 +2,7 @@
 
 string OnivCrypto::UUID()
 {
-    return string();
+    return string(16, '0');
 }
 
 OnivVerifyAlg OnivCrypto::VerifyAlgSet()
@@ -15,14 +15,24 @@ OnivKeyAgrAlg OnivCrypto::KeyAgrAlgSet()
     return OnivKeyAgrAlg::ALL;
 }
 
+OnivVerifyAlg OnivCrypto::SelectVerifyAlg(OnivVerifyAlg pre, OnivVerifyAlg sup)
+{
+    return pre;
+}
+
+OnivKeyAgrAlg OnivCrypto::SelectKeyAgrAlg(OnivKeyAgrAlg pre, OnivKeyAgrAlg sup)
+{
+    return pre;
+}
+
 vector<string> OnivCrypto::CertChain()
 {
-    return vector<string>();
+    return vector<string>({ string("root"), string("host") });
 }
 
 string OnivCrypto::GenSignature(const string &data)
 {
-    return string();
+    return string("signature");
 }
 
 string OnivCrypto::AcqPriKey(OnivKeyAgrAlg KeyAgrAlg)
@@ -69,7 +79,7 @@ string OnivCrypto::ComputeSessionKey(OnivKeyAgrAlg KeyAgrAlg, const string &PubK
 {
     string key;
     if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
-        for(size_t i = 0; i < PubKey.size() && PriKey.size(); i++)
+        for(size_t i = 0; i < PubKey.length() && PriKey.length(); i++)
         {
             key.push_back(PubKey[i] ^ PriKey[i]);
         }
@@ -83,14 +93,15 @@ string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg, const string &SK, const 
 {
     string code;
     if(VerifyAlg == OnivVerifyAlg::IV_SIMPLE_XOR){
-        size_t i = 0;
-        while(i < UserData.length()){
-            for(size_t j = 0; j < SK.length(); j++)
-            {
-                code.push_back(0x00);
-            }
-        }
-        return code;
+        return string("xor xor xor xor.");
+        // size_t i = 0;
+        // while(i < UserData.length()){
+        //     for(size_t j = 0; j < SK.length(); j++)
+        //     {
+        //         code.push_back(0x00);
+        //     }
+        // }
+        // return code;
     }
     else{
         return string();
@@ -100,7 +111,7 @@ string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg, const string &SK, const 
 size_t OnivCrypto::PubKeySize(OnivKeyAgrAlg KeyAgrAlg)
 {
     if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
-        return sizeof("generated public key");
+        return string("generated public key").length();
     }
     else{
         return 0;

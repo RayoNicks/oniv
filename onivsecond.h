@@ -5,7 +5,9 @@
 
 #include "oniv.h"
 #include "onivcrypto.h"
+#include "onivframe.h"
 #include "onivpacket.h"
+#include "onivtunnel.h"
 
 class OnivTunReq
 {
@@ -25,7 +27,7 @@ public:
     OnivTunReq& operator=(const OnivTunReq &req) = delete;
     ~OnivTunReq();
     bool VerifySignature();
-    char* request();
+    const char* request();
     size_t size();
 };
 
@@ -41,13 +43,35 @@ public:
     vector<string> CertChain;
     string pk;
     string signature;
-    OnivTunRes(uint32_t bdi, OnivVerifyAlg VerifyAlg, OnivKeyAgrAlg KeyAgrAlg); // 发送方构造函数
+    OnivTunRes(uint32_t vni, OnivVerifyAlg VerifyAlg, OnivKeyAgrAlg KeyAgrAlg); // 发送方构造函数
     OnivTunRes(const OnivPacket &packet); // 接收方构造函数
+    OnivTunRes(const OnivTunRes &res) = delete;
+    OnivTunRes& operator=(const OnivTunRes &res) = delete;
+    ~OnivTunRes();
     bool VerifySignature();
-    char* response();
+    const char* response();
     size_t size();
 };
 
-
+class OnivTunRecord
+{
+private:
+    char *buf;
+public:
+    OnivCommon common;
+    uint32_t bdi; // broadcast domain identifier
+    uint64_t UpdTs, AckTs;
+    string pk, code, data;
+    OnivPort *ingress;
+    OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry *keyent); // 发送方构造函数
+    OnivTunRecord(const OnivPacket &packet, OnivKeyEntry *keyent); // 接收方构造函数
+    OnivTunRecord(const OnivTunRecord &rec) = delete;
+    OnivTunRecord& operator=(const OnivTunRecord &rec) = delete;
+    ~OnivTunRecord();
+    const char* record();
+    const char* frame();
+    size_t size();
+    size_t FrameSize();
+};
 
 #endif

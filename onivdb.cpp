@@ -1,4 +1,4 @@
-#include "onivfdb.h"
+#include "onivdb.h"
 
 const OnivForwardingEntry* OnivFDB::search(const OnivFrame &frame)
 {
@@ -103,7 +103,7 @@ const OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &re
                         static_cast<OnivVerifyAlg>(res.VerifyAlg), string());
     ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
     ent.LocalPubKey = OnivCrypto::GenPubKey(ent.KeyAgrAlg, ent.LocalPriKey);
-    ent.LnkSK = OnivCrypto::ComputeSessionKey(ent.KeyAgrAlg, ent.RemotePubKey, ent.LocalPriKey);
+    ent.SessionKey = OnivCrypto::ComputeSessionKey(ent.KeyAgrAlg, ent.RemotePubKey, ent.LocalPriKey);
     ent.UpdPk = true;
     ent.AckPk = false;
 
