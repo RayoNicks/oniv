@@ -274,6 +274,7 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
         HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
         hdr = new char[HdrSize + 20 + 8]; // 最小IP首部加UDP首部
         memcpy(hdr, frame.Layer2Hdr(), HdrSize);
+        *(uint16_t*)(hdr + 12) = htons(0x0800);
         *(hdr + HdrSize) = 0x45; // 版本和首部长度
         *(hdr + HdrSize + 1) = 0x00; // 服务类型
         *(uint16_t*)(hdr + HdrSize + 4) = htons(OnivGlobal::OnivType); // 标识
@@ -305,7 +306,6 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
         UpdTs = keyent->ts;
         AckTs = 0;
         common.len = sizeof(UpdTs) + sizeof(AckTs);
-        keyent->AckPk = false;
     }
     else{
         common.flag = static_cast<uint16_t>(OnivPacketFlag::NONE);
@@ -352,6 +352,7 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
     else if(keyent->AckPk){
         *(uint64_t*)p = UpdTs, p += sizeof(UpdTs);
         *(uint64_t*)p = AckTs, p += sizeof(AckTs);
+        keyent->AckPk = false;
     }
     *(uint16_t*)p = htons(OriginProtocol), p += sizeof(OriginProtocol);
     if(frame.IsIP()){

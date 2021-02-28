@@ -14,7 +14,7 @@ class OnivPort
 protected:
     int mtu;
     uint32_t vni;
-    OnivQueue sq;
+    OnivSendingQueue sq;
     int event;
     mutex mtx;
 public:

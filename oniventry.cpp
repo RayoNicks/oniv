@@ -39,8 +39,8 @@ OnivKeyEntry::OnivKeyEntry(const string &HwAddr, in_addr_t address, in_port_t po
 OnivKeyEntry::OnivKeyEntry(const OnivKeyEntry &keyent)
     : HwAddr(keyent.HwAddr), RemoteUUID(keyent.RemoteUUID), RemotePubKey(keyent.RemotePubKey),
     LocalPriKey(keyent.LocalPriKey), LocalPubKey(keyent.LocalPubKey), SessionKey(keyent.SessionKey),
-    address(keyent.address), VerifyAlg(keyent.VerifyAlg), KeyAgrAlg(keyent.KeyAgrAlg),
-    UpdPk(false), AckPk(false), ts(0)
+    address(keyent.address), PortNo(keyent.PortNo), VerifyAlg(keyent.VerifyAlg), KeyAgrAlg(keyent.KeyAgrAlg),
+    UpdPk(keyent.UpdPk), AckPk(keyent.AckPk), ts(keyent.ts)
 {
 
 }
@@ -54,6 +54,7 @@ OnivKeyEntry& OnivKeyEntry::operator=(const OnivKeyEntry &keyent)
     LocalPubKey = keyent.LocalPubKey;
     SessionKey = keyent.SessionKey;
     address = keyent.address;
+    PortNo = keyent.PortNo;
     VerifyAlg = keyent.VerifyAlg;
     KeyAgrAlg = keyent.KeyAgrAlg;
     UpdPk = keyent.UpdPk;

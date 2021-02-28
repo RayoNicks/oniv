@@ -289,17 +289,17 @@ in_addr_t OnivFrame::DestIPAddr() const
 
 bool OnivFrame::IsICMP() const
 {
-    return IsIP() && *(Layer3Hdr() + 10) == 0x01;
+    return IsIP() && *(Layer3Hdr() + 9) == 0x01;
 }
 
 bool OnivFrame::IsTCP() const
 {
-    return IsIP() && *(Layer3Hdr() + 10) == 0x06;
+    return IsIP() && *(Layer3Hdr() + 9) == 0x06;
 }
 
 bool OnivFrame::IsUDP() const
 {
-    return IsIP() && *(Layer3Hdr() + 10) == 0x11;
+    return IsIP() && *(Layer3Hdr() + 9) == 0x11;
 }
 
 in_port_t OnivFrame::SrcPort() const

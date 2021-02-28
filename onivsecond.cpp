@@ -190,7 +190,6 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry 
         UpdTs = keyent->ts;
         AckTs = 0;
         common.len += sizeof(UpdTs) + sizeof(AckTs);
-        keyent->AckPk = false;
     }
     else{
         common.flag = static_cast<uint16_t>(OnivPacketFlag::NONE);
@@ -215,6 +214,7 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry 
     else if(keyent->AckPk){
         *(uint64_t*)p = UpdTs, p += sizeof(UpdTs);
         *(uint64_t*)p = AckTs, p += sizeof(AckTs);
+        keyent->AckPk = false;
     }
     memcpy(p, code.c_str(), code.length()), p += code.length();
     memcpy(p, data.c_str(), data.length());

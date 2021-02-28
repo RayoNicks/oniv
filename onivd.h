@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <list>
 #include <string>
 
 #include <arpa/inet.h>
@@ -22,12 +21,10 @@
 #include "onivframe.h"
 #include "onivglobal.h"
 #include "onivpacket.h"
-// #include "onivport.h"
 #include "onivsecond.h"
 #include "onivtunnel.h"
 
 using std::find_if;
-using std::list;
 using std::pair;
 using std::string;
 
@@ -39,8 +36,9 @@ private:
     OnivFDB fdb;
     OnivKDB kdb;
 
-    typedef list<OnivFrame>::iterator FrameIter;
-    list<OnivFrame> Blocked;
+    // typedef list<OnivFrame>::iterator FrameIter;
+    // list<OnivFrame> Blocked;
+    OnivBlockingQueue bq;
 
     typedef list<OnivAdapter>::iterator AdapterIter;
     list<OnivAdapter> adapters;

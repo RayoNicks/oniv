@@ -76,11 +76,11 @@ void* Onivd::AdapterThread(void *para)
                     if(keyent == nullptr){
                         OnivLnkReq req(frame); // 根据要发送的数据帧构造链路密钥协商请求
                         forent->egress->EnSendingQueue(req.request()); // 唤醒发送线程
-                        oniv->Blocked.push_back(frame);
+                        oniv->bq.enqueue(frame);
                         oniv->kdb.update(frame); // 后续发往同一目的主机的数据帧不再发送链路密钥协商请求
                     }
                     else if(keyent->RemoteUUID.empty()){
-                        oniv->Blocked.push_back(frame);
+                        oniv->bq.enqueue(frame);
                     }
                     else{
                         OnivLnkRecord rec(frame, const_cast<OnivKeyEntry*>(keyent));
@@ -677,16 +677,11 @@ OnivErr Onivd::ProcessLnkKeyAgrRes(const OnivFrame &frame)
     if(res.VerifySignature()){
         const OnivKeyEntry *keyent = kdb.update(frame, res);
         if(keyent != nullptr){ // 发送阻塞队列中的数据帧
-            FrameIter iter = Blocked.begin();
-            while(iter != Blocked.end()){
-                if(iter->DestIPAddr() == keyent->address){
-                    OnivLnkRecord rec(frame, const_cast<OnivKeyEntry*>(keyent));
-                    frame.IngressPort()->EnSendingQueue(rec.record());
-                    Blocked.erase(iter);
-                }
-                else{
-                    iter++;
-                }
+            vector<OnivFrame> BlockingFrames = bq.ConditionDequeue(keyent->address);
+            for(const OnivFrame &bf: BlockingFrames)
+            {
+                OnivLnkRecord rec(bf, const_cast<OnivKeyEntry*>(keyent));
+                frame.IngressPort()->EnSendingQueue(rec.record());
             }
         }
     }
