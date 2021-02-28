@@ -40,7 +40,7 @@ OnivTunReq::OnivTunReq(uint32_t vni) : buf(nullptr)
     memcpy(p, signature.c_str(), signature.length());
 }
 
-OnivTunReq::OnivTunReq(const OnivPacket &packet)
+OnivTunReq::OnivTunReq(const OnivPacket &packet) : buf(nullptr)
 {
     if(packet.type() != OnivPacketType::TUN_KA_REQ || packet.size() < sizeof(OnivCommon)){
         return;
@@ -87,7 +87,7 @@ size_t OnivTunReq::size()
     return sizeof(OnivCommon) + common.len;
 }
 
-OnivTunRes::OnivTunRes(uint32_t vni, OnivVerifyAlg va, OnivKeyAgrAlg kaa)
+OnivTunRes::OnivTunRes(uint32_t vni, OnivVerifyAlg va, OnivKeyAgrAlg kaa) : buf(nullptr)
 {
     string UUID(OnivCrypto::UUID());
     common.type = static_cast<uint16_t>(OnivPacketType::TUN_KA_RES);
@@ -126,7 +126,7 @@ OnivTunRes::OnivTunRes(uint32_t vni, OnivVerifyAlg va, OnivKeyAgrAlg kaa)
     memcpy(p, signature.c_str(), signature.length());
 }
 
-OnivTunRes::OnivTunRes(const OnivPacket &packet)
+OnivTunRes::OnivTunRes(const OnivPacket &packet) : buf(nullptr)
 {
     if(packet.type() != OnivPacketType::TUN_KA_RES || packet.size() < sizeof(OnivCommon)){
         return;
@@ -174,7 +174,7 @@ size_t OnivTunRes::size()
     return sizeof(OnivCommon) + common.len;
 }
 
-OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry *keyent)
+OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry *keyent) : buf(0)
 {
     string UUID(OnivCrypto::UUID());
     common.type = static_cast<uint16_t>(OnivPacketType::ONIV_RECORD);
@@ -220,7 +220,7 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry 
     memcpy(p, data.c_str(), data.length());
 }
 
-OnivTunRecord::OnivTunRecord(const OnivPacket &packet, OnivKeyEntry *keyent)
+OnivTunRecord::OnivTunRecord(const OnivPacket &packet, OnivKeyEntry *keyent) : buf(0)
 {
     if(packet.type() != OnivPacketType::ONIV_RECORD || packet.size() < sizeof(OnivCommon)){
         return;

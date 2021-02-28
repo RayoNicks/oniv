@@ -208,7 +208,7 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent)
     memcpy(p, signature.c_str(), signature.length());
 }
 
-OnivLnkRes::OnivLnkRes(const OnivFrame &frame)
+OnivLnkRes::OnivLnkRes(const OnivFrame &frame) : hdr(nullptr), buf(nullptr), HdrSize(0)
 {
     size_t OnivSize = frame.buffer() + frame.size() - frame.OnivHdr();
     if(frame.type() != OnivPacketType::LNK_KA_RES){
@@ -407,6 +407,7 @@ void OnivLnkRecord::ParseRecord(const OnivFrame &frame, OnivKeyEntry *keyent)
     OriginProtocol = ntohs(*(uint16_t*)p), p += sizeof(OriginProtocol);
     if(OriginProtocol == 0x0806){
         *(uint16_t*)(hdr + 12) = htons(OriginProtocol);
+        HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
     }
     else{
         OriginLength = ntohs(*(uint16_t*)p), p += sizeof(OriginLength);
@@ -422,7 +423,7 @@ void OnivLnkRecord::ParseRecord(const OnivFrame &frame, OnivKeyEntry *keyent)
     data.assign(p, buf + OnivSize - p);
 }
 
-OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, OnivKeyEntry *keyent)
+OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, OnivKeyEntry *keyent) : hdr(nullptr), buf(nullptr), HdrSize(0)
 {
     if(frame.IsOniv()){
         ParseRecord(frame, keyent);
