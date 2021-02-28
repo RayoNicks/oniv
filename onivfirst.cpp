@@ -8,17 +8,21 @@ void OnivLnkReq::ConstructRequest(const OnivFrame &frame)
     }
     if(frame.IsARP()){
         HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
-        hdr = new char[HdrSize];
+        hdr = new char[HdrSize + 20 + 8]; // 最小IP首部加UDP首部
         memcpy(hdr, frame.Layer2Hdr(), HdrSize);
-        *(uint16_t*)(hdr + 12) = htons(OnivGlobal::OnivType);
+        *(uint8_t*)(hdr + HdrSize) = 0x45; // 版本和首部长度
+        *(uint8_t*)(hdr + HdrSize + 1) = 0x00; // 服务类型
+        *(uint16_t*)(hdr + HdrSize + 4) = htons(OnivGlobal::OnivType); // 标识
+        *(uint16_t*)(hdr + HdrSize + 6) = htons(0x4000); // 分片
+        *(uint8_t*)(hdr + HdrSize + 8) = 64; // 生存时间
+        *(uint8_t*)(hdr + HdrSize + 12) = frame.SrcIPAddr();
+        *(uint8_t*)(hdr + HdrSize + 16) = frame.DestIPAddr();
+        HdrSize += 20; // HdrSize对齐到UDP首部
     }
     else if(frame.IsIP()){
         HdrSize = frame.Layer4Hdr() - frame.Layer2Hdr();
         hdr = new char[HdrSize + 8]; // UDP首部
         memcpy(hdr, frame.Layer2Hdr(), HdrSize);
-        *(uint16_t*)(hdr + HdrSize) = htons(OnivGlobal::TunnelPortNo); // UDP源端口号
-        *(uint16_t*)(hdr + HdrSize + 2) = htons(OnivGlobal::TunnelPortNo); // UDP目的端口号
-        *(uint16_t*)(hdr + HdrSize + 6) = 0; // 校验和设置为0
     }
     else{
         return;
@@ -45,13 +49,15 @@ void OnivLnkReq::ConstructRequest(const OnivFrame &frame)
     }
     signature = OnivCrypto::GenSignature(UUID);
     common.len += signature.length();
-    if(frame.IsIP()){ // 修正hdr中的IP首部和UDP首部
-        *(uint16_t*)(hdr + HdrSize + 4) = htons(8 + size()); // UDP首部长度字段
-        *(uint16_t*)(hdr + 14 + 2) = htons(frame.IPHdrLen() + 8 + size()); // IP首部长度字段
-        *(hdr + 14 + 9) = 0x11; // IP上层协议类型
-        *(uint16_t*)(hdr + 14 + 10) = 0; // TODO IP首部校验和
-        HdrSize += 8; // 原始HdrSize中不包含UDP首部
-    }
+    // 修正hdr中的IP首部和UDP首部
+    *(uint16_t*)(hdr + HdrSize) = htons(OnivGlobal::TunnelPortNo); // UDP源端口号
+    *(uint16_t*)(hdr + HdrSize + 2) = htons(OnivGlobal::TunnelPortNo); // UDP目的端口号
+    *(uint16_t*)(hdr + HdrSize + 4) = htons(8 + size()); // UDP首部长度字段
+    *(uint16_t*)(hdr + HdrSize + 6) = 0; // 校验和设置为0
+    *(uint16_t*)(hdr + 14 + 2) = htons(frame.IPHdrLen() + 8 + size()); // IP首部长度字段
+    *(hdr + 14 + 9) = 0x11; // IP上层协议类型
+    *(uint16_t*)(hdr + 14 + 10) = 0; // TODO IP首部校验和
+    HdrSize += 8; // 原始HdrSize中不包含UDP首部
 
     // 以网络字节序线性化
     buf = new char[size()];
@@ -149,18 +155,12 @@ size_t OnivLnkReq::size()
 
 OnivLnkRes::OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent) : hdr(nullptr), buf(nullptr), HdrSize(0)
 {
-    const char *HdrStart = LnkReqFrame.Layer2Hdr();
-    if(LnkReqFrame.IsLayer3Oniv()){
-        HdrSize = LnkReqFrame.Layer3Hdr() - LnkReqFrame.Layer2Hdr();
-    }
-    else if(LnkReqFrame.IsLayer4Oniv()){
-        HdrSize = LnkReqFrame.OnivHdr() - LnkReqFrame.Layer2Hdr();
-    }
-    else{
+    if(!LnkReqFrame.IsLayer4Oniv()){
         return;
     }
+    HdrSize = LnkReqFrame.OnivHdr() - LnkReqFrame.Layer2Hdr();
     // 拷贝并调换frame中的首部地址信息
-    OnivFrame LnkResFrame(HdrStart, HdrSize, nullptr);
+    OnivFrame LnkResFrame(LnkReqFrame.Layer2Hdr(), HdrSize, nullptr);
     LnkResFrame.reverse(); // 调换MAC地址，IP地址和端口号
     hdr = new char[HdrSize];
     memcpy(hdr, LnkResFrame.Layer2Hdr(), HdrSize);
@@ -187,11 +187,10 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent)
     common.len += pk.length();
     signature = OnivCrypto::GenSignature(UUID + pk);
     common.len += signature.length();
-    if(LnkReqFrame.IsLayer4Oniv()){
-        *(uint16_t*)(hdr + HdrSize - 4) = htons(8 + size()); // UDP首部长度字段
-        *(uint16_t*)(hdr + 14 + 2) = htons(LnkResFrame.IPHdrLen() + 8 + size()); // IP首部长度字段
-        *(uint16_t*)(hdr + 14 + 10) = 0; // TODO IP首部校验和 
-    }
+    // 修正hdr中的IP首部和UDP首部
+    *(uint16_t*)(hdr + HdrSize - 4) = htons(8 + size()); // UDP首部长度字段
+    *(uint16_t*)(hdr + 14 + 2) = htons(LnkResFrame.IPHdrLen() + 8 + size()); // IP首部长度字段
+    *(uint16_t*)(hdr + 14 + 10) = 0; // TODO IP首部校验和 
 
     // 以网络字节序线性化
     buf = new char[size()];
@@ -272,17 +271,21 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
     }
     if(frame.IsARP()){
         HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
-        hdr = new char[HdrSize];
+        hdr = new char[HdrSize + 20 + 8]; // 最小IP首部加UDP首部
         memcpy(hdr, frame.Layer2Hdr(), HdrSize);
-        *(uint16_t*)(hdr + 12) = htons(OnivGlobal::OnivType);
+        *(uint8_t*)(hdr + HdrSize) = 0x45; // 版本和首部长度
+        *(uint8_t*)(hdr + HdrSize + 1) = 0x00; // 服务类型
+        *(uint16_t*)(hdr + HdrSize + 4) = htons(OnivGlobal::OnivType); // 标识
+        *(uint16_t*)(hdr + HdrSize + 6) = htons(0x4000); // 分片
+        *(uint8_t*)(hdr + HdrSize + 8) = 64; // 生存时间
+        *(uint8_t*)(hdr + HdrSize + 12) = frame.SrcIPAddr();
+        *(uint8_t*)(hdr + HdrSize + 16) = frame.DestIPAddr();
+        HdrSize += 20; // HdrSize对齐到UDP首部
     }
     else if(frame.IsIP()){
         HdrSize = frame.Layer4Hdr() - frame.Layer2Hdr();
         hdr = new char[HdrSize + 8]; // UDP首部
         memcpy(hdr, frame.Layer2Hdr(), HdrSize);
-        *(uint16_t*)(hdr + HdrSize) = htons(OnivGlobal::TunnelPortNo); // UDP源端口号
-        *(uint16_t*)(hdr + HdrSize + 2) = keyent->PortNo; // UDP目的端口号
-        *(uint16_t*)(hdr + HdrSize + 6) = 0; // 校验和设置为0
     }
     else{
         return;
@@ -327,13 +330,15 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
     escrow;
     common.len += escrow.length();
     common.len += data.length();
-    if(frame.IsIP()){ // 修正hdr中的IP首部和UDP首部
-        *(uint16_t*)(hdr + HdrSize + 4) = htons(8 + size()); // UDP首部长度字段
-        *(uint16_t*)(hdr + 14 + 2) = htons(frame.IPHdrLen() + 8 + size()); // IP首部长度字段
-        *(hdr + 14 + 9) = 0x11; // IP上层协议类型
-        *(uint16_t*)(hdr + 14 + 10) = 0; // TODO IP首部校验和
-        HdrSize += 8; // 原始HdrSize中不包含UDP首部
-    }
+    // 修正hdr中的IP首部和UDP首部
+    *(uint16_t*)(hdr + HdrSize) = htons(OnivGlobal::TunnelPortNo); // UDP源端口号
+    *(uint16_t*)(hdr + HdrSize + 2) = keyent->PortNo; // UDP目的端口号
+    *(uint16_t*)(hdr + HdrSize + 4) = htons(8 + size()); // UDP首部长度字段
+    *(uint16_t*)(hdr + HdrSize + 6) = 0; // 校验和设置为0
+    *(uint16_t*)(hdr + 14 + 2) = htons(frame.IPHdrLen() + 8 + size()); // IP首部长度字段
+    *(hdr + 14 + 9) = 0x11; // IP上层协议类型
+    *(uint16_t*)(hdr + 14 + 10) = 0; // TODO IP首部校验和
+    HdrSize += 8; // 原始HdrSize中不包含UDP首部
 
     // 以网络字节序线性化
     buf = new char[size()];
@@ -358,15 +363,10 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
 
 void OnivLnkRecord::ParseRecord(const OnivFrame &frame, OnivKeyEntry *keyent)
 {
-    if(frame.IsLayer3Oniv()){
-        HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
-    }
-    else if(frame.IsLayer4Oniv()){
-        HdrSize = frame.Layer4Hdr() - frame.Layer2Hdr();
-    }
-    else{
+    if(!frame.IsLayer4Oniv()){
         return;
     }
+    HdrSize = frame.Layer4Hdr() - frame.Layer2Hdr();
     hdr = new char[HdrSize];
     memcpy(hdr, frame.Layer2Hdr(), HdrSize);
 
@@ -403,17 +403,14 @@ void OnivLnkRecord::ParseRecord(const OnivFrame &frame, OnivKeyEntry *keyent)
         keyent->ts = AckTs;
     }
     OriginProtocol = ntohs(*(uint16_t*)p), p += sizeof(OriginProtocol);
-    if(frame.IsLayer3Oniv()){
+    if(OriginProtocol == 0x0806){
         *(uint16_t*)(hdr + 12) = htons(OriginProtocol);
     }
-    else if(frame.IsLayer4Oniv()){
+    else{
         OriginLength = ntohs(*(uint16_t*)p), p += sizeof(OriginLength);
         *(hdr + 14 + 9) = OriginProtocol & 0xFF;
         *(uint16_t*)(hdr + 14 + 2) = htons(OriginLength);
         *(uint16_t*)(hdr + 14 + 10) = 0; // TODO IP首部校验和
-    }
-    else{
-        return;
     }
 
     size_t CodeSize = OnivCrypto::MsgAuthCodeSize(keyent->VerifyAlg);
