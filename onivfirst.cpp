@@ -10,13 +10,14 @@ void OnivLnkReq::ConstructRequest(const OnivFrame &frame)
         HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
         hdr = new char[HdrSize + 20 + 8]; // 最小IP首部加UDP首部
         memcpy(hdr, frame.Layer2Hdr(), HdrSize);
-        *(uint8_t*)(hdr + HdrSize) = 0x45; // 版本和首部长度
-        *(uint8_t*)(hdr + HdrSize + 1) = 0x00; // 服务类型
+        *(uint16_t*)(hdr + 12) = htons(0x0800);
+        *(hdr + HdrSize) = 0x45; // 版本和首部长度
+        *(hdr + HdrSize + 1) = 0x00; // 服务类型
         *(uint16_t*)(hdr + HdrSize + 4) = htons(OnivGlobal::OnivType); // 标识
         *(uint16_t*)(hdr + HdrSize + 6) = htons(0x4000); // 分片
-        *(uint8_t*)(hdr + HdrSize + 8) = 64; // 生存时间
-        *(uint8_t*)(hdr + HdrSize + 12) = frame.SrcIPAddr();
-        *(uint8_t*)(hdr + HdrSize + 16) = frame.DestIPAddr();
+        *(hdr + HdrSize + 8) = 64; // 生存时间
+        *(uint32_t*)(hdr + HdrSize + 12) = frame.SrcIPAddr();
+        *(uint32_t*)(hdr + HdrSize + 16) = frame.DestIPAddr();
         HdrSize += 20; // HdrSize对齐到UDP首部
     }
     else if(frame.IsIP()){
@@ -54,7 +55,7 @@ void OnivLnkReq::ConstructRequest(const OnivFrame &frame)
     *(uint16_t*)(hdr + HdrSize + 2) = htons(OnivGlobal::TunnelPortNo); // UDP目的端口号
     *(uint16_t*)(hdr + HdrSize + 4) = htons(8 + size()); // UDP首部长度字段
     *(uint16_t*)(hdr + HdrSize + 6) = 0; // 校验和设置为0
-    *(uint16_t*)(hdr + 14 + 2) = htons(frame.IPHdrLen() + 8 + size()); // IP首部长度字段
+    *(uint16_t*)(hdr + 14 + 2) = htons(HdrSize - 14 + 8 + size()); // IP首部长度字段
     *(hdr + 14 + 9) = 0x11; // IP上层协议类型
     *(uint16_t*)(hdr + 14 + 10) = 0; // TODO IP首部校验和
     HdrSize += 8; // 原始HdrSize中不包含UDP首部
@@ -273,13 +274,13 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
         HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
         hdr = new char[HdrSize + 20 + 8]; // 最小IP首部加UDP首部
         memcpy(hdr, frame.Layer2Hdr(), HdrSize);
-        *(uint8_t*)(hdr + HdrSize) = 0x45; // 版本和首部长度
-        *(uint8_t*)(hdr + HdrSize + 1) = 0x00; // 服务类型
+        *(hdr + HdrSize) = 0x45; // 版本和首部长度
+        *(hdr + HdrSize + 1) = 0x00; // 服务类型
         *(uint16_t*)(hdr + HdrSize + 4) = htons(OnivGlobal::OnivType); // 标识
         *(uint16_t*)(hdr + HdrSize + 6) = htons(0x4000); // 分片
-        *(uint8_t*)(hdr + HdrSize + 8) = 64; // 生存时间
-        *(uint8_t*)(hdr + HdrSize + 12) = frame.SrcIPAddr();
-        *(uint8_t*)(hdr + HdrSize + 16) = frame.DestIPAddr();
+        *(hdr + HdrSize + 8) = 64; // 生存时间
+        *(uint32_t*)(hdr + HdrSize + 12) = frame.SrcIPAddr();
+        *(uint32_t*)(hdr + HdrSize + 16) = frame.DestIPAddr();
         HdrSize += 20; // HdrSize对齐到UDP首部
     }
     else if(frame.IsIP()){
@@ -335,7 +336,7 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
     *(uint16_t*)(hdr + HdrSize + 2) = keyent->PortNo; // UDP目的端口号
     *(uint16_t*)(hdr + HdrSize + 4) = htons(8 + size()); // UDP首部长度字段
     *(uint16_t*)(hdr + HdrSize + 6) = 0; // 校验和设置为0
-    *(uint16_t*)(hdr + 14 + 2) = htons(frame.IPHdrLen() + 8 + size()); // IP首部长度字段
+    *(uint16_t*)(hdr + 14 + 2) = htons(HdrSize - 14 + 8 + size()); // IP首部长度字段
     *(hdr + 14 + 9) = 0x11; // IP上层协议类型
     *(uint16_t*)(hdr + 14 + 10) = 0; // TODO IP首部校验和
     HdrSize += 8; // 原始HdrSize中不包含UDP首部
