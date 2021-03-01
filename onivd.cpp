@@ -29,6 +29,13 @@ void* Onivd::SwitchServerThread(void *para)
     }
 }
 
+/*
+    创建三种类型的线程：
+        - 一种类型的线程处理所有的写操作
+        - 一种类型的线程读取并处理网卡的数据帧
+        - 一种类型的线程读取并处理隧道的数据包
+*/
+
 void* Onivd::AdapterThread(void *para)
 {
     Onivd *oniv = (Onivd*)para;
@@ -170,45 +177,6 @@ void* Onivd::EgressThread(void *para)
         }
     }
 }
-
-/*
-    主线程监听所有的虚拟网卡和隧道的读事件，放入WorkQueue中
-    工作线程在WorkQueue上睡眠
-    从网卡读取数据帧后，
-        1. 首先查找转发表，确定发送隧道
-            - 如果不需要封装身份信息，则放入发送队列
-            - 如果需要封装身份信息
-                - 如果没有会话密钥，则将密钥协商信息放入发送队列，数据帧放入阻塞队列
-                - 如果有会话密钥，则封装身份信息，放入发送队列（对数据帧进行分片，放入发送队列）
-        2. 首先查找密钥表，再查找转发表
-            - 如果不需要封装身份信息，则查找转发表，放入发送队列
-            - 如果需要封装身份信息，
-                - 如果没有会话密钥，则查找转发表，将密钥协商信息放入发送队列，数据帧放入阻塞队列
-                - 如果有会话秘钥，则封装身份信息，查找转发表，放入发送队列
-        3. 对比来看，先匹配转发表，再匹配密钥表较为简便
-    从隧道读取数据包后，脱掉第二种身份信息，或者处理隧道密钥协商消息
-        1. 首先查找转发表，确定转发的文件描述符
-            - 如果文件描述符为隧道，则放入发送队列
-            - 如果文件描述符为网卡，则通过密钥表脱掉身份信息，放入发送队列（发送网卡的发送队列）
-    主线程执行所有的读操作，查找转发表，并将数据帧放入网卡或者隧道的相应队列中
-
-    读取后的处理逻辑：
-        线程从网卡读取数据帧后，查找转发表
-            - 如果不需要封装身份信息，则注册写事件
-            - 如果没有会话秘钥，则注册密钥协商请求消息写事件，并阻塞数据帧
-            - 如果有会话密钥，则封装身份信息，注册数据包写事件
-        线程从隧道读取数据包后，
-            - 如果是密钥协商请求消息，则注册密钥协商响应消息写事件
-            - 如果是密钥协商响应消息，则封装身份信息，并注册之前阻塞的数据帧写事件
-            - 如果转发到隧道，则注册写事件
-            - 如果转发到网卡，则解封装身份信息，注册数据包写事件
-
-    读取后处理的逻辑较为复杂，需要根据文件描述符类型来决定处理逻辑，不便于确定线程的数量，无法平衡IO
-    因此创建三种类型的线程：
-        - 一种类型的线程处理所有的写操作
-        - 一种类型的线程读取并处理网卡的数据帧
-        - 一种类型的线程读取并处理隧道的数据包
-*/
 
 OnivErr Onivd::CreateSwitchServerSocket(const string &SwitchServerSocketPath)
 {
@@ -587,8 +555,8 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
         return OnivErr(OnivErrCode::ERROR_UNKNOWN);
     }
     AcceptTunnel = &*iter;
-    packet.ResetIngressTunnel(AcceptTunnel);
-    AcceptTunnel->UpdateSocket(packet);
+    packet.ResetIngressTunnel(AcceptTunnel); // 设置数据包的接收隧道
+    AcceptTunnel->UpdateSocket(packet); // 更新隧道地址
 
     OnivTunRecord rec(packet, AcceptTunnel->KeyEntry()); // 隧道身份验证
     OnivFrame frame(rec.frame(), rec.FrameSize(), packet.IngressPort());
@@ -613,14 +581,11 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
         }
         AdapterIter iter = find_if(adapters.begin(), adapters.end(), [&frame](const OnivAdapter &adapter)
         {
-            /*
-                封装在IP报文中的链路密钥协商消息或者报文可以根据IP地址判断是否发送给本机
-                封装在以太帧中的链路密钥协商消息或者报文可以根据MAC地址判断是否发送给本机
-            */
-            return adapter.address() == frame.DestIPAddr() || adapter.MAC() == frame.DestHwAddr();
+            // 根据IP地址判断链路终点
+            return adapter.address() == frame.DestIPAddr();
         }
         );
-        if(iter != adapters.end()){ // 目的地址为本机网卡
+        if(iter != adapters.end()){ // 链路终点为本机
             switch(frame.type())
             {
             case OnivPacketType::LNK_KA_REQ:
@@ -643,7 +608,7 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
             }
             fdb.update(frame); // 更新转发表
         }
-        else{ // 目的地址不是本机
+        else{ // 链路终点不是本机
             const OnivForwardingEntry *forent = fdb.search(frame);
             if(forent == nullptr){
                 return OnivErr(OnivErrCode::ERROR_NO_FORWARD_ENTRY);
@@ -676,7 +641,7 @@ OnivErr Onivd::ProcessLnkKeyAgrRes(const OnivFrame &frame)
     if(res.VerifySignature()){
         const OnivKeyEntry *keyent = kdb.update(frame, res);
         if(keyent != nullptr){ // 发送阻塞队列中的数据帧
-            vector<OnivFrame> BlockingFrames = bq.ConditionDequeue(keyent->address);
+            vector<OnivFrame> BlockingFrames = bq.ConditionDequeue(keyent->RemoteSocket.sin_addr.s_addr);
             for(const OnivFrame &bf: BlockingFrames)
             {
                 OnivLnkRecord rec(bf, const_cast<OnivKeyEntry*>(keyent));
@@ -697,9 +662,11 @@ OnivErr Onivd::ProcessLnkRecord(const OnivFrame &frame)
         return OnivErr(OnivErrCode::ERROR_NO_FORWARD_ENTRY);
     }
     const OnivKeyEntry *keyent = kdb.SearchFrom(frame);
-    OnivLnkRecord rec(frame, const_cast<OnivKeyEntry*>(keyent));
-    forent->egress->EnSendingQueue(rec.frame()); // 唤醒发送线程
-    fdb.update(frame); // 更新转发表
+    if(keyent != nullptr){
+        OnivLnkRecord rec(frame, const_cast<OnivKeyEntry*>(keyent));
+        forent->egress->EnSendingQueue(rec.frame()); // 唤醒发送线程
+        fdb.update(frame); // 更新转发表
+    }
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 

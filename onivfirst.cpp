@@ -36,7 +36,9 @@ void OnivLnkReq::ConstructRequest(const OnivFrame &frame)
     hdr = new uint8_t[HdrSize]; // 第一种身份信息相关报文全部使用自构建的IP协议封装
     memcpy(hdr, frame.Layer2Hdr(), Layer2HdrSize);
     *(uint16_t*)(hdr + 12) = htons(0x0800);
-    ConstructEncapHdr(hdr + Layer2HdrSize, htons(OnivGlobal::OnivType), frame.SrcIPAddr(), frame.DestIPAddr(), htons(OnivGlobal::TunnelPortNo), htons(OnivGlobal::TunnelPortNo), size());
+    ConstructEncapHdr(hdr + Layer2HdrSize, htons(OnivGlobal::OnivType),
+        frame.SrcIPAddr(), frame.DestIPAddr(),
+        htons(OnivGlobal::TunnelPortNo), htons(OnivGlobal::TunnelPortNo), size());
 
     // 以网络字节序线性化
     buf = new uint8_t[size()];
@@ -151,7 +153,9 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent)
     memcpy(hdr, DestHwAddr.c_str(), DestHwAddr.length());
     memcpy(hdr + DestHwAddr.length(), SrcHwAddr.c_str(), SrcHwAddr.length());
     *(uint16_t*)(hdr + 12) = htons(0x0800);
-    ConstructEncapHdr(hdr + Layer2HdrSize, htons(OnivGlobal::OnivType), LnkReqFrame.DestIPAddr(), LnkReqFrame.SrcIPAddr(), LnkReqFrame.DestPort(), LnkReqFrame.SrcPort(), size());
+    ConstructEncapHdr(hdr + Layer2HdrSize, htons(OnivGlobal::OnivType),
+        LnkReqFrame.DestIPAddr(), LnkReqFrame.SrcIPAddr(),
+        LnkReqFrame.DestPort(), LnkReqFrame.SrcPort(), size());
 
     // 以网络字节序线性化
     buf = new uint8_t[size()];
@@ -279,7 +283,9 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
     hdr = new uint8_t[HdrSize]; // 第一种身份信息相关报文全部使用自构建的IP协议封装
     memcpy(hdr, frame.Layer2Hdr(), Layer2HdrSize);
     *(uint16_t*)(hdr + 12) = htons(0x0800);
-    ConstructEncapHdr(hdr + Layer2HdrSize, htons(OnivGlobal::OnivType), frame.SrcIPAddr(), frame.DestIPAddr(), htons(OnivGlobal::TunnelPortNo), keyent->PortNo, size());
+    ConstructEncapHdr(hdr + Layer2HdrSize, htons(OnivGlobal::OnivType),
+        frame.SrcIPAddr(), frame.DestIPAddr(),
+        htons(OnivGlobal::TunnelPortNo), keyent->RemoteSocket.sin_port, size());
 
     // 以网络字节序线性化
     buf = new uint8_t[size()];

@@ -27,7 +27,7 @@ void OnivFDB::update(const OnivFrame &frame)
 
 const OnivKeyEntry* OnivKDB::SearchTo(const OnivFrame &frame)
 {
-    OnivKeyEntry ent(frame.DestHwAddr(), frame.DestIPAddr(), htons(OnivGlobal::TunnelPortNo),
+    OnivKeyEntry ent(frame.DestIPAddr(), htons(OnivGlobal::TunnelPortNo),
                     string(), OnivKeyAgrAlg::NONE, string(), string(), string(),
                     OnivVerifyAlg::NONE, string());
     auto iter = KeyTable.find(ent);
@@ -41,7 +41,7 @@ const OnivKeyEntry* OnivKDB::SearchTo(const OnivFrame &frame)
 
 const OnivKeyEntry* OnivKDB::SearchFrom(const OnivFrame &frame)
 {
-    OnivKeyEntry ent(frame.SrcHwAddr(), frame.SrcIPAddr(), frame.SrcPort(), string(),
+    OnivKeyEntry ent(frame.SrcIPAddr(), frame.SrcPort(), string(),
                     OnivKeyAgrAlg::NONE, string(), string(), string(),
                     OnivVerifyAlg::NONE, string());
     auto iter = KeyTable.find(ent);
@@ -55,7 +55,7 @@ const OnivKeyEntry* OnivKDB::SearchFrom(const OnivFrame &frame)
 
 const OnivKeyEntry* OnivKDB::update(const OnivFrame &frame)
 {
-    OnivKeyEntry ent(frame.DestHwAddr(), frame.DestIPAddr(), htons(OnivGlobal::TunnelPortNo),
+    OnivKeyEntry ent(frame.DestIPAddr(), htons(OnivGlobal::TunnelPortNo),
                     string(), OnivKeyAgrAlg::NONE, string(), string(), string(),
                     OnivVerifyAlg::NONE, string());
     mtx.lock();
@@ -70,7 +70,7 @@ const OnivKeyEntry* OnivKDB::update(const OnivFrame &frame)
 
 const OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkReq &req)
 {
-    OnivKeyEntry ent(frame.SrcHwAddr(), frame.SrcIPAddr(), frame.SrcPort(),
+    OnivKeyEntry ent(frame.SrcIPAddr(), frame.SrcPort(),
                         string((char*)req.common.UUID, sizeof(req.common.UUID)),
                         OnivKeyAgrAlg::NONE, string(), string(), string(),
                         OnivVerifyAlg::NONE, string());
@@ -96,7 +96,7 @@ const OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkReq &re
 
 const OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &res)
 {
-    OnivKeyEntry ent(frame.SrcHwAddr(), frame.SrcIPAddr(), frame.SrcPort(),
+    OnivKeyEntry ent(frame.SrcIPAddr(), frame.SrcPort(),
                         string((char*)res.common.UUID, sizeof(res.common.UUID)),
                         static_cast<OnivKeyAgrAlg>(res.KeyAgrAlg), res.pk,
                         string(), string(),

@@ -41,16 +41,14 @@ namespace std{
 
 struct OnivKeyEntry
 {
-    // 可以不保存HwAddr
-    string HwAddr, RemoteUUID, RemotePubKey, LocalPriKey, LocalPubKey, SessionKey;
-    in_addr_t address;
-    in_port_t PortNo;
+    sockaddr_in RemoteSocket;
+    string RemoteUUID, RemotePubKey, LocalPriKey, LocalPubKey, SessionKey;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     bool UpdPk, AckPk;
     uint64_t ts;
     OnivKeyEntry();
-    OnivKeyEntry(const string &HwAddr, in_addr_t address, in_port_t port, const string &RemoteUUID,
+    OnivKeyEntry(in_addr_t address, in_port_t port, const string &RemoteUUID,
                     OnivKeyAgrAlg KeyAgrAlg, const string &RemotePubKey,
                     const string &LocalPriKey, const string &LocalPubKey,
                     OnivVerifyAlg VerifyAlg, const string &LnkSK);
@@ -64,7 +62,7 @@ namespace std{
     public:
         size_t operator()(const OnivKeyEntry &ent) const noexcept
         {
-            return hash<string>()(ent.HwAddr) + ent.address;
+            return hash<in_addr_t>()(ent.RemoteSocket.sin_addr.s_addr);
         }
     };
     template<> class equal_to<OnivKeyEntry>
@@ -72,8 +70,7 @@ namespace std{
     public:
         bool operator()(const OnivKeyEntry &e1, const OnivKeyEntry &e2) const
         {
-            return equal_to<string>()(e1.HwAddr, e2.HwAddr) &&
-                equal_to<in_addr_t>()(e1.address, e2.address);
+            return equal_to<in_addr_t>()(e1.RemoteSocket.sin_addr.s_addr, e2.RemoteSocket.sin_addr.s_addr);
         }
     };
 }
