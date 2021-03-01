@@ -237,9 +237,9 @@ OnivErr Onivd::CreateSwitchServerSocket(const string &SwitchServerSocketPath)
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::AuxAddAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu)
+OnivErr Onivd::AuxAddAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t bdi, int mtu)
 {
-    adapters.emplace_back(name, address, mask, vni, mtu);
+    adapters.emplace_back(name, address, mask, bdi, mtu);
     if(!adapters.back().IsUp()){
         return OnivErr(OnivErrCode::ERROR_CREATE_ADAPTER);
     }
@@ -269,7 +269,7 @@ OnivErr Onivd::AddAdapter(const char *cmd, size_t length)
     string name(cmd, IFNAMSIZ);
     in_addr_t address = *(in_addr_t*)(cmd + IFNAMSIZ);
     in_addr_t mask = *(in_addr_t*)(cmd + IFNAMSIZ + sizeof(in_addr_t));
-    uint32_t vni = *(uint32_t*)(cmd + IFNAMSIZ + sizeof(in_addr_t) * 2);
+    uint32_t bdi = ntohl(*(uint32_t*)(cmd + IFNAMSIZ + sizeof(in_addr_t) * 2));
     int mtu = *(int*)(cmd + IFNAMSIZ + sizeof(in_addr_t) * 2 + sizeof(uint32_t));
 
     AdapterIter iter = find_if(adapters.begin(), adapters.end(),
@@ -282,7 +282,7 @@ OnivErr Onivd::AddAdapter(const char *cmd, size_t length)
         return OnivErr(OnivErrCode::ERROR_ADAPTER_EXISTS);
     }
     else{
-        return AuxAddAdapter(name, address, mask, vni, mtu);
+        return AuxAddAdapter(name, address, mask, bdi, mtu);
     }
 }
 
@@ -309,9 +309,9 @@ OnivErr Onivd::ClrAdapter()
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int mtu)
+OnivErr Onivd::AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t bdi, int mtu)
 {
-    tunnels.emplace_back(address, PortNo, vni, mtu);
+    tunnels.emplace_back(address, PortNo, bdi, mtu);
 
     struct epoll_event ev;
     ev.events = EPOLLIN;
@@ -329,10 +329,10 @@ OnivErr Onivd::AddTunnel(const char *cmd, size_t length)
     }
 
     in_addr_t address = *(in_addr_t*)(cmd);
-    uint32_t vni = *(uint32_t*)(cmd + sizeof(in_addr_t));
+    uint32_t bdi = ntohl(*(uint32_t*)(cmd + sizeof(in_addr_t)));
 
     TunnelIter iter = find_if(tunnels.begin(), tunnels.end(),
-                [address, vni](const OnivTunnel &tunnel)
+                [address, bdi](const OnivTunnel &tunnel)
                 {
                     return tunnel.RemotePortNo() == htons(OnivGlobal::TunnelPortNo)
                         && tunnel.RemoteIPAddress() == address;
@@ -342,7 +342,7 @@ OnivErr Onivd::AddTunnel(const char *cmd, size_t length)
         return OnivErr(OnivErrCode::ERROR_TUNNEL_EXISTS);
     }
     else{
-        return AuxAddTunnel(address, htons(OnivGlobal::TunnelPortNo), vni, OnivGlobal::TunnelMTU);
+        return AuxAddTunnel(address, htons(OnivGlobal::TunnelPortNo), bdi, OnivGlobal::TunnelMTU);
     }
 }
 
@@ -519,16 +519,17 @@ OnivErr Onivd::ProcessCommand(const char *cmd, size_t length)
 
 OnivErr Onivd::ProcessTunKeyAgrReq(const OnivPacket &packet)
 {
+    // 处理重复的隧道密钥协商请求消息
     OnivTunnel *AcceptTunnel;
     TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
     {
-        if(tunnel.RemoteID() == packet.SenderID()){
-            return true;
-        }
-        else{
-            return tunnel.RemotePortNo() == packet.RemotePortNo()
-                && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
-        }
+        // if(tunnel.RemoteID() == packet.SenderID()){
+        //     return true;
+        // }
+        // else{
+        return tunnel.RemotePortNo() == packet.RemotePortNo()
+            && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
+        // }
     }
     );
     if(iter == tunnels.end()){ // 没有找到反向隧道
@@ -539,9 +540,9 @@ OnivErr Onivd::ProcessTunKeyAgrReq(const OnivPacket &packet)
         AcceptTunnel = &tunnels.back();
     }
     else{ // 找到了了反向隧道
-        if(iter->RemoteID() == packet.SenderID()){ // 非法的隧道密钥协商请求
-            return OnivErr(OnivErrCode::ERROR_UNKNOWN);
-        }
+        // if(iter->RemoteID() == packet.SenderID()){ // 非法的隧道密钥协商请求
+        //     return OnivErr(OnivErrCode::ERROR_UNKNOWN);
+        // }
         AcceptTunnel = &*iter;
     }
     AcceptTunnel->AuthCert(packet);
@@ -551,19 +552,20 @@ OnivErr Onivd::ProcessTunKeyAgrReq(const OnivPacket &packet)
 
 OnivErr Onivd::ProcessTunKeyAgrRes(const OnivPacket &packet)
 {
+    // 处理重复的隧道密钥协商响应消息
     OnivTunnel *AcceptTunnel;
     TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
     {
-        if(tunnel.RemoteID() == packet.SenderID()){
-            return true;
-        }
-        else{
-            return tunnel.RemotePortNo() == packet.RemotePortNo()
-                && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
-        }
+        // if(tunnel.RemoteID() == packet.SenderID()){
+        //     return true;
+        // }
+        // else{
+        return tunnel.RemotePortNo() == packet.RemotePortNo()
+            && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
+        // }
     }
     );
-    if(iter == tunnels.end() || iter->RemoteID() == packet.SenderID()){ // 非法的隧道密钥协商响应
+    if(iter == tunnels.end()){ // || iter->RemoteID() == packet.SenderID()){ // 非法的隧道密钥协商响应
         return OnivErr(OnivErrCode::ERROR_UNKNOWN);
     }
     AcceptTunnel = &*iter;
@@ -586,10 +588,7 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
     }
     AcceptTunnel = &*iter;
     packet.ResetIngressTunnel(AcceptTunnel);
-    // OnivErr oe = AcceptTunnel->VerifyPacket(packet);
-    // if(oe.occured()){
-    //     return oe;
-    // }
+    AcceptTunnel->UpdateSocket(packet);
 
     OnivTunRecord rec(packet, AcceptTunnel->KeyEntry()); // 隧道身份验证
     OnivFrame frame(rec.frame(), rec.FrameSize(), packet.IngressPort());

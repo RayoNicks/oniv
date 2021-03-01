@@ -29,11 +29,7 @@ class OnivTunnel : public OnivPort
 private:
     static int LocalTunnelSocket;
     sockaddr_in RemoteSocket;
-    // string RemoteUUID, RemotePubKey, TunSK;
-    // OnivVerifyAlg VerifyAlg;
-    // OnivKeyAgrAlg KeyAgrAlg;
     bool ValidSignature;
-    // bool UpdPk, AckPk;
     OnivKeyEntry keyent;
     in_addr_t AdapterNameToAddr(const string &TunnelAdapterName);
 public:
@@ -54,6 +50,7 @@ public:
     string RemoteID() const;
     in_port_t RemotePortNo() const;
     in_addr_t RemoteIPAddress() const;
+    void UpdateSocket(const OnivPacket &packet);
     OnivKeyEntry* KeyEntry();
 };
 

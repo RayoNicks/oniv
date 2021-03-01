@@ -156,6 +156,12 @@ in_addr_t OnivTunnel::RemoteIPAddress() const
     return RemoteSocket.sin_addr.s_addr;
 }
 
+void OnivTunnel::UpdateSocket(const OnivPacket &packet)
+{
+    RemoteSocket.sin_port = packet.RemotePortNo();
+    RemoteSocket.sin_addr.s_addr = packet.RemoteIPAddress();
+}
+
 OnivKeyEntry* OnivTunnel::KeyEntry()
 {
     return &keyent;

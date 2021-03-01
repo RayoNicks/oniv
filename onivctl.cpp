@@ -19,10 +19,10 @@ void usage()
     printf(
         "onivctl [command]\n"
         "command:\n"
-        "\tadd-adp <name> <ipv4> <mask> <vni> <mtu>\n"
+        "\tadd-adp <name> <ipv4> <mask> <bdi> <mtu>\n"
         "\tdel-adp <name>\n"
         "\tclr-adp\n"
-        "\tadd-tun <ipv4> <vni>\n"
+        "\tadd-tun <ipv4> <bdi>\n"
         "\tdel-tun <ipv4>\n"
         "\tclr-tun\n"
         "\tadd-route <dest> <mask> <gateway> <name>\n"
@@ -53,7 +53,7 @@ string ParseCommand(int argc, char *argv[])
         string name(argv[2]);
         in_addr_t address = inet_addr(argv[3]);
         in_addr_t mask = inet_addr(argv[4]);
-        uint32_t vni = htonl(stoi(argv[5]));
+        uint32_t bdi = htonl(stoi(argv[5]));
         int mtu = stoi(argv[6]);
         name.resize(IFNAMSIZ);
         cmd.push_back(static_cast<char>(COMMAND_ADD_ADP));
@@ -61,7 +61,7 @@ string ParseCommand(int argc, char *argv[])
         cmd += name;
         cmd += convert(&address, sizeof(in_addr_t));
         cmd += convert(&mask, sizeof(in_addr_t));
-        cmd += convert(&vni, sizeof(uint32_t));
+        cmd += convert(&bdi, sizeof(uint32_t));
         cmd += convert(&mtu, sizeof(int));
     }
     else if(strcmp(argv[1], "del-adp") == 0 && argc == 3){
@@ -76,11 +76,11 @@ string ParseCommand(int argc, char *argv[])
     }
     else if(strcmp(argv[1], "add-tun") == 0 && argc == 4){
         in_addr_t address = inet_addr(argv[2]);
-        uint32_t vni = htonl(stoi(argv[3]));
+        uint32_t bdi = htonl(stoi(argv[3]));
         cmd.push_back(static_cast<char>(COMMAND_ADD_TUN));
         cmd.push_back(static_cast<char>(sizeof(in_addr_t) + sizeof(uint32_t)));
         cmd += convert(&address, sizeof(in_addr_t));
-        cmd += convert(&vni, sizeof(uint32_t));
+        cmd += convert(&bdi, sizeof(uint32_t));
     }
     else if(strcmp(argv[1], "del-tun") == 0 && argc == 3){
         in_addr_t address = inet_addr(argv[2]);
