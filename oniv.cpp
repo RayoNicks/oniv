@@ -1,6 +1,6 @@
 #include "oniv.h"
 
-char* LinearCommon(const OnivCommon &common, char *p)
+uint8_t* LinearCommon(const OnivCommon &common, uint8_t *p)
 {
     *(uint16_t*)p = htons(common.type), p += sizeof(common.type);
     *(uint16_t*)p = htons(common.flag), p += sizeof(common.flag);
@@ -9,7 +9,7 @@ char* LinearCommon(const OnivCommon &common, char *p)
     return p;
 }
 
-void StructureCommon(const char *p, OnivCommon &common)
+void StructureCommon(const uint8_t *p, OnivCommon &common)
 {
     common.type = ntohs(*(uint16_t*)p), p += sizeof(common.type);
     common.flag = ntohs(*(uint16_t*)p), p += sizeof(common.flag);
@@ -17,7 +17,7 @@ void StructureCommon(const char *p, OnivCommon &common)
     memcpy(common.UUID, p, sizeof(common.UUID));
 }
 
-char* LinearCertChain(const vector<string> &CertChain, char *p)
+uint8_t* LinearCertChain(const vector<string> &CertChain, uint8_t *p)
 {
     uint16_t CertNum = CertChain.size();
     *(uint16_t*)p = htons(CertNum), p += sizeof(uint16_t);
@@ -34,9 +34,9 @@ char* LinearCertChain(const vector<string> &CertChain, char *p)
     return p;
 }
 
-size_t StructureCertChain(const char *p, vector<string> &CertChain)
+size_t StructureCertChain(const uint8_t *p, vector<string> &CertChain)
 {
-    const char *orgin = p;
+    const uint8_t *orgin = p;
     uint16_t CertNum = ntohs(*(uint16_t*)p);
     p += sizeof(uint16_t);
     vector<uint16_t> CertLengths;
@@ -47,10 +47,31 @@ size_t StructureCertChain(const char *p, vector<string> &CertChain)
     }
     for(size_t i = 0; i < CertNum; i++)
     {
-        CertChain.push_back(string(p, CertLengths[i]));
+        CertChain.push_back(string((char*)p, CertLengths[i]));
         p += CertLengths[i];
     }
     return p - orgin;
+}
+
+void ConstructEncapHdr(uint8_t *hdr, uint16_t identifier, in_addr_t SrcAddr, in_addr_t DestAddr, in_port_t SrcPort, in_port_t DestPort, size_t OnivSize)
+{
+    const int IPHdrSize = 20;
+    *(uint16_t*)(hdr + IPHdrSize) = SrcPort;
+    *(uint16_t*)(hdr + IPHdrSize + 2) = DestPort;
+    *(uint16_t*)(hdr + IPHdrSize + 4) = htons(8 + OnivSize); // UDP首部长度字段
+    *(uint16_t*)(hdr + IPHdrSize + 6) = 0; // 校验和设置为0
+    *(uint16_t*)(hdr + 2) = htons(IPHdrSize + 8 + OnivSize); // IP首部长度字段
+
+    *hdr = 0x45; // 版本和首部长度
+    *(hdr + 1) = 0x00; // 服务类型
+    *(uint16_t*)(hdr + 4) = htons(identifier); // 标识
+    *(uint16_t*)(hdr + 6) = htons(0x0000); // 分片
+    *(hdr + 8) = 64; // 生存时间
+    *(hdr + 9) = 0x11; // IP上层协议类型
+    *(uint16_t*)(hdr + 10) = 0;
+    *(uint32_t*)(hdr + 12) = SrcAddr;
+    *(uint32_t*)(hdr + 16) = DestAddr;
+    *(uint16_t*)(hdr + 10) = IPChecksum((uint8_t*)hdr, IPHdrSize); // IP首部校验和
 }
 
 uint16_t IPChecksum(const uint8_t *buf, size_t len)
@@ -67,4 +88,10 @@ uint16_t IPChecksum(const uint8_t *buf, size_t len)
     cs = (cs >> 16) + (cs & 0xFFFF);
     cs += cs >> 16;
     return ~(cs & 0xFFFF);
+}
+
+uint16_t UDPChecksum(const uint8_t *buf, size_t len)
+{
+    // TODO
+    return 0;
 }

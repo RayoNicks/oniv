@@ -14,7 +14,7 @@ using std::vector;
 class OnivLnkReq
 {
 private:
-    char *hdr, *buf;
+    uint8_t *hdr, *buf;
     size_t HdrSize;
     void ConstructRequest(const OnivFrame &frame);
     void ParseRequest(const OnivFrame &frame);
@@ -39,7 +39,7 @@ public:
 class OnivLnkRes
 {
 private:
-    char *hdr, *buf;
+    uint8_t *hdr, *buf;
     size_t HdrSize;
 public:
     OnivCommon common;
@@ -63,20 +63,19 @@ public:
 class OnivLnkRecord
 {
 private:
-    char *hdr, *buf;
+    uint8_t *hdr, *buf;
     size_t HdrSize;
     void ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent);
     void ParseRecord(const OnivFrame &frame, OnivKeyEntry *keyent);
 public:
     OnivCommon common;
     uint64_t UpdTs, AckTs;
-    uint16_t OriginProtocol, OriginLength;
+    uint16_t OriginProtocol;
     string pk, code, escrow, data;
     OnivLnkRecord(const OnivFrame &frame, OnivKeyEntry *keyent);
     OnivLnkRecord(const OnivLnkRecord &rec) = delete;
     OnivLnkRecord& operator=(const OnivLnkRecord &rec) = delete;
     ~OnivLnkRecord();
-    // vector<OnivFrame> record();
     OnivFrame record();
     OnivFrame frame();
     size_t size();

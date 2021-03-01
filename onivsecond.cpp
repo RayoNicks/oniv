@@ -27,8 +27,8 @@ OnivTunReq::OnivTunReq(uint32_t vni) : buf(nullptr)
     common.len += signature.length();
 
     // 以网络字节序线性化
-    buf = new char[size()];
-    char *p = buf;
+    buf = new uint8_t[size()];
+    uint8_t *p = buf;
     p = LinearCommon(common, p);
     *(uint32_t*)p = htonl(bdi), p += sizeof(bdi);
     *(uint16_t*)p = htons(PreVerifyAlg), p += sizeof(PreVerifyAlg);
@@ -46,13 +46,13 @@ OnivTunReq::OnivTunReq(const OnivPacket &packet) : buf(nullptr)
         return;
     }
 
-    const char *p = packet.buffer();
+    const uint8_t *p = (uint8_t*)packet.buffer();
     StructureCommon(p, common);
     if(common.len != packet.size() - sizeof(OnivCommon)){
         return;
     }
 
-    buf = new char[packet.size()];
+    buf = new uint8_t[packet.size()];
     memcpy(buf, packet.buffer(), packet.size());
     p = buf + sizeof(OnivCommon);
 
@@ -63,7 +63,7 @@ OnivTunReq::OnivTunReq(const OnivPacket &packet) : buf(nullptr)
     SupKeyAgrAlg = ntohs(*(uint16_t*)p), p += sizeof(SupKeyAgrAlg);
     ts = *(uint64_t*)p, p += sizeof(ts);
     p += StructureCertChain(p, CertChain);
-    signature.assign(p, buf + packet.size() - p); // TODO
+    signature.assign((char*)p, buf + packet.size() - p); // TODO
 }
 
 OnivTunReq::~OnivTunReq()
@@ -79,7 +79,7 @@ bool OnivTunReq::VerifySignature()
 
 const char* OnivTunReq::request()
 {
-    return buf;
+    return (const char*)buf;
 }
 
 size_t OnivTunReq::size()
@@ -113,8 +113,8 @@ OnivTunRes::OnivTunRes(uint32_t vni, OnivVerifyAlg va, OnivKeyAgrAlg kaa) : buf(
     common.len += signature.length();
 
     // 以网络字节序线性化
-    buf = new char[size()];
-    char *p = buf;
+    buf = new uint8_t[size()];
+    uint8_t *p = buf;
     p = LinearCommon(common, p);
     *(uint32_t*)p = htonl(bdi), p += sizeof(bdi);
     *(uint16_t*)p = htons(VerifyAlg), p += sizeof(VerifyAlg);
@@ -132,13 +132,13 @@ OnivTunRes::OnivTunRes(const OnivPacket &packet) : buf(nullptr)
         return;
     }
 
-    const char *p = packet.buffer();
+    const uint8_t *p = (uint8_t*)packet.buffer();
     StructureCommon(p, common);
     if(common.len != packet.size() - sizeof(OnivCommon)){
         return;
     }
 
-    buf = new char[packet.size()];
+    buf = new uint8_t[packet.size()];
     memcpy(buf, packet.buffer(), packet.size());
     p = buf + sizeof(OnivCommon);
 
@@ -149,8 +149,8 @@ OnivTunRes::OnivTunRes(const OnivPacket &packet) : buf(nullptr)
     ResTs = *(uint64_t*)p, p += sizeof(ResTs);
     p += StructureCertChain(p, CertChain);
     size_t PubKeySize = OnivCrypto::PubKeySize(static_cast<OnivKeyAgrAlg>(KeyAgrAlg));
-    pk.assign(p, PubKeySize), p += PubKeySize;
-    signature.assign(p, buf + packet.size() - p);
+    pk.assign((char*)p, PubKeySize), p += PubKeySize;
+    signature.assign((char*)p, buf + packet.size() - p);
 }
 
 OnivTunRes::~OnivTunRes()
@@ -166,7 +166,7 @@ bool OnivTunRes::VerifySignature()
 
 const char* OnivTunRes::response()
 {
-    return buf;
+    return (const char*)buf;
 }
 
 size_t OnivTunRes::size()
@@ -203,8 +203,8 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry 
     common.len += data.length();
 
     // 以网络字节序线性化
-    buf = new char[size()];
-    char *p = buf;
+    buf = new uint8_t[size()];
+    uint8_t *p = buf;
     p = LinearCommon(common, p);
     *(uint32_t*)p = htonl(bdi), p += sizeof(bdi);
     if(keyent->UpdPk){
@@ -226,20 +226,20 @@ OnivTunRecord::OnivTunRecord(const OnivPacket &packet, OnivKeyEntry *keyent) : b
         return;
     }
 
-    const char *p = packet.buffer();
+    const uint8_t *p = (uint8_t*)packet.buffer();
     StructureCommon(p, common);
     if(common.len != packet.size() - sizeof(OnivCommon)){
         return;
     }
 
-    buf = new char[packet.size()];
+    buf = new uint8_t[packet.size()];
     memcpy(buf, packet.buffer(), packet.size());
     p = buf + sizeof(OnivCommon);
 
     bdi = ntohl(*(uint32_t*)p), p += sizeof(bdi);
     if(common.flag == static_cast<uint16_t>(OnivPacketFlag::UPD_SEND)){
         UpdTs = *(uint64_t*)p, p += sizeof(UpdTs);
-        pk.assign(p, OnivCrypto::PubKeySize(keyent->KeyAgrAlg)), p += pk.length();
+        pk.assign((char*)p, OnivCrypto::PubKeySize(keyent->KeyAgrAlg)), p += pk.length();
         keyent->RemotePubKey = pk;
         keyent->SessionKey = OnivCrypto::ComputeSessionKey(keyent->KeyAgrAlg, keyent->RemotePubKey, keyent->LocalPriKey);
         keyent->AckPk = true;
@@ -252,8 +252,8 @@ OnivTunRecord::OnivTunRecord(const OnivPacket &packet, OnivKeyEntry *keyent) : b
         keyent->ts = AckTs;
     }
     size_t CodeSize = OnivCrypto::MsgAuthCodeSize(keyent->VerifyAlg);
-    code.assign(p, CodeSize), p += CodeSize;
-    data.assign(p, buf + packet.size() - p);
+    code.assign((char*)p, CodeSize), p += CodeSize;
+    data.assign((char*)p, buf + packet.size() - p);
 }
 
 OnivTunRecord::~OnivTunRecord()
@@ -263,7 +263,7 @@ OnivTunRecord::~OnivTunRecord()
 
 const char* OnivTunRecord::record()
 {
-    return buf;
+    return (const char*)buf;
 }
 
 const char* OnivTunRecord::frame()

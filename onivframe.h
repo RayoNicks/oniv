@@ -38,11 +38,8 @@ public:
     OnivFrame& operator=(OnivFrame &&of);
     ~OnivFrame();
     OnivFrame(const char *buf, const size_t size, OnivPort *port);
-    // OnivFrame(const OnivPacket &packet);
 
     void dump() const;
-    // vector<OnivFrame> encapsulate(const string &LnkSK, OnivVerifyAlg VerifyAlg);
-    // void decapsulate(const string &LnkSK, OnivVerifyAlg VerifyAlg);
     OnivPort* IngressPort() const;
 
     bool empty() const;
@@ -58,7 +55,6 @@ public:
     const char* OnivHdr() const;
     bool IsLayer3Oniv() const;
     bool IsLayer4Oniv() const;
-    bool IsOniv() const;
 
     uint8_t Layer4Protocol() const;
     const string DestHwAddr() const;

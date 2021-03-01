@@ -45,12 +45,14 @@ struct OnivCommon
     uint8_t UUID[16];
 };
 
-char* LinearCommon(const OnivCommon &common, char *p);
-void StructureCommon(const char *p, OnivCommon &common);
+uint8_t* LinearCommon(const OnivCommon &common, uint8_t *p);
+void StructureCommon(const uint8_t *p, OnivCommon &common);
 
-char* LinearCertChain(const vector<string> &CertChain, char *p);
-size_t StructureCertChain(const char *p, vector<string> &CertChain);
+uint8_t* LinearCertChain(const vector<string> &CertChain, uint8_t *p);
+size_t StructureCertChain(const uint8_t *p, vector<string> &CertChain);
 
+void ConstructEncapHdr(uint8_t *hdr, uint16_t identifier, in_addr_t SrcAddr, in_addr_t DestAddr, in_port_t SrcPort, in_port_t DestPort, size_t OnivSize);
 uint16_t IPChecksum(const uint8_t *buf, size_t len);
+uint16_t UDPChecksum(const uint8_t *buf, size_t len);
 
 #endif

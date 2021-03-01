@@ -12,7 +12,7 @@
 class OnivTunReq
 {
 private:
-    char *buf;
+    uint8_t *buf;
 public:
     OnivCommon common;
     uint32_t bdi; // broadcast domain identifier
@@ -34,7 +34,7 @@ public:
 class OnivTunRes
 {
 private:
-    char *buf;
+    uint8_t *buf;
 public:
     OnivCommon common;
     uint32_t bdi; // broadcast domain identifier
@@ -56,7 +56,7 @@ public:
 class OnivTunRecord
 {
 private:
-    char *buf;
+    uint8_t *buf;
 public:
     OnivCommon common;
     uint32_t bdi; // broadcast domain identifier

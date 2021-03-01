@@ -609,7 +609,7 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
         fdb.update(frame); // 更新转发表
     }
     else{
-        if(!frame.IsOniv()){
+        if(!frame.IsLayer4Oniv()){
             return OnivErr(OnivErrCode::ERROR_UNKNOWN);
         }
         AdapterIter iter = find_if(adapters.begin(), adapters.end(), [&frame](const OnivAdapter &adapter)

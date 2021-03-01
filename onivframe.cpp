@@ -42,13 +42,7 @@ OnivFrame::OnivFrame(const char *buf, const size_t size, OnivPort *port)
 {
 
 }
-/*
-OnivFrame::OnivFrame(const OnivPacket &packet)
-    : frame(packet.frame(), packet.size() - packet.HdrSize()), ingress(packet.IngressPort())
-{
 
-}
-*/
 void OnivFrame::dump() const
 {
     for(size_t i = 0; i < frame.size(); i += 16)
@@ -61,26 +55,7 @@ void OnivFrame::dump() const
     }
     cout << '\n';
 }
-/*
-vector<OnivFrame> OnivFrame::encapsulate(const string &LnkSK, OnivVerifyAlg VerifyAlg)
-{
-    vector<OnivFrame> frames;
-    if(IsARP()){
-        string UserData = frame.substr(Layer3Hdr() - Layer2Hdr());
 
-    }
-    else if(IsIP()){
-        ;
-    }
-
-    return frames;
-}
-
-void OnivFrame::decapsulate(const string &LnkSK, OnivVerifyAlg VerifyAlg)
-{
-    ;
-}
-*/
 OnivPort* OnivFrame::IngressPort() const
 {
     return ingress;
@@ -143,6 +118,7 @@ const char* OnivFrame::UDPHdr() const
 
 const string OnivFrame::UserData() const
 {
+    /*
     const char *p;
     if(IsARP()){
         p = Layer3Hdr();
@@ -154,41 +130,23 @@ const string OnivFrame::UserData() const
     }
     else{
         return string();
-    }
-}
-/*
-const char* OnivFrame::UserData() const
-{
-    if(IsLayer3Oniv()){
-        return nullptr;
-    }
-    else if(IsLayer4Oniv()){
-        return nullptr;
-    }
-    else if(IsARP()){
-        return Layer3Hdr();
-    }
-    else if(IsIP()){
-        return Layer4Hdr();
+    }*/
+    if(IsARP() || IsIP()){
+        const char *p = Layer3Hdr();
+        return string(Layer3Hdr(), buffer() + size() - p);
     }
     else{
-        return nullptr;
+        return string();
     }
 }
 
-size_t OnivFrame::UserDataSize() const
-{
-    const char *p = UserData();
-    if(p != nullptr){
-        return buffer() + size() - p;
-    }
-    else{
-        return 0;
-    }
-}
-*/
 const char* OnivFrame::OnivHdr() const
 {
+    if(IsLayer4Oniv()){
+        return Layer4Hdr() + 8; // 8字节UDP首部
+    }
+    else return nullptr;
+    /*
     if(IsLayer3Oniv()){
         return Layer3Hdr();
     }
@@ -197,7 +155,7 @@ const char* OnivFrame::OnivHdr() const
     }
     else{
         return nullptr;
-    }
+    }*/
 }
 
 bool OnivFrame::IsLayer3Oniv() const
@@ -208,11 +166,6 @@ bool OnivFrame::IsLayer3Oniv() const
 bool OnivFrame::IsLayer4Oniv() const
 {
     return IsUDP() && (SrcPort() == htons(OnivGlobal::TunnelPortNo) || DestPort() == htons(OnivGlobal::TunnelPortNo));
-}
-
-bool OnivFrame::IsOniv() const
-{
-    return IsLayer3Oniv() || IsLayer4Oniv();
 }
 
 uint8_t OnivFrame::Layer4Protocol() const
