@@ -44,14 +44,19 @@ int main()
         return 0;
     }
 
-    ret = recv(ServerSocket, buffer, BUFFER_SIZE, 0);
-    if(ret == -1){
-        printf("recv error\n");
-        return 0;
-    }
-    else{
-        printf("receive %d bytes\n", ret);
-    }
+    do{
+        ret = recv(ServerSocket, buffer, BUFFER_SIZE, 0);
+        if(ret == -1){
+            printf("recv error\n");
+            return 0;
+        }
+        else if(ret == 0){
+            break;
+        }
+        else{
+            printf("receive %d bytes\n", ret);
+        }
+    }while(ret > 0);
 
     close(ServerSocket);
 
