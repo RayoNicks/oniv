@@ -51,4 +51,6 @@ void StructureCommon(const char *p, OnivCommon &common);
 char* LinearCertChain(const vector<string> &CertChain, char *p);
 size_t StructureCertChain(const char *p, vector<string> &CertChain);
 
+uint16_t IPChecksum(const uint8_t *buf, size_t len);
+
 #endif

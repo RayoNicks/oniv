@@ -52,3 +52,19 @@ size_t StructureCertChain(const char *p, vector<string> &CertChain)
     }
     return p - orgin;
 }
+
+uint16_t IPChecksum(const uint8_t *buf, size_t len)
+{
+    if(len % 2 != 0){
+        return 0;
+    }
+    uint32_t cs = 0;
+    uint16_t *p = (uint16_t*)buf;
+    while(len > 0){
+        cs += *p++;
+        len -= 2;
+    }
+    cs = (cs >> 16) + (cs & 0xFFFF);
+    cs += cs >> 16;
+    return ~(cs & 0xFFFF);
+}
