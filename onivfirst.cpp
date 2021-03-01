@@ -58,7 +58,7 @@ void OnivLnkReq::ConstructRequest(const OnivFrame &frame)
     *(uint16_t*)(hdr + 14 + 2) = htons(HdrSize - 14 + 8 + size()); // IP首部长度字段
     *(hdr + 14 + 9) = 0x11; // IP上层协议类型
     *(uint16_t*)(hdr + 14 + 10) = 0;
-    *(uint16_t*)(hdr + 14 + 10) = htons(IPChecksum((uint8_t*)(hdr + 14), HdrSize - 14)); // IP首部校验和
+    *(uint16_t*)(hdr + 14 + 10) = IPChecksum((uint8_t*)(hdr + 14), HdrSize - 14); // IP首部校验和
     HdrSize += 8; // 原始HdrSize中不包含UDP首部
 
     // 以网络字节序线性化
@@ -193,7 +193,7 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent)
     *(uint16_t*)(hdr + HdrSize - 4) = htons(8 + size()); // UDP首部长度字段
     *(uint16_t*)(hdr + 14 + 2) = htons(LnkResFrame.IPHdrLen() + 8 + size()); // IP首部长度字段
     *(uint16_t*)(hdr + 14 + 10) = 0;
-    *(uint16_t*)(hdr + 14 + 10) = htons(IPChecksum((uint8_t*)(hdr + 14), HdrSize - 14 - 8)); // IP首部校验和 
+    *(uint16_t*)(hdr + 14 + 10) = IPChecksum((uint8_t*)(hdr + 14), HdrSize - 14 - 8); // IP首部校验和 
 
     // 以网络字节序线性化
     buf = new char[size()];
@@ -341,7 +341,7 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
     *(uint16_t*)(hdr + 14 + 2) = htons(HdrSize - 14 + 8 + size()); // IP首部长度字段
     *(hdr + 14 + 9) = 0x11; // IP上层协议类型
     *(uint16_t*)(hdr + 14 + 10) = 0;
-    *(uint16_t*)(hdr + 14 + 10) = htons(IPChecksum((uint8_t*)(hdr + 14), HdrSize - 14)); // IP首部校验和
+    *(uint16_t*)(hdr + 14 + 10) = IPChecksum((uint8_t*)(hdr + 14), HdrSize - 14); // IP首部校验和
     HdrSize += 8; // 原始HdrSize中不包含UDP首部
 
     // 以网络字节序线性化
@@ -417,7 +417,7 @@ void OnivLnkRecord::ParseRecord(const OnivFrame &frame, OnivKeyEntry *keyent)
         *(hdr + 14 + 9) = OriginProtocol & 0xFF;
         *(uint16_t*)(hdr + 14 + 2) = htons(OriginLength);
         *(uint16_t*)(hdr + 14 + 10) = 0;
-        *(uint16_t*)(hdr + 14 + 10) = htons(IPChecksum((uint8_t*)(hdr + 14), HdrSize - 14 - 8)); // TODO IP首部校验和
+        *(uint16_t*)(hdr + 14 + 10) = IPChecksum((uint8_t*)(hdr + 14), HdrSize - 14); // TODO IP首部校验和
     }
 
     size_t CodeSize = OnivCrypto::MsgAuthCodeSize(keyent->VerifyAlg);
