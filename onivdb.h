@@ -2,14 +2,16 @@
 #define _ONIV_DB_H_
 
 #include <mutex>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "oniventry.h"
 #include "onivfirst.h"
 #include "onivframe.h"
-#include "onivport.h"
 
+using std::make_pair;
 using std::mutex;
+using std::unordered_map;
 using std::unordered_set;
 
 class OnivFDB
@@ -26,15 +28,15 @@ public:
 class OnivKDB
 {
 private:
-    unordered_set<OnivKeyEntry> KeyTable;
+    unordered_map<in_addr_t, OnivKeyEntry> KeyTable;
     mutex mtx;
 public:
     OnivKDB() = default;
-    const OnivKeyEntry* SearchTo(const OnivFrame &frame);
-    const OnivKeyEntry* SearchFrom(const OnivFrame &frame);
-    const OnivKeyEntry* update(const OnivFrame &frame);
-    const OnivKeyEntry* update(const OnivFrame &frame, const OnivLnkReq &req);
-    const OnivKeyEntry* update(const OnivFrame &frame, const OnivLnkRes &res);
+    OnivKeyEntry* SearchTo(const OnivFrame &frame);
+    OnivKeyEntry* SearchFrom(const OnivFrame &frame);
+    OnivKeyEntry* update(const OnivFrame &frame);
+    OnivKeyEntry* update(const OnivFrame &frame, const OnivLnkReq &req);
+    OnivKeyEntry* update(const OnivFrame &frame, const OnivLnkRes &res);
 };
 
 #endif

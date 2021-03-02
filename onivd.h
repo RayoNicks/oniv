@@ -2,12 +2,11 @@
 #define _ONIVD_H_
 
 #include <algorithm>
-#include <cstdio>
 #include <cstring>
+#include <list>
 #include <string>
 
-#include <arpa/inet.h>
-#include <asm-generic/errno.h>
+#include <err.h>
 #include <linux/un.h>
 #include <net/route.h>
 #include <pthread.h>
@@ -25,6 +24,7 @@
 #include "onivtunnel.h"
 
 using std::find_if;
+using std::list;
 using std::pair;
 using std::string;
 
@@ -36,8 +36,6 @@ private:
     OnivFDB fdb;
     OnivKDB kdb;
 
-    // typedef list<OnivFrame>::iterator FrameIter;
-    // list<OnivFrame> Blocked;
     OnivBlockingQueue bq;
 
     typedef list<OnivAdapter>::iterator AdapterIter;
@@ -84,7 +82,7 @@ private:
     OnivErr CreateTunnelThread(const string &TunnelAdapterName);
     OnivErr CreateEgressThread();
 public:
-    Onivd(const string &TunnelAdapterName);
+    Onivd(const string &TunnelAdapterName, const string &HostName);
     void run();
 };
 

@@ -2,7 +2,7 @@
 
 string OnivCrypto::UUID()
 {
-    return string(16, '0');
+    return uuid;
 }
 
 OnivVerifyAlg OnivCrypto::VerifyAlgSet()
@@ -27,7 +27,7 @@ OnivKeyAgrAlg OnivCrypto::SelectKeyAgrAlg(OnivKeyAgrAlg pre, OnivKeyAgrAlg sup)
 
 vector<string> OnivCrypto::CertChain()
 {
-    return vector<string>({ string("root"), string("host") });
+    return crts;
 }
 
 string OnivCrypto::GenSignature(const string &data)
@@ -84,9 +84,7 @@ string OnivCrypto::ComputeSessionKey(OnivKeyAgrAlg KeyAgrAlg, const string &PubK
             key.push_back(PubKey[i] ^ PriKey[i]);
         }
     }
-    else{
-        return key;
-    }
+    return key;
 }
 
 string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg, const string &SK, const string &UserData)
@@ -94,18 +92,21 @@ string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg, const string &SK, const 
     string code;
     if(VerifyAlg == OnivVerifyAlg::IV_SIMPLE_XOR){
         return string("xor xor xor xor.");
-        // size_t i = 0;
-        // while(i < UserData.length()){
-        //     for(size_t j = 0; j < SK.length(); j++)
-        //     {
-        //         code.push_back(0x00);
-        //     }
-        // }
-        // return code;
     }
     else{
         return string();
     }
+}
+
+string OnivCrypto::GenEscrowData(const string &Pk3rd, OnivVerifyAlg VerifyAlg, const string &SK)
+{
+    // 使用Pk3rd加密会话密钥
+    return SK;
+}
+
+bool OnivCrypto::VerifySignature(const vector<string> CertChain, const string &signature)
+{
+    return true;
 }
 
 size_t OnivCrypto::PubKeySize(OnivKeyAgrAlg KeyAgrAlg)
@@ -127,3 +128,21 @@ size_t OnivCrypto::MsgAuthCodeSize(OnivVerifyAlg VerifyAlg)
         return 0;
     }
 }
+
+size_t OnivCrypto::EscrowDataSize(const string &Pk3rd, OnivVerifyAlg VerifyAlg, const string &SK)
+{
+    return SK.length();
+}
+
+void OnivCrypto::LoadCrt(const string &HostName)
+{
+    crts.push_back("root");
+    crts.push_back(HostName + HostName);
+    while(uuid.size() < 16){
+        uuid.append(HostName);
+    }
+    uuid.resize(16);
+}
+
+string OnivCrypto::uuid;
+vector<string> OnivCrypto::crts;

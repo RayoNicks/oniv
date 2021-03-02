@@ -3,7 +3,6 @@
 
 #include <cstring>
 
-// #include <arpa/inet.h>
 #include <fcntl.h>
 #include <linux/if_tun.h>
 #include <net/if.h>

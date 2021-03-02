@@ -2,6 +2,7 @@
 #define _ONIV_FIRST_H_
 
 #include <ctime>
+#include <string>
 #include <vector>
 
 #include "oniv.h"
@@ -30,8 +31,6 @@ public:
     OnivLnkReq& operator=(const OnivLnkReq &req) = delete;
     ~OnivLnkReq();
     bool VerifySignature();
-    // 暂不考虑链路密钥协商过大导致的分片问题
-    // vector<OnivFrame> request();
     OnivFrame request();
     size_t size();
 };
@@ -55,7 +54,6 @@ public:
     OnivLnkRes& operator=(const OnivLnkRes &res) = delete;
     ~OnivLnkRes();
     bool VerifySignature();
-    // vector<OnivFrame> response();
     OnivFrame response();
     size_t size();
 };
@@ -76,6 +74,7 @@ public:
     OnivLnkRecord(const OnivLnkRecord &rec) = delete;
     OnivLnkRecord& operator=(const OnivLnkRecord &rec) = delete;
     ~OnivLnkRecord();
+    bool VerifyIdentity(const OnivKeyEntry *keyent);
     OnivFrame record();
     OnivFrame frame();
     size_t size();

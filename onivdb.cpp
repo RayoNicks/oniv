@@ -25,76 +25,75 @@ void OnivFDB::update(const OnivFrame &frame)
     mtx.unlock();
 }
 
-const OnivKeyEntry* OnivKDB::SearchTo(const OnivFrame &frame)
+OnivKeyEntry* OnivKDB::SearchTo(const OnivFrame &frame)
 {
     OnivKeyEntry ent(frame.DestIPAddr(), htons(OnivGlobal::TunnelPortNo),
                     string(), OnivKeyAgrAlg::NONE, string(), string(), string(),
                     OnivVerifyAlg::NONE, string());
-    auto iter = KeyTable.find(ent);
+    auto iter = KeyTable.find(ent.RemoteAddress);
     if(iter != KeyTable.end()){
-        return &(*iter);
+        return &iter->second;
     }
     else{
         return nullptr;
     }
 }
 
-const OnivKeyEntry* OnivKDB::SearchFrom(const OnivFrame &frame)
+OnivKeyEntry* OnivKDB::SearchFrom(const OnivFrame &frame)
 {
     OnivKeyEntry ent(frame.SrcIPAddr(), frame.SrcPort(), string(),
                     OnivKeyAgrAlg::NONE, string(), string(), string(),
                     OnivVerifyAlg::NONE, string());
-    auto iter = KeyTable.find(ent);
+    auto iter = KeyTable.find(ent.RemoteAddress);
     if(iter != KeyTable.end()){
-        return &(*iter);
+        return &iter->second;
     }
     else{
         return nullptr;
     }
 }
 
-const OnivKeyEntry* OnivKDB::update(const OnivFrame &frame)
+OnivKeyEntry* OnivKDB::update(const OnivFrame &frame)
 {
     OnivKeyEntry ent(frame.DestIPAddr(), htons(OnivGlobal::TunnelPortNo),
                     string(), OnivKeyAgrAlg::NONE, string(), string(), string(),
                     OnivVerifyAlg::NONE, string());
     mtx.lock();
-    auto iter = KeyTable.find(ent);
-    if(iter != KeyTable.end()){
-        KeyTable.erase(iter);
-    }
-    auto ret = KeyTable.insert(ent);
+    KeyTable.erase(ent.RemoteAddress);
+    auto ret = KeyTable.insert(make_pair(ent.RemoteAddress, ent));
     mtx.unlock();
-    return &(*ret.first);
+    if(ret.second){
+        return &ret.first->second;
+    }
+    else{
+        return nullptr;
+    }
 }
 
-const OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkReq &req)
+OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkReq &req)
 {
     OnivKeyEntry ent(frame.SrcIPAddr(), frame.SrcPort(),
                         string((char*)req.common.UUID, sizeof(req.common.UUID)),
                         OnivKeyAgrAlg::NONE, string(), string(), string(),
                         OnivVerifyAlg::NONE, string());
-    ent.VerifyAlg = static_cast<OnivVerifyAlg>(req.PreVerifyAlg);
-    ent.KeyAgrAlg = static_cast<OnivKeyAgrAlg>(req.PreKeyAgrAlg);
+    ent.VerifyAlg = OnivCrypto::SelectVerifyAlg(static_cast<OnivVerifyAlg>(req.PreVerifyAlg), static_cast<OnivVerifyAlg>(req.SupVerifyAlg));
+    ent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(static_cast<OnivKeyAgrAlg>(req.PreKeyAgrAlg), static_cast<OnivKeyAgrAlg>(req.SupKeyAgrAlg));
     ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
     ent.LocalPubKey = OnivCrypto::GenPubKey(ent.KeyAgrAlg, ent.LocalPriKey);
 
     mtx.lock();
-    auto iter = KeyTable.find(ent);
-    if(iter != KeyTable.end()){
-        KeyTable.erase(iter);
-    }
-    auto ret = KeyTable.insert(ent);
+    KeyTable.erase(ent.RemoteAddress);
+    auto ret = KeyTable.insert(make_pair(ent.RemoteAddress, ent));
     mtx.unlock();
     if(ret.second){
-        return &(*ret.first);
+        return &ret.first->second;
     }
     else{
         return nullptr;
     }
 }
 
-const OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &res)
+OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &res)
 {
     OnivKeyEntry ent(frame.SrcIPAddr(), frame.SrcPort(),
                         string((char*)res.common.UUID, sizeof(res.common.UUID)),
@@ -108,14 +107,11 @@ const OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &re
     ent.AckPk = false;
 
     mtx.lock();
-    auto iter = KeyTable.find(ent);
-    if(iter != KeyTable.end()){
-        KeyTable.erase(iter);
-    }
-    auto ret = KeyTable.insert(ent);
+    KeyTable.erase(ent.RemoteAddress);
+    auto ret = KeyTable.insert(make_pair(ent.RemoteAddress, ent));
     mtx.unlock();
     if(ret.second){
-        return &(*ret.first);
+        return &ret.first->second;
     }
     else{
         return nullptr;

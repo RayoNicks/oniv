@@ -1,5 +1,4 @@
 #include "onivpacket.h"
-#include "onivframe.h"
 #include "onivtunnel.h"
 
 OnivPacket::OnivPacket() : ingress(nullptr)

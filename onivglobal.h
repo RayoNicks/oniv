@@ -5,7 +5,6 @@
 
 using std::string;
 
-// 单例模式
 class OnivGlobal
 {
 public:

@@ -1,7 +1,4 @@
 #include "onivframe.h"
-#include "onivadapter.h"
-#include "onivpacket.h"
-#include "onivtunnel.h"
 
 OnivFrame::OnivFrame() : ingress(nullptr)
 {
@@ -116,21 +113,8 @@ const char* OnivFrame::UDPHdr() const
     return Layer4Hdr();
 }
 
-const string OnivFrame::UserData() const
+const string OnivFrame::OriginUserData() const
 {
-    /*
-    const char *p;
-    if(IsARP()){
-        p = Layer3Hdr();
-        return string(p, buffer() + size() - p);
-    }
-    else if(IsIP()){
-        p = Layer4Hdr();
-        return string(p, buffer() + size() - p);
-    }
-    else{
-        return string();
-    }*/
     if(IsARP() || IsIP()){
         const char *p = Layer3Hdr();
         return string(Layer3Hdr(), buffer() + size() - p);
@@ -146,16 +130,6 @@ const char* OnivFrame::OnivHdr() const
         return Layer4Hdr() + 8; // 8字节UDP首部
     }
     else return nullptr;
-    /*
-    if(IsLayer3Oniv()){
-        return Layer3Hdr();
-    }
-    else if(IsLayer4Oniv()){
-        return Layer4Hdr() + 8; // 8字节UDP首部
-    }
-    else{
-        return nullptr;
-    }*/
 }
 
 bool OnivFrame::IsLayer3Oniv() const

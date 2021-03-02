@@ -1,6 +1,6 @@
 #include "oniverr.h"
 
-OnivErr::OnivErr(const OnivErrCode &ec) : Code(ec)// , Msg(ErrCodeToErrMsg(ec))
+OnivErr::OnivErr(const OnivErrCode &ec) : Code(ec)
 {
 
 }
@@ -28,7 +28,6 @@ bool OnivErr::occured()
 
 const vector<string> OnivErr::ErrMsgs = {
     "Successful",
-    "Wrong IPv4 address",
     "Create tunnel socket failed",
     "Bind tunnel socket failed",
     "Add tunnel to epoll failed",
@@ -41,7 +40,6 @@ const vector<string> OnivErr::ErrMsgs = {
     "Accept controller connection failed",
     "Read controller command failed",
     "Parse controller command",
-    // "Close controller connection failed",
     "Create adapter failed",
     "Adapter exists",
     "Unknown adapter",
@@ -52,17 +50,19 @@ const vector<string> OnivErr::ErrMsgs = {
     "Delete route failed",
     // adapter thread error
     "Create adapter thread failed",
-    "Send frame to adapter failed",
     "Receive frame from adapter failed",
     // tunnel thread error
     "Create tunnel thread failed",
-    "Send packet to tunnel failed",
     "Receive packet from tunnel failed",
-    "Wrong packet type",
     // switch message
     "Create epoll instance failed",
     "Wait epoll failed",
     "Can't not find forwarding entry",
+    "Can't find key entry",
+    // verification error
+    "Verify signature failed",
+    "Tunnel verification failed",
+    "Link verification failed",
 
     "Unknown error",
 };

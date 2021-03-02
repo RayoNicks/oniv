@@ -3,27 +3,23 @@
 
 #include <algorithm>
 #include <cstring>
-#include <string>
-
 #include <iomanip>
 #include <iostream>
+#include <string>
 
 #include <netinet/in.h>
 
 #include "oniv.h"
-#include "onivcrypto.h"
 #include "onivglobal.h"
-
-using std::string;
 
 using std::cout;
 using std::hex;
 using std::setfill;
 using std::setw;
+using std::string;
 using std::swap;
 
 class OnivPort;
-class OnivPacket;
 
 class OnivFrame
 {
@@ -51,7 +47,7 @@ public:
     const char* Layer4Hdr() const;
     const char* TCPHdr() const;
     const char* UDPHdr() const;
-    const string UserData() const;
+    const string OriginUserData() const;
     const char* OnivHdr() const;
     bool IsLayer3Oniv() const;
     bool IsLayer4Oniv() const;

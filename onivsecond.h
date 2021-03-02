@@ -2,12 +2,17 @@
 #define _ONIV_SECOND_H_
 
 #include <ctime>
+#include <string>
+#include <vector>
 
 #include "oniv.h"
 #include "onivcrypto.h"
+#include "oniventry.h"
 #include "onivframe.h"
 #include "onivpacket.h"
-#include "onivtunnel.h"
+
+using std::string;
+using std::vector;
 
 class OnivTunReq
 {
@@ -68,6 +73,7 @@ public:
     OnivTunRecord(const OnivTunRecord &rec) = delete;
     OnivTunRecord& operator=(const OnivTunRecord &rec) = delete;
     ~OnivTunRecord();
+    bool VerifyIdentity(const OnivKeyEntry *keyent);
     const char* record();
     const char* frame();
     size_t size();

@@ -79,7 +79,7 @@ void OnivLnkReq::ParseRequest(const OnivFrame &frame)
     SupKeyAgrAlg = ntohs(*(uint16_t*)p), p += sizeof(SupKeyAgrAlg);
     ts = *(uint64_t*)p, p += sizeof(ts);
     p += StructureCertChain(p, CertChain);
-    signature.assign((char*)p, buf + OnivSize - p); // TODO
+    signature.assign((char*)p, buf + OnivSize - p);
 }
 
 OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : hdr(nullptr), buf(nullptr), HdrSize(0)
@@ -100,8 +100,7 @@ OnivLnkReq::~OnivLnkReq()
 
 bool OnivLnkReq::VerifySignature()
 {
-    // TODO
-    return true;
+    return OnivCrypto::VerifySignature(CertChain, signature);
 }
 
 OnivFrame OnivLnkReq::request()
@@ -216,8 +215,7 @@ OnivLnkRes::~OnivLnkRes()
 
 bool OnivLnkRes::VerifySignature()
 {
-    // TODO
-    return true;
+    return OnivCrypto::VerifySignature(CertChain, signature);
 }
 
 OnivFrame OnivLnkRes::response()
@@ -267,14 +265,13 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
     }
     else{
         OriginProtocol = 0x0800;
-        // OriginProtocol = frame.Layer4Protocol();
     }
     common.len += sizeof(OriginProtocol);
 
-    data = frame.UserData(); // data中包含原始的IP首部和四层首部
+    data = frame.OriginUserData(); // data中包含原始的IP首部和四层首部
     code = OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey, data);
     common.len += code.length();
-    escrow;
+    escrow = OnivCrypto::GenEscrowData(string(), keyent->VerifyAlg, keyent->SessionKey);
     common.len += escrow.length();
     common.len += data.length();
 
@@ -285,7 +282,7 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
     *(uint16_t*)(hdr + 12) = htons(0x0800);
     ConstructEncapHdr(hdr + Layer2HdrSize, htons(OnivGlobal::OnivType),
         frame.SrcIPAddr(), frame.DestIPAddr(),
-        htons(OnivGlobal::TunnelPortNo), keyent->RemoteSocket.sin_port, size());
+        htons(OnivGlobal::TunnelPortNo), keyent->RemotePort, size());
 
     // 以网络字节序线性化
     buf = new uint8_t[size()];
@@ -298,7 +295,9 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
     else if(keyent->AckPk){
         *(uint64_t*)p = UpdTs, p += sizeof(UpdTs);
         *(uint64_t*)p = AckTs, p += sizeof(AckTs);
+        keyent->lock();
         keyent->AckPk = false;
+        keyent->unlock();
     }
     *(uint16_t*)p = htons(OriginProtocol), p += sizeof(OriginProtocol);
     memcpy(p, code.c_str(), code.length()), p += code.length();
@@ -333,22 +332,26 @@ void OnivLnkRecord::ParseRecord(const OnivFrame &frame, OnivKeyEntry *keyent)
     if(common.flag == static_cast<uint16_t>(OnivPacketFlag::UPD_SEND)){
         UpdTs = *(uint64_t*)p, p += sizeof(UpdTs);
         pk.assign((char*)p, OnivCrypto::PubKeySize(keyent->KeyAgrAlg)), p += pk.length();
+        keyent->lock();
         keyent->RemotePubKey = pk;
         keyent->SessionKey = OnivCrypto::ComputeSessionKey(keyent->KeyAgrAlg, keyent->RemotePubKey, keyent->LocalPriKey);
         keyent->AckPk = true;
         keyent->ts = UpdTs;
+        keyent->unlock();
     }
     else if(common.flag == static_cast<uint16_t>(OnivPacketFlag::ACK_SEND)){
         UpdTs = *(uint64_t*)p, p += sizeof(UpdTs);
         AckTs = *(uint64_t*)p, p += sizeof(AckTs);
+        keyent->lock();
         keyent->UpdPk = false;
         keyent->ts = AckTs;
+        keyent->unlock();
     }
     OriginProtocol = ntohs(*(uint16_t*)p), p += sizeof(OriginProtocol);
     *(uint16_t*)(hdr + 12) = htons(OriginProtocol);
 
     size_t CodeSize = OnivCrypto::MsgAuthCodeSize(keyent->VerifyAlg);
-    size_t EscrowSize = 0;
+    size_t EscrowSize = OnivCrypto::EscrowDataSize(string(), keyent->VerifyAlg, keyent->SessionKey);
     code.assign((char*)p, CodeSize), p += CodeSize;
     escrow.assign((char*)p, EscrowSize), p += EscrowSize;
     data.assign((char*)p, buf + OnivSize - p);
@@ -368,6 +371,11 @@ OnivLnkRecord::~OnivLnkRecord()
 {
     delete[] hdr;
     delete[] buf;
+}
+
+bool OnivLnkRecord::VerifyIdentity(const OnivKeyEntry *keyent)
+{
+    return code == OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey, data);
 }
 
 OnivFrame OnivLnkRecord::record()

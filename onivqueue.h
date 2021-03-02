@@ -6,8 +6,6 @@
 #include <queue>
 #include <vector>
 
-#include <unistd.h>
-
 #include "onivframe.h"
 
 using std::list;

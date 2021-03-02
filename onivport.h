@@ -1,13 +1,19 @@
 #ifndef _ONIV_PORT_H_
 #define _ONIV_PORT_H_
 
-// #include <arpa/inet.h>
+#include <mutex>
+#include <vector>
+
 #include <sys/eventfd.h>
+#include <unistd.h>
 
 #include "oniverr.h"
 #include "onivqueue.h"
 
 class OnivFrame;
+
+using std::mutex;
+using std::vector;
 
 class OnivPort
 {

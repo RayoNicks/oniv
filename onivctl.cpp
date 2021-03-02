@@ -139,7 +139,7 @@ int ConnectControllerSocket(const char *ControllerSocketPath)
 
 int main(int argc, char *argv[])
 {
-    int ClientSocket, WriteNumber, size;
+    int ClientSocket, WriteNumber;
     string CmdBuf;
     char result[256] = { 0 };
 

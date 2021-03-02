@@ -7,10 +7,7 @@
 #include <unistd.h>
 
 #include "oniv.h"
-#include "onivcrypto.h"
-#include "onivglobal.h"
 
-class OnivFrame;
 class OnivTunnel;
 
 class OnivPacket

@@ -65,7 +65,7 @@ void* Onivd::AdapterThread(void *para)
                     continue;
                 }
                 // frame.dump();
-                if(frame.IsBroadcast()){ // 从广播域内的隧道发送
+                if(frame.IsBroadcast()){ // 发送到广播域
                     for(TunnelIter iter = ++oniv->tunnels.begin(); iter != oniv->tunnels.end(); iter++)
                     {
                         if(iter->BroadcastDomain() == adapter->BroadcastDomain()){
@@ -86,7 +86,7 @@ void* Onivd::AdapterThread(void *para)
                     }
                     );
                     if(iter != oniv->adapters.end()){ // 链路起点
-                        const OnivKeyEntry *keyent = oniv->kdb.SearchTo(frame);
+                        OnivKeyEntry *keyent = oniv->kdb.SearchTo(frame);
                         if(keyent == nullptr){
                             OnivLnkReq req(frame); // 根据要发送的数据帧构造链路密钥协商请求
                             forent->egress->EnSendingQueue(req.request()); // 唤醒发送线程
@@ -97,7 +97,7 @@ void* Onivd::AdapterThread(void *para)
                             oniv->bq.enqueue(frame);
                         }
                         else{
-                            OnivLnkRecord rec(frame, const_cast<OnivKeyEntry*>(keyent));
+                            OnivLnkRecord rec(frame, keyent);
                             forent->egress->EnSendingQueue(rec.record());
                         }
                     }
@@ -181,7 +181,6 @@ void* Onivd::EgressThread(void *para)
         for(i = 0; i < ready; i++)
         {
             if(evlist[i].events & EPOLLIN){
-                // TODO
                 OnivPort *port = (OnivPort*)evlist[i].data.ptr;
                 port->send();
             }
@@ -442,7 +441,7 @@ OnivErr Onivd::DelRoute(const char *cmd, size_t length)
 
 OnivErr Onivd::ProcessCommand(const char *cmd, size_t length)
 {
-    u_int8_t type = *cmd, len;
+    u_int8_t type = *cmd;
     OnivErr ParseCmdError(OnivErrCode::ERROR_PARSE_CONTROLLER_CMD);
     switch(type)
     {
@@ -454,12 +453,12 @@ OnivErr Onivd::ProcessCommand(const char *cmd, size_t length)
         }
         break;
     case COMMAND_ADD_ADP:
-        if(length != 1 && length == 2 + *(cmd + 1)){
+        if(length != 1 && length == static_cast<size_t>(2 + *(cmd + 1))){
             return AddAdapter(cmd + 2, *(cmd + 1));
         }
         break;
     case COMMAND_DEL_ADP:
-        if(length != 1 && length == 2 + *(cmd + 1)){
+        if(length != 1 && length == static_cast<size_t>(2 + *(cmd + 1))){
             return DelAdapter(cmd + 2, *(cmd + 1));
         }
         break;
@@ -469,12 +468,12 @@ OnivErr Onivd::ProcessCommand(const char *cmd, size_t length)
         }
         break;
     case COMMAND_ADD_TUN:
-        if(length != 1 && length == 2 + *(cmd + 1)){
+        if(length != 1 && length == static_cast<size_t>(2 + *(cmd + 1))){
             return AddTunnel(cmd + 2, *(cmd + 1));
         }
         break;
     case COMMAND_DEL_TUN:
-        if(length != 1 && length == 2 + *(cmd + 1)){
+        if(length != 1 && length == static_cast<size_t>(2 + *(cmd + 1))){
             return DelTunnel(cmd + 2, *(cmd + 1));
         }
         break;
@@ -484,7 +483,7 @@ OnivErr Onivd::ProcessCommand(const char *cmd, size_t length)
         }
         break;
     case COMMAND_ADD_ROU:
-        if(length != 1 && length == 2 + *(cmd + 1)){
+        if(length != 1 && length == static_cast<size_t>(2 + *(cmd + 1))){
             return AddRoute(cmd + 2, *(cmd + 1));
         }
         break;
@@ -499,57 +498,52 @@ OnivErr Onivd::ProcessCommand(const char *cmd, size_t length)
 OnivErr Onivd::ProcessTunKeyAgrReq(const OnivPacket &packet)
 {
     // 处理重复的隧道密钥协商请求消息
+    OnivErr oe;
     OnivTunnel *AcceptTunnel;
     TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
     {
-        // if(tunnel.RemoteID() == packet.SenderID()){
-        //     return true;
-        // }
-        // else{
         return tunnel.RemotePortNo() == packet.RemotePortNo()
             && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
-        // }
     }
     );
     if(iter == tunnels.end()){ // 没有找到反向隧道
-        OnivErr oe = AuxAddTunnel(packet.RemoteIPAddress(), packet.RemotePortNo(), packet.BroadcastDomain(), OnivGlobal::TunnelMTU);
+        oe = AuxAddTunnel(packet.RemoteIPAddress(), packet.RemotePortNo(), packet.BroadcastDomain(), OnivGlobal::TunnelMTU);
         if(oe.occured()){
             return oe;
         }
         AcceptTunnel = &tunnels.back();
     }
-    else{ // 找到了了反向隧道
-        // if(iter->RemoteID() == packet.SenderID()){ // 非法的隧道密钥协商请求
-        //     return OnivErr(OnivErrCode::ERROR_UNKNOWN);
-        // }
+    else{ // 找到了反向隧道
         AcceptTunnel = &*iter;
     }
-    AcceptTunnel->AuthCert(packet);
-    AcceptTunnel->NotifySendingQueue(); // 唤醒发送进程，发送隧道密钥协商响应或者失败消息
+    oe = AcceptTunnel->VerifySignature(packet);
+    if(oe.occured()){
+        return oe;
+    }
+    AcceptTunnel->NotifySendingQueue(); // 唤醒发送线程，发送数据帧或者隧道密钥协商失败消息
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
 OnivErr Onivd::ProcessTunKeyAgrRes(const OnivPacket &packet)
 {
     // 处理重复的隧道密钥协商响应消息
+    OnivErr oe;
     OnivTunnel *AcceptTunnel;
     TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
     {
-        // if(tunnel.RemoteID() == packet.SenderID()){
-        //     return true;
-        // }
-        // else{
         return tunnel.RemotePortNo() == packet.RemotePortNo()
             && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
-        // }
     }
     );
-    if(iter == tunnels.end()){ // || iter->RemoteID() == packet.SenderID()){ // 非法的隧道密钥协商响应
+    if(iter == tunnels.end()){
         return OnivErr(OnivErrCode::ERROR_UNKNOWN);
     }
     AcceptTunnel = &*iter;
-    AcceptTunnel->AuthCert(packet);
-    AcceptTunnel->NotifySendingQueue(); // 唤醒发送进程，发送数据帧或者隧道密钥协商失败消息
+    oe = AcceptTunnel->VerifySignature(packet);
+    if(oe.occured()){
+        return oe;
+    }
+    AcceptTunnel->NotifySendingQueue(); // 唤醒发送线程，发送数据帧或者隧道密钥协商失败消息
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
@@ -569,7 +563,12 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
     packet.ResetIngressTunnel(AcceptTunnel); // 设置数据包的接收隧道
     AcceptTunnel->UpdateSocket(packet); // 更新隧道地址
 
-    OnivTunRecord rec(packet, AcceptTunnel->KeyEntry()); // 隧道身份验证
+    OnivKeyEntry *keyent = AcceptTunnel->KeyEntry();
+    OnivTunRecord rec(packet, keyent); // 隧道身份验证
+    if(!rec.VerifyIdentity(keyent)){
+        // 构造隧道身份验证失败报文，添加到发送队列
+        return OnivErr(OnivErrCode::ERROR_TUNNEL_VERIFICATION);
+    }
     OnivFrame frame(rec.frame(), rec.FrameSize(), packet.IngressPort());
     if(frame.IsBroadcast()){ // 发送到广播域
         for(AdapterIter iter = adapters.begin(); iter != adapters.end(); iter++)
@@ -639,9 +638,12 @@ OnivErr Onivd::ProcessLnkKeyAgrReq(const OnivFrame &frame)
             OnivLnkRes res(frame, keyent);
             frame.IngressPort()->EnSendingQueue(res.response()); // 唤醒发送线程
         }
+        else{
+            return OnivErr(OnivErrCode::ERROR_NO_KEY_ENTRY);
+        }
     }
     else{
-        // 发送隧道密钥协商失败消息
+        // 发送链路密钥协商失败消息
     }
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
@@ -650,18 +652,21 @@ OnivErr Onivd::ProcessLnkKeyAgrRes(const OnivFrame &frame)
 {
     OnivLnkRes res(frame);
     if(res.VerifySignature()){
-        const OnivKeyEntry *keyent = kdb.update(frame, res);
+        OnivKeyEntry *keyent = kdb.update(frame, res);
         if(keyent != nullptr){ // 发送阻塞队列中的数据帧
-            vector<OnivFrame> BlockingFrames = bq.ConditionDequeue(keyent->RemoteSocket.sin_addr.s_addr);
+            vector<OnivFrame> BlockingFrames = bq.ConditionDequeue(keyent->RemoteAddress);
             for(const OnivFrame &bf: BlockingFrames)
             {
-                OnivLnkRecord rec(bf, const_cast<OnivKeyEntry*>(keyent));
+                OnivLnkRecord rec(bf, keyent);
                 frame.IngressPort()->EnSendingQueue(rec.record());
             }
         }
+        else{
+            return OnivErr(OnivErrCode::ERROR_NO_KEY_ENTRY);
+        }
     }
     else{
-        // 发送隧道密钥协商失败消息
+        // 发送链路密钥协商失败消息
     }
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
@@ -672,13 +677,22 @@ OnivErr Onivd::ProcessLnkRecord(const OnivFrame &frame)
     if(forent == nullptr){
         return OnivErr(OnivErrCode::ERROR_NO_FORWARD_ENTRY);
     }
-    const OnivKeyEntry *keyent = kdb.SearchFrom(frame);
+    OnivKeyEntry *keyent = kdb.SearchFrom(frame);
     if(keyent != nullptr){
-        OnivLnkRecord rec(frame, const_cast<OnivKeyEntry*>(keyent));
-        forent->egress->EnSendingQueue(rec.frame()); // 唤醒发送线程
-        fdb.update(frame); // 更新转发表
+        OnivLnkRecord rec(frame, keyent);
+        if(rec.VerifyIdentity(keyent)){
+            forent->egress->EnSendingQueue(rec.frame()); // 唤醒发送线程
+            fdb.update(frame); // 更新转发表
+            return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+        }
+        else{
+            // 构造隧道身份验证失败报文，添加到发送队列
+            return OnivErr(OnivErrCode::ERROR_LINK_VERIFICATION);
+        }
     }
-    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+    else{
+        return OnivErr(OnivErrCode::ERROR_NO_KEY_ENTRY);
+    }
 }
 
 OnivErr Onivd::CreateSwitchServer()
@@ -690,6 +704,7 @@ OnivErr Onivd::CreateSwitchServer()
     if(pthread_create(&ServerThreadID, NULL, SwitchServerThread, this) != 0){
         return OnivErr(OnivErrCode::ERROR_CREATE_SERVER_THREAD);
     }
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
 OnivErr Onivd::CreateAdapterThread()
@@ -700,6 +715,7 @@ OnivErr Onivd::CreateAdapterThread()
     if(pthread_create(&AdapterThreadID, NULL, AdapterThread, this) != 0){
         return OnivErr(OnivErrCode::ERROR_CREATE_ADAPTER_THREAD);
     }
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
 OnivErr Onivd::CreateTunnelThread(const string &TunnelAdapterName)
@@ -733,9 +749,10 @@ OnivErr Onivd::CreateEgressThread()
     if(pthread_create(&EgressThreadID, NULL, EgressThread, this) != 0){
         return OnivErr(OnivErrCode::ERROR_CREATE_TUNNEL_THREAD);
     }
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-Onivd::Onivd(const string &TunnelAdapterName)
+Onivd::Onivd(const string &TunnelAdapterName, const string &HostName)
 {
     OnivErr oe;
     oe = CreateSwitchServer();
@@ -754,6 +771,7 @@ Onivd::Onivd(const string &TunnelAdapterName)
     if(oe.occured()){
         err(EXIT_FAILURE, "%s", oe.ErrMsg().c_str());
     }
+    OnivCrypto::LoadCrt(HostName);
 }
 
 void Onivd::run()

@@ -72,15 +72,13 @@ OnivErr OnivTunnel::send()
                     break;
                 }
                 OnivTunRecord rec(vni, frame, &keyent);
-                // OnivPacket packet(frame); // 封装第二种身份信息的相关参数
-                // sendto(LocalTunnelSocket, packet.buffer(), packet.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
                 sendto(LocalTunnelSocket, rec.record(), rec.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
             }
             BlockSendingQueue();
         }
     }
-    else{ // 构造隧道密钥协商失败消息
-        // TODO
+    else{
+        // 发送隧道密钥协商失败消息
     }
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
@@ -99,23 +97,30 @@ OnivErr OnivTunnel::recv(OnivPacket &packet)
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr OnivTunnel::AuthCert(const OnivPacket &packet)
+OnivErr OnivTunnel::VerifySignature(const OnivPacket &packet)
 {
     if(packet.type() == OnivPacketType::TUN_KA_REQ){
         OnivTunReq req(packet);
         ValidSignature = req.VerifySignature();
         if(ValidSignature){
+            keyent.lock();
             keyent.RemoteUUID.assign((char*)req.common.UUID, sizeof(req.common.UUID));
             keyent.VerifyAlg = OnivCrypto::SelectVerifyAlg(static_cast<OnivVerifyAlg>(req.PreVerifyAlg), static_cast<OnivVerifyAlg>(req.SupVerifyAlg));
             keyent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(static_cast<OnivKeyAgrAlg>(req.PreKeyAgrAlg), static_cast<OnivKeyAgrAlg>(req.SupKeyAgrAlg));
             keyent.LocalPriKey = OnivCrypto::AcqPriKey(keyent.KeyAgrAlg);
             keyent.LocalPubKey = OnivCrypto::AcqPubKey(keyent.KeyAgrAlg);
+            keyent.unlock();
+            return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+        }
+        else{
+            return OnivErr(OnivErrCode::ERROR_SIGNATURE);
         }
     }
     else if(packet.type() == OnivPacketType::TUN_KA_RES){
         OnivTunRes res(packet);
         ValidSignature = res.VerifySignature();
         if(ValidSignature){
+            keyent.lock();
             keyent.RemoteUUID.assign((char*)res.common.UUID, sizeof(res.common.UUID));
             keyent.VerifyAlg = static_cast<OnivVerifyAlg>(res.VerifyAlg);
             keyent.KeyAgrAlg = static_cast<OnivKeyAgrAlg>(res.KeyAgrAlg);
@@ -125,15 +130,16 @@ OnivErr OnivTunnel::AuthCert(const OnivPacket &packet)
             keyent.SessionKey = OnivCrypto::ComputeSessionKey(keyent.KeyAgrAlg, keyent.RemotePubKey, keyent.LocalPriKey);
             keyent.UpdPk = true;
             keyent.AckPk = false;
+            keyent.unlock();
+            return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+        }
+        else{
+            return OnivErr(OnivErrCode::ERROR_SIGNATURE);
         }
     }
-
-    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
-}
-
-OnivErr OnivTunnel::VerifyPacket(const OnivPacket &packet)
-{
-    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+    else{
+        return OnivErr(OnivErrCode::ERROR_UNKNOWN);
+    }
 }
 
 int OnivTunnel::handle() const

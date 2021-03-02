@@ -3,22 +3,17 @@
 
 #include <algorithm>
 #include <cstring>
-#include <map>
 #include <string>
 
-#include <arpa/inet.h>
 #include <err.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <unistd.h>
 
-#include "onivglobal.h"
 #include "oniventry.h"
 #include "onivport.h"
 #include "onivsecond.h"
 
-using std::map;
 using std::min;
 using std::string;
 
@@ -43,8 +38,7 @@ public:
     virtual OnivErr send() override;
     OnivErr recv(OnivPacket &packet);
 
-    OnivErr AuthCert(const OnivPacket &packet);
-    OnivErr VerifyPacket(const OnivPacket &packet);
+    OnivErr VerifySignature(const OnivPacket &packet);
 
     int handle() const;
     string RemoteID() const;

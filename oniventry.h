@@ -1,14 +1,19 @@
 #ifndef _ONIV_ENTRY_H_
 #define _ONIV_ENTRY_H_
 
-#include <string>
+#include <mutex>
 #include <functional>
+#include <string>
 
+#include <netinet/in.h>
+
+#include "oniv.h"
 #include "onivcrypto.h"
 #include "onivport.h"
 
 using std::equal_to;
 using std::hash;
+using std::mutex;
 using std::string;
 
 struct OnivForwardingEntry
@@ -41,7 +46,11 @@ namespace std{
 
 struct OnivKeyEntry
 {
-    sockaddr_in RemoteSocket;
+private:
+    mutex mtx;
+public:
+    in_addr_t RemoteAddress;
+    in_port_t RemotePort;
     string RemoteUUID, RemotePubKey, LocalPriKey, LocalPubKey, SessionKey;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
@@ -54,25 +63,8 @@ struct OnivKeyEntry
                     OnivVerifyAlg VerifyAlg, const string &LnkSK);
     OnivKeyEntry(const OnivKeyEntry &keyent);
     OnivKeyEntry& operator=(const OnivKeyEntry &keyent);
+    void lock();
+    void unlock();
 };
-
-namespace std{
-    template<> class hash<OnivKeyEntry>
-    {
-    public:
-        size_t operator()(const OnivKeyEntry &ent) const noexcept
-        {
-            return hash<in_addr_t>()(ent.RemoteSocket.sin_addr.s_addr);
-        }
-    };
-    template<> class equal_to<OnivKeyEntry>
-    {
-    public:
-        bool operator()(const OnivKeyEntry &e1, const OnivKeyEntry &e2) const
-        {
-            return equal_to<in_addr_t>()(e1.RemoteSocket.sin_addr.s_addr, e2.RemoteSocket.sin_addr.s_addr);
-        }
-    };
-}
 
 #endif

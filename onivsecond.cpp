@@ -63,7 +63,7 @@ OnivTunReq::OnivTunReq(const OnivPacket &packet) : buf(nullptr)
     SupKeyAgrAlg = ntohs(*(uint16_t*)p), p += sizeof(SupKeyAgrAlg);
     ts = *(uint64_t*)p, p += sizeof(ts);
     p += StructureCertChain(p, CertChain);
-    signature.assign((char*)p, buf + packet.size() - p); // TODO
+    signature.assign((char*)p, buf + packet.size() - p);
 }
 
 OnivTunReq::~OnivTunReq()
@@ -73,8 +73,7 @@ OnivTunReq::~OnivTunReq()
 
 bool OnivTunReq::VerifySignature()
 {
-    // TODO
-    return true;
+    return OnivCrypto::VerifySignature(CertChain, signature);
 }
 
 const char* OnivTunReq::request()
@@ -160,8 +159,7 @@ OnivTunRes::~OnivTunRes()
 
 bool OnivTunRes::VerifySignature()
 {
-    // TODO
-    return true;
+    return OnivCrypto::VerifySignature(CertChain, signature);
 }
 
 const char* OnivTunRes::response()
@@ -214,7 +212,9 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry 
     else if(keyent->AckPk){
         *(uint64_t*)p = UpdTs, p += sizeof(UpdTs);
         *(uint64_t*)p = AckTs, p += sizeof(AckTs);
+        keyent->lock();
         keyent->AckPk = false;
+        keyent->unlock();
     }
     memcpy(p, code.c_str(), code.length()), p += code.length();
     memcpy(p, data.c_str(), data.length());
@@ -240,16 +240,20 @@ OnivTunRecord::OnivTunRecord(const OnivPacket &packet, OnivKeyEntry *keyent) : b
     if(common.flag == static_cast<uint16_t>(OnivPacketFlag::UPD_SEND)){
         UpdTs = *(uint64_t*)p, p += sizeof(UpdTs);
         pk.assign((char*)p, OnivCrypto::PubKeySize(keyent->KeyAgrAlg)), p += pk.length();
+        keyent->lock();
         keyent->RemotePubKey = pk;
         keyent->SessionKey = OnivCrypto::ComputeSessionKey(keyent->KeyAgrAlg, keyent->RemotePubKey, keyent->LocalPriKey);
         keyent->AckPk = true;
         keyent->ts = UpdTs;
+        keyent->unlock();
     }
     else if(common.flag == static_cast<uint16_t>(OnivPacketFlag::ACK_SEND)){
+        keyent->lock();
         UpdTs = *(uint64_t*)p, p += sizeof(UpdTs);
         AckTs = *(uint64_t*)p, p += sizeof(AckTs);
         keyent->UpdPk = false;
         keyent->ts = AckTs;
+        keyent->unlock();
     }
     size_t CodeSize = OnivCrypto::MsgAuthCodeSize(keyent->VerifyAlg);
     code.assign((char*)p, CodeSize), p += CodeSize;
@@ -259,6 +263,11 @@ OnivTunRecord::OnivTunRecord(const OnivPacket &packet, OnivKeyEntry *keyent) : b
 OnivTunRecord::~OnivTunRecord()
 {
     delete[] buf;
+}
+
+bool OnivTunRecord::VerifyIdentity(const OnivKeyEntry *keyent)
+{
+    return code == OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey, data);
 }
 
 const char* OnivTunRecord::record()
