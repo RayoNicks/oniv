@@ -79,21 +79,32 @@ void* Onivd::AdapterThread(void *para)
                     if(forent == nullptr){
                         continue;
                     }
-                    const OnivKeyEntry *keyent = oniv->kdb.SearchTo(frame);
-                    if(keyent == nullptr){
-                        OnivLnkReq req(frame); // 根据要发送的数据帧构造链路密钥协商请求
-                        forent->egress->EnSendingQueue(req.request()); // 唤醒发送线程
-                        oniv->bq.enqueue(frame);
-                        oniv->kdb.update(frame); // 后续发往同一目的主机的数据帧不再发送链路密钥协商请求
+                    AdapterIter iter = find_if(oniv->adapters.begin(), oniv->adapters.end(), [&frame](const OnivAdapter &adapter)
+                    {
+                        // 根据IP地址判断链路起点
+                        return adapter.address() == frame.SrcIPAddr();
                     }
-                    else if(keyent->RemoteUUID.empty()){
-                        oniv->bq.enqueue(frame);
+                    );
+                    if(iter != oniv->adapters.end()){ // 链路起点
+                        const OnivKeyEntry *keyent = oniv->kdb.SearchTo(frame);
+                        if(keyent == nullptr){
+                            OnivLnkReq req(frame); // 根据要发送的数据帧构造链路密钥协商请求
+                            forent->egress->EnSendingQueue(req.request()); // 唤醒发送线程
+                            oniv->bq.enqueue(frame);
+                            oniv->kdb.update(frame); // 后续发往同一目的主机的数据帧不再发送链路密钥协商请求
+                        }
+                        else if(keyent->RemoteUUID.empty()){
+                            oniv->bq.enqueue(frame);
+                        }
+                        else{
+                            OnivLnkRecord rec(frame, const_cast<OnivKeyEntry*>(keyent));
+                            forent->egress->EnSendingQueue(rec.record());
+                        }
                     }
                     else{
-                        OnivLnkRecord rec(frame, const_cast<OnivKeyEntry*>(keyent));
-                        forent->egress->EnSendingQueue(rec.record());
-                        oniv->fdb.update(frame); // 更新转发表
+                        forent->egress->EnSendingQueue(frame);
                     }
+                    oniv->fdb.update(frame); // 更新转发表
                 }
             }
         }
@@ -606,7 +617,6 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
             default:
                 break;
             }
-            fdb.update(frame); // 更新转发表
         }
         else{ // 链路终点不是本机
             const OnivForwardingEntry *forent = fdb.search(frame);
@@ -615,6 +625,7 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
             }
             forent->egress->EnSendingQueue(frame); // 唤醒发送线程
         }
+        fdb.update(frame); // 更新转发表
     }
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
