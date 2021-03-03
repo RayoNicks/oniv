@@ -91,11 +91,12 @@ void* Onivd::AdapterThread(void *para)
                             OnivLnkReq req(frame); // 根据要发送的数据帧构造链路密钥协商请求
                             forent->egress->EnSendingQueue(req.request()); // 唤醒发送线程
                             oniv->bq.enqueue(frame);
-                            oniv->kdb.update(frame); // 后续发往同一目的主机的数据帧不再发送链路密钥协商请求
+                            // 广域网丢包率问题
+                            // oniv->kdb.update(frame); // 后续发往同一目的主机的数据帧不再发送链路密钥协商请求
                         }
-                        else if(keyent->RemoteUUID.empty()){
-                            oniv->bq.enqueue(frame);
-                        }
+                        // else if(keyent->RemoteUUID.empty()){
+                        //     oniv->bq.enqueue(frame);
+                        // }
                         else{
                             OnivLnkRecord rec(frame, keyent);
                             forent->egress->EnSendingQueue(rec.record());

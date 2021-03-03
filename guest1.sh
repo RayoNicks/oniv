@@ -8,8 +8,5 @@ sudo ./onivctl add-adp onivgst1 172.16.1.11 255.255.255.0 1000 1200
 sudo ./onivctl add-route 172.16.3.0 255.255.255.0 172.16.1.1 onivgst1
 sudo ./onivctl add-route 172.16.4.0 255.255.255.0 172.16.1.1 onivgst1
 
-# 添加到客户机2上网关的隧道
-sudo ./onivctl add-tun 192.168.11.129 1000
-
-# 添加到物理机上网关的隧道
-# sudo ./onivctl add-tun 10.201.111.249 1000
+# 添加到网关的隧道
+sudo ./onivctl add-tun 42.193.98.130 1000
