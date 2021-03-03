@@ -54,7 +54,7 @@ ONIVD_OBJECTS = \
 		onivsecond.o \
 		onivtunnel.o
 
-FLAGS = -g -std=c++11 -Wall
+FLAGS = -Wall -g -std=c++11
 
 all: onivd onivctl
 

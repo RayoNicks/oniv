@@ -8,12 +8,23 @@
 
 #include "c-s.h"
 
-int main()
+void usage()
+{
+    printf("client-udp [server address]\n");
+    return;
+}
+
+int main(int argc, char *argv[])
 {
     int ClientSocket, ret;
     struct sockaddr_in ServerAddress;
     char buffer[BUFFER_SIZE] = { 0 };
     int idx = 0;
+
+    if(argc != 2){
+        usage();
+        return 0;
+    }
 
     for(idx = 0; idx + strlen(MESSAGE) < BUFFER_SIZE; idx += strlen(MESSAGE))
     {
@@ -30,7 +41,7 @@ int main()
     memset(&ServerAddress, 0, sizeof(struct sockaddr_in));
     ServerAddress.sin_family = AF_INET;
     ServerAddress.sin_port = htons(8472);
-    ServerAddress.sin_addr.s_addr = inet_addr(SERVER_IP);
+    ServerAddress.sin_addr.s_addr = inet_addr(argv[1]);
 
     ret = sendto(ClientSocket, buffer, BUFFER_SIZE, 0, (const struct sockaddr*)&ServerAddress, sizeof(struct sockaddr_in));
     if(ret == -1){
@@ -38,7 +49,7 @@ int main()
         return 0;
     }
     else{
-        printf("send %d bytes\n", ret);
+        printf("send %d bytes to port 8472 at %s\n", ret, argv[1]);
     }
 
     close(ClientSocket);

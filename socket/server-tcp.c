@@ -8,12 +8,23 @@
 
 #include "c-s.h"
 
-int main()
+void usage()
+{
+    printf("server-tcp [server address]\n");
+    return;
+}
+
+int main(int argc, char *argv[])
 {
     int ListenSocket, ServerSocket, ret;
     struct sockaddr_in ServerAddress, ClientAddress;
     char buffer[BUFFER_SIZE] = { 0 };
     socklen_t ClientAddressLen = sizeof(struct sockaddr_in);
+
+    if(argc != 2){
+        usage();
+        return 0;
+    }
 
     ListenSocket = socket(AF_INET, SOCK_STREAM, 0);
     if(ListenSocket == - 1){
@@ -24,7 +35,7 @@ int main()
     memset(&ServerAddress, 0, sizeof(struct sockaddr_in));
     ServerAddress.sin_family = AF_INET;
     ServerAddress.sin_port = htons(8472);
-    ServerAddress.sin_addr.s_addr = inet_addr(SERVER_IP);
+    ServerAddress.sin_addr.s_addr = inet_addr(argv[1]);
 
     ret = bind(ListenSocket, (const struct sockaddr*)&ServerAddress, sizeof(struct sockaddr_in));
     if(ret < 0){
@@ -54,7 +65,7 @@ int main()
             break;
         }
         else{
-            printf("receive %d bytes\n", ret);
+            printf("receive %d bytes from port 8472 at %s\n", ret, argv[1]);
         }
     }while(ret > 0);
 
