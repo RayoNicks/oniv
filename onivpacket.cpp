@@ -88,7 +88,7 @@ size_t OnivPacket::size() const
 
 OnivPacketType OnivPacket::type() const
 {
-    return static_cast<OnivPacketType>(ntohs(((OnivCommon*)buffer())->type));
+    return CastFrom16<OnivPacketType>(ntohs(((OnivCommon*)buffer())->type));
 }
 
 const char* OnivPacket::buffer() const

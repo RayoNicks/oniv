@@ -603,10 +603,11 @@ void EncAES128CCMSHA256()
         printf("EVP_EncryptInit_ex-1\n");
         return;
     }
-    if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_IVLEN, 7, NULL) != 1){ // 必须是7
-        printf("EVP_CTRL_CCM_SET_IVLEN\n");
-        return;
-    }
+    // L长度默认为8，因此必须是15 - 8 = 7，可以通过EVP_CTRL_CCM_SET_L修改L
+    // if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_IVLEN, 7, NULL) != 1){
+    //     printf("EVP_CTRL_GCM_SET_IVLEN\n");
+    //     return;
+    // }
     if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_TAG, tag.len, NULL) != 1){
         printf("EVP_CTRL_CCM_SET_TAG\n");
         return;
@@ -672,10 +673,11 @@ void DecAES128CCMSHA256()
         printf("EVP_DecryptInit_ex-1\n");
         return;
     }
-    if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_IVLEN, 7, NULL) != 1){ // 必须是7
-        printf("EVP_CTRL_GCM_SET_IVLEN\n");
-        return;
-    }
+    // L长度默认为8，因此必须是15 - 8 = 7，可以通过EVP_CTRL_CCM_SET_L修改L
+    // if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_IVLEN, 7, NULL) != 1){
+    //     printf("EVP_CTRL_GCM_SET_IVLEN\n");
+    //     return;
+    // }
     if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, tag.len, tag.buf) != 1){
         printf("EVP_CTRL_GCM_SET_TAG\n");
         return;
@@ -819,8 +821,8 @@ int main()
     EncAES128GCMSHA256();
     DecAES128GCMSHA256();
 
-    // EncAES128CCMSHA256();
-    // DecAES128CCMSHA256();
+    EncAES128CCMSHA256();
+    DecAES128CCMSHA256();
 
     // ECDHE();
     return 0;

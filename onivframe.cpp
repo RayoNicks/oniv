@@ -70,7 +70,7 @@ size_t OnivFrame::size() const
 
 OnivPacketType OnivFrame::type() const
 {
-    return static_cast<OnivPacketType>(ntohs(((OnivCommon*)OnivHdr())->type));
+    return CastFrom16<OnivPacketType>(ntohs(((OnivCommon*)OnivHdr())->type));
 }
 
 const char* OnivFrame::buffer() const

@@ -108,3 +108,5 @@ TLS 1.3中规定的有限域密钥协商算法`ffdhe2048`、`ffdhe3072`、`ffdhe
 [有关AesGCM算法的一些总结](https://www.jianshu.com/p/c79dedb5c458)
 
 [TLS 1.2/1.3 加密原理(AES-GCM + ECDHE-ECDSA/RSA)](https://blog.csdn.net/m0_37621078/article/details/106028622)
+
+[Recommended Elliptic Curve Domain Parameters](https://www.secg.org/sec2-v2.pdf)

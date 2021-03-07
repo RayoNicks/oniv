@@ -21,11 +21,14 @@ private:
 public:
     OnivCommon common;
     uint32_t bdi; // broadcast domain identifier
-    uint16_t PreVerifyAlg, SupVerifyAlg;
-    uint16_t PreKeyAgrAlg, SupKeyAgrAlg;
     uint64_t ts;
-    vector<string> CertChain;
+    OnivVerifyAlg PreVerifyAlg;
+    OnivIDSet<OnivVerifyAlg> SupVerifyAlgSet;
+    OnivKeyAgrAlg PreKeyAgrAlg;
+    OnivIDSet<OnivKeyAgrAlg> SupKeyAgrAlgSet;
+    OnivSigAlg SigAlg;
     string signature;
+    OnivCertChain certs;
     OnivTunReq(uint32_t vni); // 发送方构造函数
     OnivTunReq(const OnivPacket &packet); // 接收方构造函数
     OnivTunReq(const OnivTunReq &req) = delete;
@@ -43,11 +46,12 @@ private:
 public:
     OnivCommon common;
     uint32_t bdi; // broadcast domain identifier
-    uint16_t VerifyAlg, KeyAgrAlg;
     uint64_t ReqTs, ResTs;
-    vector<string> CertChain;
-    string pk;
-    string signature;
+    OnivVerifyAlg VerifyAlg;
+    OnivKeyAgrAlg KeyAgrAlg;
+    OnivSigAlg SigAlg;
+    string pk, signature;
+    OnivCertChain certs;
     OnivTunRes(uint32_t vni, OnivVerifyAlg VerifyAlg, OnivKeyAgrAlg KeyAgrAlg); // 发送方构造函数
     OnivTunRes(const OnivPacket &packet); // 接收方构造函数
     OnivTunRes(const OnivTunRes &res) = delete;

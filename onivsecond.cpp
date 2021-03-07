@@ -1,43 +1,62 @@
 #include "onivsecond.h"
 
-OnivTunReq::OnivTunReq(uint32_t vni) : buf(nullptr)
+OnivTunReq::OnivTunReq(uint32_t vni)
+    : buf(nullptr),
+    SupVerifyAlgSet(OnivCrypto::ListVerifyAlg()),
+    SupKeyAgrAlgSet(OnivCrypto::ListKeyAgrAlg()),
+    certs(OnivCrypto::CertChain())
 {
     string UUID(OnivCrypto::UUID());
-    common.type = static_cast<uint16_t>(OnivPacketType::TUN_KA_REQ);
-    common.flag = static_cast<uint16_t>(OnivPacketFlag::NONE);
-    common.len = sizeof(bdi);
-    common.len += sizeof(PreVerifyAlg) + sizeof(SupVerifyAlg);
-    common.len += sizeof(PreKeyAgrAlg) + sizeof(SupKeyAgrAlg);
-    common.len += sizeof(ts);
-    common.len += sizeof(uint16_t); // 证书链大小
-    memcpy(common.UUID, UUID.c_str(), UUID.length());
+    common.type = CastTo16<OnivPacketType>(OnivPacketType::TUN_KA_REQ);
+    common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
+
     bdi = vni;
-    PreVerifyAlg = static_cast<uint16_t>(OnivVerifyAlg::IV_SIMPLE_XOR);
-    SupVerifyAlg = static_cast<uint16_t>(OnivCrypto::VerifyAlgSet());
-    PreKeyAgrAlg = static_cast<uint16_t>(OnivKeyAgrAlg::KA_SIMPLE_XOR);
-    SupKeyAgrAlg = static_cast<uint16_t>(OnivCrypto::KeyAgrAlgSet());
+    common.len = sizeof(bdi);
+
     ts = 0;
-    CertChain = OnivCrypto::CertChain();
-    common.len += sizeof(uint16_t) * CertChain.size();
-    for(size_t i = 0; i < CertChain.size(); i++)
-    {
-        common.len += CertChain[i].length();
-    }
-    signature = OnivCrypto::GenSignature(UUID);
-    common.len += signature.length();
+    common.len += sizeof(ts);
+
+    PreVerifyAlg = OnivVerifyAlg::IV_AES_128_GCM_SHA256;
+    common.len += sizeof(PreVerifyAlg) + SupVerifyAlgSet.LinearSize();
+
+    PreKeyAgrAlg = OnivKeyAgrAlg::KA_SECP384R1;
+    common.len += sizeof(PreKeyAgrAlg) + SupKeyAgrAlgSet.LinearSize();
+
+    SigAlg = OnivCrypto::PreSigAlg();
+    signature = OnivCrypto::GenSignature(UUID, SigAlg);
+    common.len += sizeof(SigAlg) + signature.length();
+
+    common.len += certs.LinearSize();
+
+    memcpy(common.UUID, UUID.c_str(), UUID.length());
 
     // 以网络字节序线性化
     buf = new uint8_t[size()];
     uint8_t *p = buf;
-    p = LinearCommon(common, p);
-    *(uint32_t*)p = htonl(bdi), p += sizeof(bdi);
-    *(uint16_t*)p = htons(PreVerifyAlg), p += sizeof(PreVerifyAlg);
-    *(uint16_t*)p = htons(SupVerifyAlg), p += sizeof(SupVerifyAlg);
-    *(uint16_t*)p = htons(PreKeyAgrAlg), p += sizeof(PreKeyAgrAlg);
-    *(uint16_t*)p = htons(SupKeyAgrAlg), p += sizeof(SupKeyAgrAlg);
-    *(uint64_t*)p = ts, p += sizeof(ts);
-    p = LinearCertChain(CertChain, p);
+    common.linearization(p);
+    p += common.LinearSize();
+
+    *(uint32_t*)p = htonl(bdi);
+    p += sizeof(bdi);
+    *(uint64_t*)p = ts;
+    p += sizeof(ts);
+
+    *(uint16_t*)p = htons(CastTo16<OnivVerifyAlg>(PreVerifyAlg));
+    p += sizeof(PreVerifyAlg);
+    SupVerifyAlgSet.linearization(p);
+    p += SupVerifyAlgSet.LinearSize();
+
+    *(uint16_t*)p = htons(CastTo16<OnivKeyAgrAlg>(PreKeyAgrAlg));
+    p += sizeof(PreKeyAgrAlg);
+    SupKeyAgrAlgSet.linearization(p);
+    p += SupVerifyAlgSet.LinearSize();
+
+    *(uint16_t*)p = htons(CastTo16<OnivSigAlg>(SigAlg));
+    p += sizeof(SigAlg);
     memcpy(p, signature.c_str(), signature.length());
+    p += signature.length();
+
+    certs.linearization(p);
 }
 
 OnivTunReq::OnivTunReq(const OnivPacket &packet) : buf(nullptr)
@@ -47,7 +66,7 @@ OnivTunReq::OnivTunReq(const OnivPacket &packet) : buf(nullptr)
     }
 
     const uint8_t *p = (uint8_t*)packet.buffer();
-    StructureCommon(p, common);
+    common.structuration(p);
     if(common.len != packet.size() - sizeof(OnivCommon)){
         return;
     }
@@ -56,14 +75,26 @@ OnivTunReq::OnivTunReq(const OnivPacket &packet) : buf(nullptr)
     memcpy(buf, packet.buffer(), packet.size());
     p = buf + sizeof(OnivCommon);
 
-    bdi = ntohl(*(uint32_t*)p), p += sizeof(bdi);
-    PreVerifyAlg = ntohs(*(uint16_t*)p), p += sizeof(PreVerifyAlg);
-    SupVerifyAlg = ntohs(*(uint16_t*)p), p += sizeof(SupVerifyAlg);
-    PreKeyAgrAlg = ntohs(*(uint16_t*)p), p += sizeof(PreKeyAgrAlg);
-    SupKeyAgrAlg = ntohs(*(uint16_t*)p), p += sizeof(SupKeyAgrAlg);
-    ts = *(uint64_t*)p, p += sizeof(ts);
-    p += StructureCertChain(p, CertChain);
-    signature.assign((char*)p, buf + packet.size() - p);
+    bdi = ntohl(*(uint32_t*)p);
+    p += sizeof(bdi);
+
+    ts = *(uint64_t*)p;
+    p += sizeof(ts);
+
+    PreVerifyAlg = CastFrom16<OnivVerifyAlg>(ntohs(*(uint16_t*)p));
+    p += sizeof(PreVerifyAlg);
+    p += SupVerifyAlgSet.structuration(p);
+
+    PreKeyAgrAlg = CastFrom16<OnivKeyAgrAlg>(ntohs(*(uint16_t*)p));
+    p += sizeof(PreKeyAgrAlg);
+    p += SupKeyAgrAlgSet.structuration(p);
+
+    SigAlg = CastFrom16<OnivSigAlg>(ntohs(*(uint16_t*)p));
+    p += sizeof(SigAlg);
+    signature.assign((char*)p, OnivCrypto::SignatureSize(SigAlg));
+    p += signature.length();
+
+    certs.structuration(p);
 }
 
 OnivTunReq::~OnivTunReq()
@@ -73,11 +104,12 @@ OnivTunReq::~OnivTunReq()
 
 bool OnivTunReq::VerifySignature()
 {
-    return OnivCrypto::VerifySignature(CertChain, signature);
+    return OnivCrypto::VerifySignature(certs.CertChain, signature);
 }
 
 const char* OnivTunReq::request()
 {
+    // NOT TODO
     return (const char*)buf;
 }
 
@@ -86,43 +118,58 @@ size_t OnivTunReq::size()
     return sizeof(OnivCommon) + common.len;
 }
 
-OnivTunRes::OnivTunRes(uint32_t vni, OnivVerifyAlg va, OnivKeyAgrAlg kaa) : buf(nullptr)
+OnivTunRes::OnivTunRes(uint32_t vni, OnivVerifyAlg va, OnivKeyAgrAlg kaa) : buf(nullptr),
+    certs(OnivCrypto::CertChain())
 {
     string UUID(OnivCrypto::UUID());
-    common.type = static_cast<uint16_t>(OnivPacketType::TUN_KA_RES);
-    common.flag = static_cast<uint16_t>(OnivPacketFlag::NONE);
-    common.len = sizeof(bdi);
-    common.len += sizeof(VerifyAlg) + sizeof(KeyAgrAlg);
-    common.len += sizeof(ReqTs) + sizeof(ResTs);
-    common.len += sizeof(uint16_t); // 证书链大小
-    memcpy(common.UUID, UUID.c_str(), UUID.length());
+    common.type = CastTo16<OnivPacketType>(OnivPacketType::TUN_KA_RES);
+    common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
+
     bdi = vni;
-    VerifyAlg = static_cast<uint16_t>(va);
-    KeyAgrAlg = static_cast<uint16_t>(kaa);
+    common.len = sizeof(bdi);
+
     ReqTs = 0, ResTs = 0;
-    CertChain = OnivCrypto::CertChain();
-    common.len += sizeof(uint16_t) * CertChain.size();
-    for(size_t i = 0; i < CertChain.size(); i++)
-    {
-        common.len += CertChain[i].length();
-    }
-    pk = OnivCrypto::AcqPubKey(static_cast<OnivKeyAgrAlg>(KeyAgrAlg));
+    common.len += sizeof(ReqTs) + sizeof(ResTs);
+
+    VerifyAlg = va, KeyAgrAlg = kaa, SigAlg = OnivCrypto::PreSigAlg();
+    common.len += sizeof(VerifyAlg) + sizeof(KeyAgrAlg) + sizeof(SigAlg);
+
+    pk = OnivCrypto::AcqPubKey(KeyAgrAlg);
     common.len += pk.length();
-    signature = OnivCrypto::GenSignature(UUID + pk);
+
+    signature = OnivCrypto::GenSignature(UUID + pk, SigAlg);
     common.len += signature.length();
+
+    common.len += certs.LinearSize();
+
+    memcpy(common.UUID, UUID.c_str(), UUID.length());
 
     // 以网络字节序线性化
     buf = new uint8_t[size()];
     uint8_t *p = buf;
-    p = LinearCommon(common, p);
-    *(uint32_t*)p = htonl(bdi), p += sizeof(bdi);
-    *(uint16_t*)p = htons(VerifyAlg), p += sizeof(VerifyAlg);
-    *(uint16_t*)p = htons(KeyAgrAlg), p += sizeof(KeyAgrAlg);
-    *(uint64_t*)p = ReqTs, p += sizeof(ReqTs);
-    *(uint64_t*)p = ResTs, p += sizeof(ResTs);
-    p = LinearCertChain(CertChain, p);
-    memcpy(p, pk.c_str(), pk.length()), p += pk.length();
+    common.linearization(p);
+    p += common.LinearSize();
+
+    *(uint32_t*)p = htonl(bdi);
+    p += sizeof(bdi);
+    *(uint64_t*)p = ReqTs;
+    p += sizeof(ReqTs);
+    *(uint64_t*)p = ResTs;
+    p += sizeof(ResTs);
+    
+    *(uint16_t*)p = htons(CastTo16<OnivVerifyAlg>(VerifyAlg));
+    p += sizeof(VerifyAlg);
+    *(uint16_t*)p = htons(CastTo16<OnivKeyAgrAlg>(KeyAgrAlg));
+    p += sizeof(KeyAgrAlg);
+    *(uint16_t*)p = htons(CastTo16<OnivSigAlg>(SigAlg));
+    p += sizeof(SigAlg);
+
+    memcpy(p, pk.c_str(), pk.length());
+    p += pk.length();
     memcpy(p, signature.c_str(), signature.length());
+    p += signature.length();
+
+    certs.linearization(p);
 }
 
 OnivTunRes::OnivTunRes(const OnivPacket &packet) : buf(nullptr)
@@ -132,7 +179,7 @@ OnivTunRes::OnivTunRes(const OnivPacket &packet) : buf(nullptr)
     }
 
     const uint8_t *p = (uint8_t*)packet.buffer();
-    StructureCommon(p, common);
+    common.structuration(p);
     if(common.len != packet.size() - sizeof(OnivCommon)){
         return;
     }
@@ -141,15 +188,28 @@ OnivTunRes::OnivTunRes(const OnivPacket &packet) : buf(nullptr)
     memcpy(buf, packet.buffer(), packet.size());
     p = buf + sizeof(OnivCommon);
 
-    bdi = ntohl(*(uint32_t*)p), p += sizeof(bdi);
-    VerifyAlg = ntohs(*(uint16_t*)p), p += sizeof(VerifyAlg);
-    KeyAgrAlg = ntohs(*(uint16_t*)p), p += sizeof(KeyAgrAlg);
-    ReqTs = *(uint64_t*)p, p += sizeof(ReqTs);
-    ResTs = *(uint64_t*)p, p += sizeof(ResTs);
-    p += StructureCertChain(p, CertChain);
-    size_t PubKeySize = OnivCrypto::PubKeySize(static_cast<OnivKeyAgrAlg>(KeyAgrAlg));
-    pk.assign((char*)p, PubKeySize), p += PubKeySize;
-    signature.assign((char*)p, buf + packet.size() - p);
+    bdi = ntohl(*(uint32_t*)p);
+    p += sizeof(bdi);
+
+    ReqTs = *(uint64_t*)p;
+    p += sizeof(ReqTs);
+    ResTs = *(uint64_t*)p;
+    p += sizeof(ResTs);
+
+    VerifyAlg = CastFrom16<OnivVerifyAlg>(ntohs(*(uint16_t*)p));
+    p += sizeof(VerifyAlg);
+    KeyAgrAlg = CastFrom16<OnivKeyAgrAlg>(ntohs(*(uint16_t*)p));
+    p += sizeof(KeyAgrAlg);
+    SigAlg = CastFrom16<OnivSigAlg>(ntohs(*(uint16_t*)p));
+    p += sizeof(SigAlg);
+
+    pk.assign((char*)p, OnivCrypto::PubKeySize(KeyAgrAlg));
+    p += pk.length();
+
+    signature.assign((char*)p, OnivCrypto::SignatureSize(SigAlg));
+    p += signature.length();
+
+    certs.structuration(p);
 }
 
 OnivTunRes::~OnivTunRes()
@@ -159,11 +219,12 @@ OnivTunRes::~OnivTunRes()
 
 bool OnivTunRes::VerifySignature()
 {
-    return OnivCrypto::VerifySignature(CertChain, signature);
+    return OnivCrypto::VerifySignature(certs.CertChain, signature);
 }
 
 const char* OnivTunRes::response()
 {
+    // NOT TODO
     return (const char*)buf;
 }
 
@@ -172,29 +233,33 @@ size_t OnivTunRes::size()
     return sizeof(OnivCommon) + common.len;
 }
 
-OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry *keyent) : buf(0)
+OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry *keyent) : buf(nullptr)
 {
     string UUID(OnivCrypto::UUID());
-    common.type = static_cast<uint16_t>(OnivPacketType::ONIV_RECORD);
+    common.type = CastTo16<OnivPacketType>(OnivPacketType::ONIV_RECORD);
+
+    bdi = vni;
     common.len = sizeof(bdi);
+
     if(keyent->UpdPk){
-        common.flag = static_cast<uint16_t>(OnivPacketFlag::UPD_SEND);
+        common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND);
         UpdTs = 0;
         pk = keyent->LocalPubKey;
         common.len += sizeof(UpdTs) + pk.length();
     }
     else if(keyent->AckPk){
-        common.flag = static_cast<uint16_t>(OnivPacketFlag::ACK_SEND);
+        common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND);
         UpdTs = keyent->ts;
         AckTs = 0;
         common.len += sizeof(UpdTs) + sizeof(AckTs);
     }
     else{
-        common.flag = static_cast<uint16_t>(OnivPacketFlag::NONE);
+        common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
         common.len += 0;
     }
+
     memcpy(common.UUID, UUID.c_str(), UUID.length());
-    bdi = vni;
+
     data.assign(frame.buffer(), frame.size());
     code = OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey, data);
     common.len += code.length();
@@ -203,19 +268,28 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry 
     // 以网络字节序线性化
     buf = new uint8_t[size()];
     uint8_t *p = buf;
-    p = LinearCommon(common, p);
-    *(uint32_t*)p = htonl(bdi), p += sizeof(bdi);
+    common.linearization(p);
+    p += common.LinearSize();
+
+    *(uint32_t*)p = htonl(bdi);
+    p += sizeof(bdi);
+
     if(keyent->UpdPk){
-        *(uint64_t*)p = UpdTs, p += sizeof(UpdTs);
-        memcpy(p, pk.c_str(), pk.length()), p += pk.length();
+        *(uint64_t*)p = UpdTs;
+        p += sizeof(UpdTs);
+        memcpy(p, pk.c_str(), pk.length());
+        p += pk.length();
     }
     else if(keyent->AckPk){
-        *(uint64_t*)p = UpdTs, p += sizeof(UpdTs);
-        *(uint64_t*)p = AckTs, p += sizeof(AckTs);
+        *(uint64_t*)p = UpdTs;
+        p += sizeof(UpdTs);
+        *(uint64_t*)p = AckTs;
+        p += sizeof(AckTs);
         keyent->lock();
         keyent->AckPk = false;
         keyent->unlock();
     }
+
     memcpy(p, code.c_str(), code.length()), p += code.length();
     memcpy(p, data.c_str(), data.length());
 }
@@ -227,7 +301,7 @@ OnivTunRecord::OnivTunRecord(const OnivPacket &packet, OnivKeyEntry *keyent) : b
     }
 
     const uint8_t *p = (uint8_t*)packet.buffer();
-    StructureCommon(p, common);
+    common.structuration(p);
     if(common.len != packet.size() - sizeof(OnivCommon)){
         return;
     }
@@ -236,10 +310,14 @@ OnivTunRecord::OnivTunRecord(const OnivPacket &packet, OnivKeyEntry *keyent) : b
     memcpy(buf, packet.buffer(), packet.size());
     p = buf + sizeof(OnivCommon);
 
-    bdi = ntohl(*(uint32_t*)p), p += sizeof(bdi);
-    if(common.flag == static_cast<uint16_t>(OnivPacketFlag::UPD_SEND)){
-        UpdTs = *(uint64_t*)p, p += sizeof(UpdTs);
-        pk.assign((char*)p, OnivCrypto::PubKeySize(keyent->KeyAgrAlg)), p += pk.length();
+    bdi = ntohl(*(uint32_t*)p);
+    p += sizeof(bdi);
+
+    if((common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND)) != 0){
+        UpdTs = *(uint64_t*)p;
+        p += sizeof(UpdTs);
+        pk.assign((char*)p, OnivCrypto::PubKeySize(keyent->KeyAgrAlg));
+        p += pk.length();
         keyent->lock();
         keyent->RemotePubKey = pk;
         keyent->SessionKey = OnivCrypto::ComputeSessionKey(keyent->KeyAgrAlg, keyent->RemotePubKey, keyent->LocalPriKey);
@@ -247,16 +325,18 @@ OnivTunRecord::OnivTunRecord(const OnivPacket &packet, OnivKeyEntry *keyent) : b
         keyent->ts = UpdTs;
         keyent->unlock();
     }
-    else if(common.flag == static_cast<uint16_t>(OnivPacketFlag::ACK_SEND)){
+    else if((common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND)) != 0){
         keyent->lock();
-        UpdTs = *(uint64_t*)p, p += sizeof(UpdTs);
-        AckTs = *(uint64_t*)p, p += sizeof(AckTs);
+        UpdTs = *(uint64_t*)p;
+        p += sizeof(UpdTs);
+        AckTs = *(uint64_t*)p;
+        p += sizeof(AckTs);
         keyent->UpdPk = false;
         keyent->ts = AckTs;
         keyent->unlock();
     }
-    size_t CodeSize = OnivCrypto::MsgAuthCodeSize(keyent->VerifyAlg);
-    code.assign((char*)p, CodeSize), p += CodeSize;
+
+    code.assign((char*)p, OnivCrypto::MsgAuthCodeSize(keyent->VerifyAlg)), p += code.length();
     data.assign((char*)p, buf + packet.size() - p);
 }
 

@@ -105,8 +105,8 @@ OnivErr OnivTunnel::VerifySignature(const OnivPacket &packet)
         if(ValidSignature){
             keyent.lock();
             keyent.RemoteUUID.assign((char*)req.common.UUID, sizeof(req.common.UUID));
-            keyent.VerifyAlg = OnivCrypto::SelectVerifyAlg(static_cast<OnivVerifyAlg>(req.PreVerifyAlg), static_cast<OnivVerifyAlg>(req.SupVerifyAlg));
-            keyent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(static_cast<OnivKeyAgrAlg>(req.PreKeyAgrAlg), static_cast<OnivKeyAgrAlg>(req.SupKeyAgrAlg));
+            keyent.VerifyAlg = OnivCrypto::SelectVerifyAlg(req.PreVerifyAlg, req.SupVerifyAlgSet);
+            keyent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(req.PreKeyAgrAlg, req.SupKeyAgrAlgSet);
             keyent.LocalPriKey = OnivCrypto::AcqPriKey(keyent.KeyAgrAlg);
             keyent.LocalPubKey = OnivCrypto::AcqPubKey(keyent.KeyAgrAlg);
             keyent.unlock();
@@ -122,8 +122,8 @@ OnivErr OnivTunnel::VerifySignature(const OnivPacket &packet)
         if(ValidSignature){
             keyent.lock();
             keyent.RemoteUUID.assign((char*)res.common.UUID, sizeof(res.common.UUID));
-            keyent.VerifyAlg = static_cast<OnivVerifyAlg>(res.VerifyAlg);
-            keyent.KeyAgrAlg = static_cast<OnivKeyAgrAlg>(res.KeyAgrAlg);
+            keyent.VerifyAlg = res.VerifyAlg;
+            keyent.KeyAgrAlg = res.KeyAgrAlg;
             keyent.RemotePubKey = res.pk;
             keyent.LocalPriKey = OnivCrypto::AcqPriKey(keyent.KeyAgrAlg);
             keyent.LocalPubKey = OnivCrypto::AcqPubKey(keyent.KeyAgrAlg);

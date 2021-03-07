@@ -17,16 +17,18 @@ class OnivLnkReq
 private:
     uint8_t *hdr, *buf;
     size_t HdrSize;
-    void ConstructRequest(const OnivFrame &frame);
-    void ParseRequest(const OnivFrame &frame);
 public:
     OnivCommon common;
-    uint16_t PreVerifyAlg, SupVerifyAlg;
-    uint16_t PreKeyAgrAlg, SupKeyAgrAlg;
     uint64_t ts;
-    vector<string> CertChain;
+    OnivVerifyAlg PreVerifyAlg;
+    OnivIDSet<OnivVerifyAlg> SupVerifyAlgSet;
+    OnivKeyAgrAlg PreKeyAgrAlg;
+    OnivIDSet<OnivKeyAgrAlg> SupKeyAgrAlgSet;
+    OnivSigAlg SigAlg;
     string signature;
+    OnivCertChain certs;
     OnivLnkReq(const OnivFrame &frame);
+    OnivLnkReq(const char *OnivHdr, size_t OnivSize);
     OnivLnkReq(const OnivLnkReq &req) = delete;
     OnivLnkReq& operator=(const OnivLnkReq &req) = delete;
     ~OnivLnkReq();
@@ -42,12 +44,13 @@ private:
     size_t HdrSize;
 public:
     OnivCommon common;
-    uint16_t VerifyAlg, KeyAgrAlg;
-    uint16_t RmdTp, AppTp;
     uint64_t ReqTs, ResTs;
-    vector<string> CertChain;
-    string pk;
-    string signature;
+    uint16_t RmdTp, AppTp;
+    OnivVerifyAlg VerifyAlg;
+    OnivKeyAgrAlg KeyAgrAlg;
+    OnivSigAlg SigAlg;
+    string pk, signature;
+    OnivCertChain certs;
     OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent); // 发送方构造函数
     OnivLnkRes(const OnivFrame &frame); // 接收方构造函数
     OnivLnkRes(const OnivLnkRes &res) = delete;

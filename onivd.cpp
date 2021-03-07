@@ -632,7 +632,7 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
 
 OnivErr Onivd::ProcessLnkKeyAgrReq(const OnivFrame &frame)
 {
-    OnivLnkReq req(frame);
+    OnivLnkReq req(frame.OnivHdr(), frame.buffer() + frame.size() - frame.OnivHdr());
     if(req.VerifySignature()){
         const OnivKeyEntry *keyent = kdb.update(frame, req);
         if(keyent != nullptr){

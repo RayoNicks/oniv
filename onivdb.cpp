@@ -76,8 +76,8 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkReq &req)
                         string((char*)req.common.UUID, sizeof(req.common.UUID)),
                         OnivKeyAgrAlg::NONE, string(), string(), string(),
                         OnivVerifyAlg::NONE, string());
-    ent.VerifyAlg = OnivCrypto::SelectVerifyAlg(static_cast<OnivVerifyAlg>(req.PreVerifyAlg), static_cast<OnivVerifyAlg>(req.SupVerifyAlg));
-    ent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(static_cast<OnivKeyAgrAlg>(req.PreKeyAgrAlg), static_cast<OnivKeyAgrAlg>(req.SupKeyAgrAlg));
+    ent.VerifyAlg = OnivCrypto::SelectVerifyAlg(req.PreVerifyAlg, req.SupVerifyAlgSet);
+    ent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(req.PreKeyAgrAlg, req.SupKeyAgrAlgSet);
     ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
     ent.LocalPubKey = OnivCrypto::GenPubKey(ent.KeyAgrAlg, ent.LocalPriKey);
 
@@ -97,9 +97,9 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &res)
 {
     OnivKeyEntry ent(frame.SrcIPAddr(), frame.SrcPort(),
                         string((char*)res.common.UUID, sizeof(res.common.UUID)),
-                        static_cast<OnivKeyAgrAlg>(res.KeyAgrAlg), res.pk,
+                        res.KeyAgrAlg, res.pk,
                         string(), string(),
-                        static_cast<OnivVerifyAlg>(res.VerifyAlg), string());
+                        res.VerifyAlg, string());
     ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
     ent.LocalPubKey = OnivCrypto::GenPubKey(ent.KeyAgrAlg, ent.LocalPriKey);
     ent.SessionKey = OnivCrypto::ComputeSessionKey(ent.KeyAgrAlg, ent.RemotePubKey, ent.LocalPriKey);
