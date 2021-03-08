@@ -28,13 +28,12 @@ public:
 class OnivKDB
 {
 private:
-    unordered_map<in_addr_t, OnivKeyEntry> KeyTable;
+    unordered_map<string, OnivKeyEntry> KeyTable;
     mutex mtx;
 public:
     OnivKDB() = default;
-    OnivKeyEntry* SearchTo(const OnivFrame &frame);
-    OnivKeyEntry* SearchFrom(const OnivFrame &frame);
-    OnivKeyEntry* update(const OnivFrame &frame);
+    OnivKeyEntry* SearchTo(in_addr_t DestAddr);
+    OnivKeyEntry* SearchFrom(const string &RemoteUUID);
     OnivKeyEntry* update(const OnivFrame &frame, const OnivLnkReq &req);
     OnivKeyEntry* update(const OnivFrame &frame, const OnivLnkRes &res);
 };

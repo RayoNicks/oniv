@@ -124,7 +124,7 @@ const char* OnivFrame::OnivHdr() const
 
 bool OnivFrame::IsLayer4Oniv() const
 {
-    return IsUDP() && (SrcPort() == htons(OnivGlobal::TunnelPortNo) || DestPort() == htons(OnivGlobal::TunnelPortNo));
+    return IsUDP() && (SrcPort() == htons(OnivGlobal::OnivPort) || DestPort() == htons(OnivGlobal::OnivPort));
 }
 
 const string OnivFrame::DestHwAddr() const

@@ -1,12 +1,5 @@
 #include "oniv.h"
 
-size_t OnivCommon::LinearSize()
-{
-    return sizeof(type) + sizeof(flag) + sizeof(identifier)
-        + sizeof(len) + sizeof(total) + sizeof(offset)
-        + sizeof(UUID);
-}
-
 void OnivCommon::linearization(uint8_t *p)
 {
     *(uint16_t*)p = htons(type), p += sizeof(type);
@@ -32,7 +25,7 @@ size_t OnivCommon::structuration(const uint8_t *p)
 
 uint16_t OnivCommon::count()
 {
-    static uint16_t counter = OnivGlobal::TunnelPortNo;
+    static uint16_t counter = OnivGlobal::OnivPort;
     static mutex mtx;
     uint16_t current;
     mtx.lock();
@@ -40,6 +33,13 @@ uint16_t OnivCommon::count()
     counter++;
     mtx.unlock();
     return current;
+}
+
+size_t OnivCommon::LinearSize()
+{
+    return sizeof(type) + sizeof(flag) + sizeof(identifier)
+        + sizeof(len) + sizeof(total) + sizeof(offset)
+        + sizeof(UUID);
 }
 
 void OnivCommon::ConstructEncapHdr(uint8_t *hdr, uint16_t identifier, in_addr_t SrcAddr, in_addr_t DestAddr, in_port_t SrcPort, in_port_t DestPort, size_t OnivSize)

@@ -25,45 +25,22 @@ void OnivFDB::update(const OnivFrame &frame)
     mtx.unlock();
 }
 
-OnivKeyEntry* OnivKDB::SearchTo(const OnivFrame &frame)
+OnivKeyEntry* OnivKDB::SearchTo(in_addr_t DestAddr)
 {
-    OnivKeyEntry ent(frame.DestIPAddr(), htons(OnivGlobal::TunnelPortNo),
-                    string(), OnivKeyAgrAlg::NONE, string(), string(), string(),
-                    OnivVerifyAlg::NONE, string());
-    auto iter = KeyTable.find(ent.RemoteAddress);
-    if(iter != KeyTable.end()){
-        return &iter->second;
+    for(auto iter = KeyTable.begin(); iter != KeyTable.end(); iter++)
+    {
+        if(iter->second.RemoteAddress == DestAddr){
+            return &iter->second;
+        }
     }
-    else{
-        return nullptr;
-    }
+    return nullptr;
 }
 
-OnivKeyEntry* OnivKDB::SearchFrom(const OnivFrame &frame)
+OnivKeyEntry* OnivKDB::SearchFrom(const string &RemoteUUID)
 {
-    OnivKeyEntry ent(frame.SrcIPAddr(), frame.SrcPort(), string(),
-                    OnivKeyAgrAlg::NONE, string(), string(), string(),
-                    OnivVerifyAlg::NONE, string());
-    auto iter = KeyTable.find(ent.RemoteAddress);
+    auto iter = KeyTable.find(RemoteUUID);
     if(iter != KeyTable.end()){
         return &iter->second;
-    }
-    else{
-        return nullptr;
-    }
-}
-
-OnivKeyEntry* OnivKDB::update(const OnivFrame &frame)
-{
-    OnivKeyEntry ent(frame.DestIPAddr(), htons(OnivGlobal::TunnelPortNo),
-                    string(), OnivKeyAgrAlg::NONE, string(), string(), string(),
-                    OnivVerifyAlg::NONE, string());
-    mtx.lock();
-    KeyTable.erase(ent.RemoteAddress);
-    auto ret = KeyTable.insert(make_pair(ent.RemoteAddress, ent));
-    mtx.unlock();
-    if(ret.second){
-        return &ret.first->second;
     }
     else{
         return nullptr;
@@ -72,18 +49,19 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame)
 
 OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkReq &req)
 {
-    OnivKeyEntry ent(frame.SrcIPAddr(), frame.SrcPort(),
-                        string((char*)req.common.UUID, sizeof(req.common.UUID)),
-                        OnivKeyAgrAlg::NONE, string(), string(), string(),
-                        OnivVerifyAlg::NONE, string());
+    OnivKeyEntry ent;
+    ent.RemoteAddress = frame.SrcIPAddr();
+    ent.RemotePort = frame.SrcPort();
+    ent.RemoteUUID.assign((char*)req.common.UUID, sizeof(req.common.UUID));
     ent.VerifyAlg = OnivCrypto::SelectVerifyAlg(req.PreVerifyAlg, req.SupVerifyAlgSet);
     ent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(req.PreKeyAgrAlg, req.SupKeyAgrAlgSet);
     ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
     ent.LocalPubKey = OnivCrypto::GenPubKey(ent.KeyAgrAlg, ent.LocalPriKey);
+    ent.ts = req.ts;
 
     mtx.lock();
-    KeyTable.erase(ent.RemoteAddress);
-    auto ret = KeyTable.insert(make_pair(ent.RemoteAddress, ent));
+    KeyTable.erase(ent.RemoteUUID);
+    auto ret = KeyTable.insert(make_pair(ent.RemoteUUID, ent));
     mtx.unlock();
     if(ret.second){
         return &ret.first->second;
@@ -95,20 +73,24 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkReq &req)
 
 OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &res)
 {
-    OnivKeyEntry ent(frame.SrcIPAddr(), frame.SrcPort(),
-                        string((char*)res.common.UUID, sizeof(res.common.UUID)),
-                        res.KeyAgrAlg, res.pk,
-                        string(), string(),
-                        res.VerifyAlg, string());
+    OnivKeyEntry ent;
+    ent.RemoteAddress = frame.SrcIPAddr();
+    ent.RemotePort = frame.SrcPort();
+    ent.RemoteUUID.assign((char*)res.common.UUID, sizeof(res.common.UUID));
+    ent.VerifyAlg = res.VerifyAlg;
+    ent.KeyAgrAlg = res.KeyAgrAlg;
+    ent.RemotePubKey = res.pk;
     ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
     ent.LocalPubKey = OnivCrypto::GenPubKey(ent.KeyAgrAlg, ent.LocalPriKey);
     ent.SessionKey = OnivCrypto::ComputeSessionKey(ent.KeyAgrAlg, ent.RemotePubKey, ent.LocalPriKey);
+    ent.ThirdName = OnivCrypto::SelectThirdParty(res.RmdTp, res.AppTp);
     ent.UpdPk = true;
     ent.AckPk = false;
+    ent.ts = res.ResTs;
 
     mtx.lock();
-    KeyTable.erase(ent.RemoteAddress);
-    auto ret = KeyTable.insert(make_pair(ent.RemoteAddress, ent));
+    KeyTable.erase(ent.RemoteUUID);
+    auto ret = KeyTable.insert(make_pair(ent.RemoteUUID, ent));
     mtx.unlock();
     if(ret.second){
         return &ret.first->second;

@@ -60,7 +60,7 @@ OnivErr OnivTunnel::send()
     }
     else if(ValidSignature){
         if(keyent.SessionKey.empty()){ // 构造隧道密钥协商响应
-            OnivTunRes res(vni, keyent.VerifyAlg, keyent.KeyAgrAlg);
+            OnivTunRes res(vni, &keyent);
             sendto(LocalTunnelSocket, res.response(), res.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
             BlockSendingQueue(); // 暂时阻塞发送队列
         }
@@ -73,6 +73,7 @@ OnivErr OnivTunnel::send()
                 }
                 OnivTunRecord rec(vni, frame, &keyent);
                 sendto(LocalTunnelSocket, rec.record(), rec.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+                keyent.UpdateOnSend();
             }
             BlockSendingQueue();
         }
@@ -87,7 +88,7 @@ OnivErr OnivTunnel::recv(OnivPacket &packet)
 {
     sockaddr_in remote;
     socklen_t len = sizeof(struct sockaddr_in);
-    char buf[mtu] = { 0 };
+    char buf[OnivGlobal::KeyAgrBufSize] = { 0 };
     size_t PacketSize;
     PacketSize = recvfrom(LocalTunnelSocket, buf, mtu, 0, (struct sockaddr*)&remote, &len);
     if(PacketSize < 0){
@@ -109,6 +110,7 @@ OnivErr OnivTunnel::VerifySignature(const OnivPacket &packet)
             keyent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(req.PreKeyAgrAlg, req.SupKeyAgrAlgSet);
             keyent.LocalPriKey = OnivCrypto::AcqPriKey(keyent.KeyAgrAlg);
             keyent.LocalPubKey = OnivCrypto::AcqPubKey(keyent.KeyAgrAlg);
+            keyent.ts = req.ts;
             keyent.unlock();
             return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
         }
@@ -130,6 +132,7 @@ OnivErr OnivTunnel::VerifySignature(const OnivPacket &packet)
             keyent.SessionKey = OnivCrypto::ComputeSessionKey(keyent.KeyAgrAlg, keyent.RemotePubKey, keyent.LocalPriKey);
             keyent.UpdPk = true;
             keyent.AckPk = false;
+            keyent.ts = res.ResTs;
             keyent.unlock();
             return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
         }

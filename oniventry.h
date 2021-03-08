@@ -16,6 +16,9 @@ using std::hash;
 using std::mutex;
 using std::string;
 
+class OnivLnkRecord;
+class OnivTunRecord;
+
 struct OnivForwardingEntry
 {
     string HwAddr;
@@ -48,23 +51,24 @@ struct OnivKeyEntry
 {
 private:
     mutex mtx;
+    void UpdatePublibKey(const string &pk, uint64_t UpdTs);
+    void UpdateAcknowledge(uint64_t AckTs);
 public:
     in_addr_t RemoteAddress;
     in_port_t RemotePort;
-    string RemoteUUID, RemotePubKey, LocalPriKey, LocalPubKey, SessionKey;
+    string RemoteUUID, RemotePubKey, LocalPriKey, LocalPubKey, SessionKey, ThirdName;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     bool UpdPk, AckPk;
     uint64_t ts;
     OnivKeyEntry();
-    OnivKeyEntry(in_addr_t address, in_port_t port, const string &RemoteUUID,
-                    OnivKeyAgrAlg KeyAgrAlg, const string &RemotePubKey,
-                    const string &LocalPriKey, const string &LocalPubKey,
-                    OnivVerifyAlg VerifyAlg, const string &LnkSK);
     OnivKeyEntry(const OnivKeyEntry &keyent);
     OnivKeyEntry& operator=(const OnivKeyEntry &keyent);
     void lock();
     void unlock();
+    void UpdateOnSend();
+    void UpdateOnRecvLnkRec(const OnivLnkRecord &record);
+    void UpdateOnRecvTunRec(const OnivTunRecord &record);
 };
 
 #endif

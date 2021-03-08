@@ -82,12 +82,12 @@ struct OnivCommon
     uint16_t identifier, len, total, offset;
     uint8_t UUID[16];
 
-    size_t LinearSize();
     void linearization(uint8_t *p);
     size_t structuration(const uint8_t *p);
 
     static uint16_t count();
 
+    static size_t LinearSize();
     static void ConstructEncapHdr(uint8_t *hdr, uint16_t identifier, in_addr_t SrcAddr, in_addr_t DestAddr, in_port_t SrcPort, in_port_t DestPort, size_t OnivSize);
     static uint16_t IPChecksum(const uint8_t *buf, size_t len);
     static uint16_t UDPChecksum(const uint8_t *buf, size_t len);

@@ -14,7 +14,8 @@ public:
     static const size_t MaxEpollEvents;
     static const int AdapterExtraMTU;
     static const int TunnelMTU;
-    static const uint16_t TunnelPortNo;
+    static const uint16_t OnivPort;
+    static const uint16_t KeyAgrBufSize;
 };
 
 #endif

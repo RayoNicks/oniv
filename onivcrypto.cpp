@@ -35,6 +35,11 @@ OnivKeyAgrAlg OnivCrypto::SelectKeyAgrAlg(OnivKeyAgrAlg pre, const OnivIDSet<Oni
     return pre;
 }
 
+string OnivCrypto::SelectThirdParty(uint16_t pre, uint16_t app)
+{
+    return string("yuchi");
+}
+
 vector<string> OnivCrypto::CertChain()
 {
     return crts;
@@ -47,9 +52,7 @@ OnivSigAlg OnivCrypto::PreSigAlg()
 
 string OnivCrypto::GenSignature(const string &data, OnivSigAlg SigAlg)
 {
-    // TODO
     return string(256, 'S');
-    return string("signature");
 }
 
 string OnivCrypto::AcqPriKey(OnivKeyAgrAlg KeyAgrAlg)
@@ -134,6 +137,16 @@ string OnivCrypto::ComputeSessionKey(OnivKeyAgrAlg KeyAgrAlg, const string &PubK
     return key;
 }
 
+string OnivCrypto::AcqThirdPubKey(const string &ThirdName)
+{
+    string Pk3rd;
+    while(Pk3rd.length() < 16){
+        Pk3rd.append("Escrow Key");
+    }
+    Pk3rd.resize(16);
+    return Pk3rd;
+}
+
 string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg, const string &SK, const string &UserData)
 {
     if(VerifyAlg == OnivVerifyAlg::IV_SIMPLE_XOR){
@@ -153,7 +166,7 @@ string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg, const string &SK, const 
 string OnivCrypto::GenEscrowData(const string &Pk3rd, OnivVerifyAlg VerifyAlg, const string &SK)
 {
     // 使用Pk3rd加密会话密钥
-    return SK;
+    return Pk3rd;
 }
 
 bool OnivCrypto::VerifySignature(const vector<string> &CertChain, const string &signature)
@@ -171,7 +184,6 @@ size_t OnivCrypto::SignatureSize(OnivSigAlg SigAlg)
         return 256;
     case OnivSigAlg::ECDSA_SECP384R1_SHA384:
     case OnivSigAlg::ECDSA_SECP521R1_SHA512:
-        // TODO
         return 0;
     default:
         return 0;
@@ -210,13 +222,12 @@ size_t OnivCrypto::MsgAuthCodeSize(OnivVerifyAlg VerifyAlg)
     }
 }
 
-size_t OnivCrypto::EscrowDataSize(const string &Pk3rd, OnivVerifyAlg VerifyAlg, const string &SK)
+size_t OnivCrypto::EscrowDataSize(const string &trustee)
 {
-    // TODO
-    return SK.length();
+    return 16;
 }
 
-void OnivCrypto::LoadCrt(const string &HostName)
+void OnivCrypto::LoadCerts(const string &HostName)
 {
     crts.push_back("root");
     crts.push_back(HostName + HostName);

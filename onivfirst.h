@@ -1,16 +1,18 @@
 #ifndef _ONIV_FIRST_H_
 #define _ONIV_FIRST_H_
 
-#include <ctime>
+#include <chrono>
 #include <string>
 #include <vector>
 
 #include "oniv.h"
 #include "onivcrypto.h"
-#include "oniventry.h"
 #include "onivframe.h"
 
+using std::chrono::system_clock;
 using std::vector;
+
+class OnivKeyEntry;
 
 class OnivLnkReq
 {
@@ -27,8 +29,8 @@ public:
     OnivSigAlg SigAlg;
     string signature;
     OnivCertChain certs;
-    OnivLnkReq(const OnivFrame &frame);
-    OnivLnkReq(const char *OnivHdr, size_t OnivSize);
+    OnivLnkReq(const OnivFrame &frame); // 发送方构造函数
+    OnivLnkReq(const char *OnivHdr, size_t OnivSize); // 接收方构造函数
     OnivLnkReq(const OnivLnkReq &req) = delete;
     OnivLnkReq& operator=(const OnivLnkReq &req) = delete;
     ~OnivLnkReq();
@@ -66,14 +68,15 @@ class OnivLnkRecord
 private:
     uint8_t *hdr, *buf;
     size_t HdrSize;
-    void ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent);
-    void ParseRecord(const OnivFrame &frame, OnivKeyEntry *keyent);
 public:
     OnivCommon common;
     uint64_t UpdTs, AckTs;
     uint16_t OriginProtocol;
-    string pk, code, escrow, data;
-    OnivLnkRecord(const OnivFrame &frame, OnivKeyEntry *keyent);
+    OnivVerifyAlg VerifyAlg;
+    OnivKeyAgrAlg KeyAgrAlg;
+    string pk, code, trustee, escrow, data;
+    OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent); // 发送方构造函数
+    OnivLnkRecord(const OnivFrame &frame); // 接收方构造函数
     OnivLnkRecord(const OnivLnkRecord &rec) = delete;
     OnivLnkRecord& operator=(const OnivLnkRecord &rec) = delete;
     ~OnivLnkRecord();

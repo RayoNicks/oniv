@@ -25,6 +25,7 @@ public:
     static initializer_list<OnivKeyAgrAlg> ListKeyAgrAlg();
     static OnivVerifyAlg SelectVerifyAlg(OnivVerifyAlg pre, const OnivIDSet<OnivVerifyAlg> &sup);
     static OnivKeyAgrAlg SelectKeyAgrAlg(OnivKeyAgrAlg pre, const OnivIDSet<OnivKeyAgrAlg> &sup);
+    static string SelectThirdParty(uint16_t pre, uint16_t app);
 
     static vector<string> CertChain();
 
@@ -35,6 +36,7 @@ public:
     static string GenPriKey(OnivKeyAgrAlg KeyAgrAlg);
     static string GenPubKey(OnivKeyAgrAlg KeyAgrAlg, const string &PubKey);
     static string ComputeSessionKey(OnivKeyAgrAlg KeyAgrAlg, const string &PubKey, const string &PriKey);
+    static string AcqThirdPubKey(const string &ThirdName);
 
     static string MsgAuthCode(OnivVerifyAlg VerifyAlg, const string &SK, const string &UserData);
     static string GenEscrowData(const string &Pk3rd, OnivVerifyAlg VerifyAlg, const string &SK);
@@ -43,9 +45,9 @@ public:
     static size_t SignatureSize(OnivSigAlg SigAlg);
     static size_t PubKeySize(OnivKeyAgrAlg KeyAgrAlg);
     static size_t MsgAuthCodeSize(OnivVerifyAlg VerifyAlg);
-    static size_t EscrowDataSize(const string &Pk3rd, OnivVerifyAlg VerifyAlg, const string &SK);
+    static size_t EscrowDataSize(const string &trustee);
 
-    static void LoadCrt(const string &HostName);
+    static void LoadCerts(const string &HostName);
 };
 
 #endif
