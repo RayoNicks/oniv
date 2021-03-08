@@ -28,6 +28,9 @@ OnivTunReq::OnivTunReq(uint32_t vni)
 
     common.len += certs.LinearSize();
 
+    common.total = common.len;
+    common.offset = 0;
+
     memcpy(common.UUID, UUID.c_str(), UUID.length());
 
     // 以网络字节序线性化
@@ -141,6 +144,9 @@ OnivTunRes::OnivTunRes(uint32_t vni, OnivVerifyAlg va, OnivKeyAgrAlg kaa) : buf(
     common.len += signature.length();
 
     common.len += certs.LinearSize();
+
+    common.total = common.len;
+    common.offset = 0;
 
     memcpy(common.UUID, UUID.c_str(), UUID.length());
 
@@ -258,12 +264,15 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, OnivKeyEntry 
         common.len += 0;
     }
 
-    memcpy(common.UUID, UUID.c_str(), UUID.length());
-
     data.assign(frame.buffer(), frame.size());
     code = OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey, data);
     common.len += code.length();
     common.len += data.length();
+
+    common.total = common.len;
+    common.offset = 0;
+
+    memcpy(common.UUID, UUID.c_str(), UUID.length());
 
     // 以网络字节序线性化
     buf = new uint8_t[size()];

@@ -32,6 +32,9 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame)
 
     common.len += certs.LinearSize();
 
+    common.total = common.len;
+    common.offset = 0;
+
     memcpy(common.UUID, UUID.c_str(), UUID.length());
 
     // 第一种身份信息相关报文全部使用自构建的IP协议封装
@@ -161,6 +164,9 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent)
     common.len += signature.length();
 
     common.len += certs.LinearSize();
+
+    common.total = common.len;
+    common.offset = 0;
 
     memcpy(common.UUID, UUID.c_str(), UUID.length());
 
@@ -308,8 +314,6 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
         common.len = 0;
     }
 
-    memcpy(common.UUID, UUID.c_str(), UUID.length());
-
     if(frame.IsARP()){
         OriginProtocol = 0x0806;
     }
@@ -324,6 +328,11 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
     common.len += code.length();
     common.len += escrow.length();
     common.len += data.length();
+
+    common.total = common.len;
+    common.offset = 0;
+
+    memcpy(common.UUID, UUID.c_str(), UUID.length());
 
     // 第一种身份信息相关报文全部使用自构建的IP协议封装
     size_t Layer2HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();

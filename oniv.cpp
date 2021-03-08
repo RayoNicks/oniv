@@ -11,9 +11,9 @@ void OnivCommon::linearization(uint8_t *p)
 {
     *(uint16_t*)p = htons(type), p += sizeof(type);
     *(uint16_t*)p = htons(flag), p += sizeof(flag);
-    *(uint16_t*)p = htonl(len), p += sizeof(len);
-    *(uint16_t*)p = htonl(total), p += sizeof(total);
-    *(uint16_t*)p = htonl(offset), p += sizeof(offset);
+    *(uint16_t*)p = htons(len), p += sizeof(len);
+    *(uint16_t*)p = htons(total), p += sizeof(total);
+    *(uint16_t*)p = htons(offset), p += sizeof(offset);
     memcpy(p, UUID, sizeof(UUID)), p += sizeof(UUID);
 }
 
@@ -21,8 +21,9 @@ size_t OnivCommon::structuration(const uint8_t *p)
 {
     type = ntohs(*(uint16_t*)p), p += sizeof(type);
     flag = ntohs(*(uint16_t*)p), p += sizeof(flag);
-    len = ntohl(*(uint32_t*)p), p += sizeof(len);
-
+    len = ntohs(*(uint16_t*)p), p += sizeof(len);
+    total = ntohs(*(uint16_t*)p), p += sizeof(total);
+    offset = ntohs(*(uint16_t*)p), p += sizeof(offset);
     memcpy(UUID, p, sizeof(UUID));
     return sizeof(OnivCommon);
 }
@@ -156,15 +157,9 @@ OnivCertChain::OnivCertChain(const vector<string> &certs)
     CertChain.assign(certs.begin(), certs.end());
 }
 
-// OnivCertChain& OnivCertChain::operator=(const vector<string> &certs)
-// {
-//     CertChain.assign(certs.begin(), certs.end());
-//     return *this;
-// }
-
 size_t OnivCertChain::LinearSize()
 {
-    size_t CertsSize;
+    size_t CertsSize = 0;
     for(const string &cert : CertChain)
     {
         CertsSize += cert.length();
@@ -174,14 +169,14 @@ size_t OnivCertChain::LinearSize()
 
 void OnivCertChain::linearization(uint8_t *p)
 {
-    uint16_t CertNum = CertChain.size();
-    *(uint16_t*)p = htons(CertNum), p += sizeof(uint16_t);
-    for(uint16_t i = 0; i < CertNum; i++)
+    *(uint16_t*)p = htons(CastTo16<vector<string>::size_type>(CertChain.size()));
+    p += sizeof(uint16_t);
+    for(size_t i = 0; i < CertChain.size(); i++)
     {
         *(uint16_t*)p = htons(CertChain[i].length());
         p += sizeof(uint16_t);
     }
-    for(int16_t i = 0; i < CertNum; i++)
+    for(size_t i = 0; i < CertChain.size(); i++)
     {
         memcpy(p, CertChain[i].c_str(), CertChain[i].length());
         p += CertChain[i].length();

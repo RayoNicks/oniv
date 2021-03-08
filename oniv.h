@@ -88,6 +88,13 @@ struct OnivCommon
     static uint16_t UDPChecksum(const uint8_t *buf, size_t len);
 };
 
+template <typename T> constexpr uint16_t CastTo16(T v)
+{
+    return static_cast<uint16_t>(v);
+}
+
+template <typename T> T CastFrom16(uint16_t u);
+
 template <typename T> struct OnivIDSet
 {
     vector<T> IDSet;
@@ -112,14 +119,16 @@ template <typename T> OnivIDSet<T>::OnivIDSet(const initializer_list<T> &ids)
 
 template <typename T> size_t OnivIDSet<T>::LinearSize()
 {
-    return IDSet.size() * sizeof(uint16_t);
+    return sizeof(uint16_t) + IDSet.size() * sizeof(uint16_t);
 }
 
 template <typename T> void OnivIDSet<T>::linearization(uint8_t *p)
 {
+    *(uint16_t*)p = htons(IDSet.size());
+    p += sizeof(uint16_t);
     for(uint16_t i = 0; i < IDSet.size(); i++)
     {
-        *(uint16_t*)p = htons(static_cast<uint16_t>(IDSet[i]));
+        *(uint16_t*)p = htons(CastTo16<T>(IDSet[i]));
         p += sizeof(uint16_t);
     }
 }
@@ -128,21 +137,15 @@ template <typename T> size_t OnivIDSet<T>::structuration(const uint8_t *p)
 {
     const uint8_t *origin = p;
     uint16_t IDNum = ntohs(*(uint16_t*)p);
+    p += sizeof(uint16_t);
     IDSet.clear();
     for(size_t i = 0; i < IDNum; i++)
     {
-        IDSet.push_back(static_cast<T>(ntohs(*(uint16_t*)p)));
+        IDSet.push_back(CastFrom16<T>(ntohs(*(uint16_t*)p)));
         p += sizeof(uint16_t);
     }
     return p - origin;
 }
-
-template <typename T> constexpr uint16_t CastTo16(T v)
-{
-    return static_cast<uint16_t>(v);
-}
-
-template <typename T> T CastFrom16(uint16_t u);
 
 struct OnivCertChain
 {
