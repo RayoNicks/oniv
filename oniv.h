@@ -3,13 +3,16 @@
 
 #include <cstring>
 #include <initializer_list>
+#include <mutex>
 #include <string>
 #include <vector>
 
 #include <netinet/in.h>
-#include <stdint.h>
+
+#include "onivglobal.h"
 
 using std::initializer_list;
+using std::mutex;
 using std::string;
 using std::vector;
 
@@ -76,12 +79,14 @@ struct OnivCommon
         offset表示OnivCommon之后的数据在整个密钥协商消息中的偏移
         total和offset是为了在密钥协商消息的接收方重组密钥协商消息而添加的
     */
-    uint16_t len, total, offset;
+    uint16_t identifier, len, total, offset;
     uint8_t UUID[16];
 
     size_t LinearSize();
     void linearization(uint8_t *p);
     size_t structuration(const uint8_t *p);
+
+    static uint16_t count();
 
     static void ConstructEncapHdr(uint8_t *hdr, uint16_t identifier, in_addr_t SrcAddr, in_addr_t DestAddr, in_port_t SrcPort, in_port_t DestPort, size_t OnivSize);
     static uint16_t IPChecksum(const uint8_t *buf, size_t len);

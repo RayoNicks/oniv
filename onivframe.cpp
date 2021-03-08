@@ -85,7 +85,7 @@ const char* OnivFrame::Layer2Hdr() const
 
 const char* OnivFrame::Layer3Hdr() const
 {
-    if(IsARP() || IsIP() || IsLayer3Oniv()){
+    if(IsARP() || IsIP()){
         return Layer2Hdr() + 14;
     }
     else{
@@ -101,16 +101,6 @@ const char* OnivFrame::Layer4Hdr() const
     else{
         return nullptr;
     }
-}
-
-const char* OnivFrame::TCPHdr() const
-{
-    return Layer4Hdr();
-}
-
-const char* OnivFrame::UDPHdr() const
-{
-    return Layer4Hdr();
 }
 
 const string OnivFrame::OriginUserData() const
@@ -132,30 +122,9 @@ const char* OnivFrame::OnivHdr() const
     else return nullptr;
 }
 
-bool OnivFrame::IsLayer3Oniv() const
-{
-    return ntohs(*(u_int16_t*)(buffer() + 12)) == OnivGlobal::OnivType;
-}
-
 bool OnivFrame::IsLayer4Oniv() const
 {
     return IsUDP() && (SrcPort() == htons(OnivGlobal::TunnelPortNo) || DestPort() == htons(OnivGlobal::TunnelPortNo));
-}
-
-uint8_t OnivFrame::Layer4Protocol() const
-{
-    if(IsICMP()){
-        return 0x01;
-    }
-    else if(IsTCP()){
-        return 0x06;
-    }
-    else if(IsUDP()){
-        return 0x11;
-    }
-    else{
-        return 0;
-    }
 }
 
 const string OnivFrame::DestHwAddr() const
@@ -214,11 +183,6 @@ in_addr_t OnivFrame::DestIPAddr() const
     }
 }
 
-bool OnivFrame::IsICMP() const
-{
-    return IsIP() && *(Layer3Hdr() + 9) == 0x01;
-}
-
 bool OnivFrame::IsTCP() const
 {
     return IsIP() && *(Layer3Hdr() + 9) == 0x06;
@@ -246,28 +210,5 @@ in_port_t OnivFrame::DestPort() const
     }
     else{
         return 0;
-    }
-}
-
-void OnivFrame::reverse()
-{
-    size_t offset = 0;
-    for(size_t i = 0; i < 6; i++)
-    {
-        swap(frame[offset + i], frame[offset + i + 6]);
-    }
-    if(IsIP()){
-        offset = 14 + 12;
-        for(size_t i = 0; i < 4; i++)
-        {
-            swap(frame[offset + i], frame[offset + i + 4]);
-        }
-        if(IsUDP()){
-            offset = 14 + IPHdrLen();
-            for(size_t i = 0; i < 2; i++)
-            {
-                swap(frame[offset + i], frame[offset + i + 2]);
-            }
-        }
     }
 }

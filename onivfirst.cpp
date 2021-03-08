@@ -16,6 +16,7 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame)
     string UUID(OnivCrypto::UUID());
     common.type = CastTo16<OnivPacketType>(OnivPacketType::LNK_KA_REQ);
     common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
+    common.identifier = OnivCommon::count();
 
     ts = 0;
     common.len = sizeof(ts);
@@ -43,7 +44,7 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame)
     hdr = new uint8_t[HdrSize];
     memcpy(hdr, frame.Layer2Hdr(), Layer2HdrSize);
     *(uint16_t*)(hdr + 12) = htons(0x0800);
-    OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, htons(OnivGlobal::OnivType),
+    OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, htons(common.identifier),
         frame.SrcIPAddr(), frame.DestIPAddr(),
         htons(OnivGlobal::TunnelPortNo), htons(OnivGlobal::TunnelPortNo), size());
 
@@ -147,6 +148,7 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent)
     string UUID(OnivCrypto::UUID());
     common.type = CastTo16<OnivPacketType>(OnivPacketType::LNK_KA_RES);
     common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
+    common.identifier = OnivCommon::count();
 
     ReqTs = 0, ResTs = 0;
     common.len = sizeof(ReqTs) + sizeof(ResTs);
@@ -178,7 +180,7 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent)
     memcpy(hdr, DestHwAddr.c_str(), DestHwAddr.length());
     memcpy(hdr + DestHwAddr.length(), SrcHwAddr.c_str(), SrcHwAddr.length());
     *(uint16_t*)(hdr + 12) = htons(0x0800);
-    OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, htons(OnivGlobal::OnivType),
+    OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, htons(common.identifier),
         LnkReqFrame.DestIPAddr(), LnkReqFrame.SrcIPAddr(),
         LnkReqFrame.DestPort(), LnkReqFrame.SrcPort(), size());
 
@@ -313,6 +315,7 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
         common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
         common.len = 0;
     }
+    common.identifier = OnivCommon::count();
 
     if(frame.IsARP()){
         OriginProtocol = 0x0806;
@@ -340,7 +343,7 @@ void OnivLnkRecord::ConstructRecord(const OnivFrame &frame, OnivKeyEntry *keyent
     hdr = new uint8_t[HdrSize];
     memcpy(hdr, frame.Layer2Hdr(), Layer2HdrSize);
     *(uint16_t*)(hdr + 12) = htons(0x0800);
-    OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, htons(OnivGlobal::OnivType),
+    OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, htons(common.identifier),
         frame.SrcIPAddr(), frame.DestIPAddr(),
         htons(OnivGlobal::TunnelPortNo), keyent->RemotePort, size());
 

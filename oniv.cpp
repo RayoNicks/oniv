@@ -2,7 +2,7 @@
 
 size_t OnivCommon::LinearSize()
 {
-    return sizeof(type) + sizeof(flag)
+    return sizeof(type) + sizeof(flag) + sizeof(identifier)
         + sizeof(len) + sizeof(total) + sizeof(offset)
         + sizeof(UUID);
 }
@@ -11,6 +11,7 @@ void OnivCommon::linearization(uint8_t *p)
 {
     *(uint16_t*)p = htons(type), p += sizeof(type);
     *(uint16_t*)p = htons(flag), p += sizeof(flag);
+    *(uint16_t*)p = htons(identifier), p += sizeof(identifier);
     *(uint16_t*)p = htons(len), p += sizeof(len);
     *(uint16_t*)p = htons(total), p += sizeof(total);
     *(uint16_t*)p = htons(offset), p += sizeof(offset);
@@ -21,11 +22,24 @@ size_t OnivCommon::structuration(const uint8_t *p)
 {
     type = ntohs(*(uint16_t*)p), p += sizeof(type);
     flag = ntohs(*(uint16_t*)p), p += sizeof(flag);
+    identifier = ntohs(*(uint16_t*)p), p += sizeof(identifier);
     len = ntohs(*(uint16_t*)p), p += sizeof(len);
     total = ntohs(*(uint16_t*)p), p += sizeof(total);
     offset = ntohs(*(uint16_t*)p), p += sizeof(offset);
     memcpy(UUID, p, sizeof(UUID));
-    return sizeof(OnivCommon);
+    return LinearSize();
+}
+
+uint16_t OnivCommon::count()
+{
+    static uint16_t counter = OnivGlobal::TunnelPortNo;
+    static mutex mtx;
+    uint16_t current;
+    mtx.lock();
+    current = counter;
+    counter++;
+    mtx.unlock();
+    return current;
 }
 
 void OnivCommon::ConstructEncapHdr(uint8_t *hdr, uint16_t identifier, in_addr_t SrcAddr, in_addr_t DestAddr, in_port_t SrcPort, in_port_t DestPort, size_t OnivSize)

@@ -96,7 +96,7 @@ const char* OnivPacket::buffer() const
     return packet.c_str();
 }
 
-void OnivPacket::ResetIngressTunnel(OnivTunnel *tunnel)
+void OnivPacket::DiapatchIngressTunnel(OnivTunnel *tunnel)
 {
     ingress = tunnel;
 }

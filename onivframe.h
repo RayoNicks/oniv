@@ -45,14 +45,10 @@ public:
     const char* Layer2Hdr() const;
     const char* Layer3Hdr() const;
     const char* Layer4Hdr() const;
-    const char* TCPHdr() const;
-    const char* UDPHdr() const;
     const string OriginUserData() const;
     const char* OnivHdr() const;
-    bool IsLayer3Oniv() const;
     bool IsLayer4Oniv() const;
 
-    uint8_t Layer4Protocol() const;
     const string DestHwAddr() const;
     const string SrcHwAddr() const;
     bool IsBroadcast() const;
@@ -61,13 +57,10 @@ public:
     uint8_t IPHdrLen() const;
     in_addr_t SrcIPAddr() const;
     in_addr_t DestIPAddr() const;
-    bool IsICMP() const;
     bool IsTCP() const;
     bool IsUDP() const;
     in_port_t SrcPort() const;
     in_port_t DestPort() const;
-
-    void reverse();
 };
 
 #endif

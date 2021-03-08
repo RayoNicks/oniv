@@ -561,7 +561,7 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
         return OnivErr(OnivErrCode::ERROR_UNKNOWN);
     }
     AcceptTunnel = &*iter;
-    packet.ResetIngressTunnel(AcceptTunnel); // 设置数据包的接收隧道
+    packet.DiapatchIngressTunnel(AcceptTunnel); // 设置数据包的接收隧道
     AcceptTunnel->UpdateSocket(packet); // 更新隧道地址
 
     OnivKeyEntry *keyent = AcceptTunnel->KeyEntry();

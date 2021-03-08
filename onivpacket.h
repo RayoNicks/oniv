@@ -35,9 +35,8 @@ public:
     size_t size() const;
     OnivPacketType type() const;
     const char* buffer() const;
-    const char* frame() const;
 
-    void ResetIngressTunnel(OnivTunnel *tunnel);
+    void DiapatchIngressTunnel(OnivTunnel *tunnel);
 };
 
 #endif
