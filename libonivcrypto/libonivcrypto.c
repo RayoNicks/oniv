@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include <openssl/asn1.h>
+#include <openssl/ecdh.h>
 #include <openssl/obj_mac.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
@@ -106,7 +107,7 @@ void* LoadAsn1(const char *p, size_t len, int object)
     
 }
 
-const EVP_MD* DigestFromEC(int nid)
+const EVP_MD* DigestFromCurve(int nid)
 {
     if(nid == NID_secp384r1){
         EVP_add_digest(EVP_sha384());
@@ -140,17 +141,13 @@ const EVP_MD* DigestFromRSA(int nid)
     }
 }
 
-void LoadAsyKey(int format, int type, const char *buf, size_t len,
-    void **object, EVP_PKEY **evpkey)
+void LoadObject(int format, int type, const char *buf, size_t len, void **object)
 {
     EC_KEY **eckey;
     RSA ** rsa;
-    X509 *x;
+    X509 **x;
 
-    if(object == NULL || evpkey == NULL){
-        return;
-    }
-    if((*evpkey = EVP_PKEY_new()) == NULL){
+    if(object == NULL){
         return;
     }
     if(type == OBJECT_ECC_PRI){
@@ -167,25 +164,36 @@ void LoadAsyKey(int format, int type, const char *buf, size_t len,
         if(*eckey == NULL){
             return;
         }
-        EVP_PKEY_set1_EC_KEY(*evpkey, *eckey);
     }
-    else if(type == OBJECT_ECC_509){
+    else if(type == OBJECT_ECC_PUB){
         eckey = (EC_KEY**)object;
         if(format == FORMAT_PEM){
-            x = (X509*)LoadPem(buf, len, type);
+            *eckey = (EC_KEY*)LoadPem(buf, len, type);
         }
         else if(format == FORMAT_ASN1){
-            x = (X509*)LoadAsn1(buf, len, type);;
+            *eckey = (EC_KEY*)LoadAsn1(buf, len, type);;
         }
         else{
             return;
         }
-        if(x == NULL){
+        if(*eckey == NULL){
             return;
         }
-        *evpkey = X509_get_pubkey(x);
-        *eckey = EVP_PKEY_get1_EC_KEY(*evpkey);
-        X509_free(x);
+    }
+    else if(type == OBJECT_ECC_509){
+        x = (X509**)object;
+        if(format == FORMAT_PEM){
+            *x = (X509*)LoadPem(buf, len, type);
+        }
+        else if(format == FORMAT_ASN1){
+            *x = (X509*)LoadAsn1(buf, len, type);;
+        }
+        else{
+            return;
+        }
+        if(*x == NULL){
+            return;
+        }
     }
     else if(type == OBJECT_RSA_PRI){
         rsa = (RSA**)object;
@@ -201,52 +209,55 @@ void LoadAsyKey(int format, int type, const char *buf, size_t len,
         if(*rsa == NULL){
             return;
         }
-        EVP_PKEY_set1_RSA(*evpkey, *rsa);
     }
     else if(type == OBJECT_RSA_509){
-        rsa = (RSA**)object;
+        x = (X509**)object;
         if(format == FORMAT_PEM){
-            x = (X509*)LoadPem(buf, len, type);
+            *x = (X509*)LoadPem(buf, len, type);
         }
         else if(format == FORMAT_ASN1){
-            x = (X509*)LoadAsn1(buf, len, type);;
+            *x = (X509*)LoadAsn1(buf, len, type);;
         }
         else{
             return;
         }
-        if(x == NULL){
+        if(*x == NULL){
             return;
         }
-        *evpkey = X509_get_pubkey(x);
-        *rsa = EVP_PKEY_get1_RSA(*evpkey);
-        X509_free(x);
     }
     else{
         return;
     }
 }
 
-// 签名算法
 size_t sign(const char *PrivateKey, size_t PrivateKeyLen,
             const char *data, size_t DataLen,
             char *signature, size_t SigLen, int format)
 {
-    EC_KEY *eckey = NULL;
     EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
-    const EVP_MD *md = NULL;
+    EC_KEY *eckey = NULL;
     EVP_PKEY *evpkey = NULL;
+    const EVP_MD *md = NULL;
+    size_t ret = 0;
 
     if(mdctx == NULL){
         goto err_sign;
     }
 
-    LoadAsyKey(format, OBJECT_ECC_PRI, PrivateKey, PrivateKeyLen, (void**)&eckey, &evpkey);
-    if(eckey == NULL || evpkey == NULL){
-        printf("PrepareForSignAndVerify\n");
+    LoadObject(format, OBJECT_ECC_PRI, PrivateKey, PrivateKeyLen, (void**)&eckey);
+    if(eckey == NULL){
+        printf("LoadAsyKey\n");
         goto err_sign;
     }
 
-    if((md = DigestFromEC(EC_GROUP_get_curve_name(EC_KEY_get0_group(eckey)))) == NULL){
+    evpkey = EVP_PKEY_new();
+    if(evpkey == NULL){
+        goto err_sign;
+    }
+
+    EVP_PKEY_set1_EC_KEY(evpkey, eckey);
+
+    if((md = DigestFromCurve(EC_GROUP_get_curve_name(EC_KEY_get0_group(eckey)))) == NULL){
         goto err_sign;
     }
 
@@ -267,35 +278,47 @@ size_t sign(const char *PrivateKey, size_t PrivateKeyLen,
         printf("Final\n");
         goto err_sign;
     }
-    return SigLen;
+    ret = SigLen;
 
 err_sign:
     EVP_PKEY_free(evpkey);
     EC_KEY_free(eckey);
     EVP_MD_CTX_destroy(mdctx);
-    return 0;
+    return ret;
 }
 
 int verify(const char *cert, size_t CertLen,
-            const char *data, size_t DataLen,
-            const char *signature, size_t SigLen, int format)
+        const char *data, size_t DataLen,
+        const char *signature, size_t SigLen, int format)
 {
-    EC_KEY *eckey = NULL;
     EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
-    const EVP_MD *md = NULL;
+    X509 *x = NULL;
     EVP_PKEY *evpkey = NULL;
+    EC_KEY *eckey = NULL;
+    const EVP_MD *md = NULL;
+    int ret = 0;
 
     if(mdctx == NULL){
         goto err_verify;
     }
 
-    LoadAsyKey(format, OBJECT_ECC_509, cert, CertLen, (void**)&eckey, &evpkey);
-    if(eckey == NULL || evpkey == NULL){
-        printf("PrepareForSignAndVerify\n");
+    LoadObject(format, OBJECT_ECC_509, cert, CertLen, (void**)&x);
+    if(x == NULL){
+        printf("LoadAsyKey\n");
         goto err_verify;
     }
 
-    if((md = DigestFromEC(EC_GROUP_get_curve_name(EC_KEY_get0_group(eckey)))) == NULL){
+    evpkey = X509_get_pubkey(x);
+    if(evpkey == NULL){
+        goto err_verify;
+    }
+
+    eckey = EVP_PKEY_get1_EC_KEY(evpkey);
+    if(eckey == NULL){
+        goto err_verify;
+    }
+
+    if((md = DigestFromCurve(EC_GROUP_get_curve_name(EC_KEY_get0_group(eckey)))) == NULL){
         goto err_verify;
     }
 
@@ -312,11 +335,559 @@ int verify(const char *cert, size_t CertLen,
         ERR_print_errors_fp(stdout);
         goto err_verify;
     }
-    return 1;
+    ret = 1;
 
 err_verify:
-    EVP_PKEY_free(evpkey);
     EC_KEY_free(eckey);
+    EVP_PKEY_free(evpkey);
+    X509_free(x);
     EVP_MD_CTX_destroy(mdctx);
+    return ret;
+}
+
+int CheckCertificate(const char *CACerts, size_t CALength,
+                    const char *UserCert, size_t UserLen, int format)
+{
+    X509_STORE_CTX *StoreCtx = NULL;
+    X509_STORE *store = NULL;
+    BIO *ca = NULL, *user = NULL;
+    STACK_OF(X509_INFO) *info = NULL;
+    X509 *x = NULL;
+    X509_INFO *itmp = NULL;
+    int i = 0, ret = 0;
+
+    StoreCtx = X509_STORE_CTX_new();
+    if(StoreCtx == NULL){
+        goto err_check;
+    }
+    store = X509_STORE_new();
+    if(store == NULL){
+        goto err_check;
+    }
+    ca = BIO_new(BIO_s_mem());
+    if(ca == NULL){
+        goto err_check;
+    }
+    BIO_write(ca, CACerts, CALength);
+    info = PEM_X509_INFO_read_bio(ca, NULL, NULL, NULL);
+    if(info == NULL){
+        goto err_check;
+    }
+    for (i = 0; i < sk_X509_INFO_num(info); i++) {
+        itmp = sk_X509_INFO_value(info, i);
+        if(itmp->x509) {
+            X509_STORE_add_cert(store, itmp->x509);
+        }
+        if(itmp->crl) {
+            X509_STORE_add_crl(store, itmp->crl);
+        }
+    }
+
+    LoadObject(format, OBJECT_ECC_509, UserCert, UserLen, (void**)&x);
+    if(x == NULL){
+        goto err_check;
+    }
+
+    if(X509_STORE_CTX_init(StoreCtx, store, x, NULL) == 0){
+        goto err_check;
+    }
+    if(X509_verify_cert(StoreCtx) == 1){
+        ret = 1;
+    }
+
+err_check:
+    X509_free(x);
+    BIO_free(user);
+    sk_X509_INFO_pop_free(info, X509_INFO_free);
+    BIO_free(ca);
+    X509_STORE_free(store);
+    X509_STORE_CTX_free(StoreCtx);
+    return ret;
+}
+
+size_t GenECPrivateKey(const char *name, char *PrivateKey, size_t PrivateKeyLen, int format)
+{
+    EC_KEY *eckey = NULL;
+    EC_GROUP *group = NULL;
+    BIO *pri = NULL, *pub = NULL;
+    size_t ret = 0;
+
+    eckey = EC_KEY_new();
+    if(eckey == NULL){
+        goto err_gen_ec_pri;
+    }
+
+    group = EC_GROUP_new_by_curve_name(OBJ_sn2nid(name));
+    if(group == NULL){
+        goto err_gen_ec_pri;
+    }
+
+    EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE);
+    EC_KEY_set_group(eckey, group);
+    
+    if(EC_KEY_generate_key(eckey) == 0){
+        goto err_gen_ec_pri;
+    }
+
+    pri = BIO_new(BIO_s_mem());
+    if(format == FORMAT_PEM){
+        PEM_write_bio_ECPrivateKey(pri, eckey, NULL, NULL, 0, NULL, NULL);
+    }
+    else if(format == FORMAT_ASN1){
+        i2d_ECPrivateKey_bio(pri, eckey);
+    }
+    else{
+        goto err_gen_ec_pri;
+    }
+
+    ret = BIO_read(pri, PrivateKey, PrivateKeyLen);
+    if(ret == PrivateKeyLen){
+        ret = 0;
+    }
+
+err_gen_ec_pri:
+    BIO_free(pub);
+    BIO_free(pri);
+    EC_GROUP_free(group);
+    EC_KEY_free(eckey);
+    return ret;
+}
+
+size_t GetECPublicKey(const char *PrivateKey, size_t PrivateKeyLen,
+                    char *PublicKey, size_t PublicKeyLen, int format)
+{
+    EC_KEY *eckey = NULL;
+    BIO *pub = NULL;
+    size_t ret = 0;
+
+    LoadObject(format, OBJECT_ECC_PRI, PrivateKey, PrivateKeyLen, (void**)&eckey);
+    if(eckey == NULL){
+        goto err_get_ec_pub;
+    }
+    pub = BIO_new(BIO_s_mem());
+    if(pub == NULL){
+        goto err_get_ec_pub;
+    }
+    if(format == FORMAT_PEM){
+        PEM_write_bio_EC_PUBKEY(pub, eckey);
+    }
+    else if(format == FORMAT_ASN1){
+        i2d_EC_PUBKEY_bio(pub, eckey);
+    }
+    else{
+        goto err_get_ec_pub;
+    }
+
+    ret = BIO_read(pub, PublicKey, PublicKeyLen);
+    if(ret == PublicKeyLen){
+        ret = 0;
+    }
+
+err_get_ec_pub:
+    BIO_free(pub);
+    EC_KEY_free(eckey);
+    return ret;
+}
+
+size_t ComputeSK(const char *PrivateKey, size_t PrivateKeyLen,
+                const char *PublicKey, size_t PublicKeyLen,
+                char *SessionKey, size_t SessionKeyLen, int format)
+{
+    EC_KEY *ecsk = NULL, *ecpk = NULL;
+    size_t ret = 0;
+
+    LoadObject(format, OBJECT_ECC_PRI, PrivateKey, PrivateKeyLen, (void**)&ecsk);
+    LoadObject(format, OBJECT_ECC_PUB, PublicKey, PublicKeyLen, (void**)&ecpk);
+    if(ecsk == NULL){
+        printf("ecsk is NULL\n");
+        goto err_com_sk;
+    }
+    if(ecpk == NULL){
+        printf("ecpk is NULL\n");
+        goto err_com_sk;
+    }
+
+    ret = ECDH_compute_key(SessionKey, SessionKeyLen, EC_KEY_get0_public_key(ecpk), ecsk, NULL);
+
+err_com_sk:
+    EC_KEY_free(ecpk);
+    EC_KEY_free(ecsk);
+    return ret;
+}
+
+size_t encrypt(const char *cert, size_t CertLen,
+            const char *plain, size_t PlainLen,
+            char *cipher, size_t CipherLen, int format)
+{
+    X509 *x = NULL;
+    EVP_PKEY *evpkey = NULL;
+    EC_GROUP *group;
+    EC_KEY *ecpk = NULL, *ecsk = NULL;
+    char session[128] = { '\0' }, pk[256] = { '\0' };
+    BIO *bp = NULL;
+    int size = 0, read = 0;
+    size_t i, j;
+
+    LoadObject(format, OBJECT_ECC_509, cert, CertLen, (void**)&x);
+    if(x == NULL){
+        printf("LoadAsyKey\n");
+        goto err_encrypt;
+    }
+
+    evpkey = X509_get_pubkey(x);
+    if(evpkey == NULL){
+        goto err_encrypt;
+    }
+
+    ecpk = EVP_PKEY_get1_EC_KEY(evpkey);
+    if(ecpk == NULL){
+        goto err_encrypt;
+    }
+
+    ecsk = EC_KEY_new();
+    if(ecsk == NULL){
+        goto err_encrypt;
+    }
+
+    group = EC_GROUP_new_by_curve_name(EC_GROUP_get_curve_name(EC_KEY_get0_group(ecpk)));
+    if(group == NULL){
+        goto err_encrypt;
+    }
+    EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE);
+    EC_KEY_set_group(ecsk, group);
+
+    if(EC_KEY_generate_key(ecsk) == 0){
+        goto err_encrypt;
+    }
+
+    size = ECDH_compute_key(session, sizeof(session), EC_KEY_get0_public_key(ecpk), ecsk, NULL);
+    if(size == 0){
+        goto err_encrypt;
+    }
+
+    bp = BIO_new(BIO_s_mem());
+    if(format == FORMAT_PEM){
+        PEM_write_bio_EC_PUBKEY(bp, ecsk);
+    }
+    else if(format == FORMAT_ASN1){
+        i2d_EC_PUBKEY_bio(bp, ecsk);
+    }
+    else{
+        goto err_encrypt;
+    }
+    read = BIO_read(bp, pk, sizeof(pk));
+
+    if(CipherLen < PlainLen + read){
+        goto err_encrypt;
+    }
+
+    // TODO 公钥长度
+    memcpy(cipher, pk, read);
+    cipher += read;
+
+    for(i = 0, j = 0; i < PlainLen; i++, j++)
+    {
+        cipher[i] = plain[i] ^ session[j];
+        if(j == size){
+            j = 0;
+        }
+    }
+    return read + PlainLen;
+
+err_encrypt:
+    BIO_free(bp);
+    EC_KEY_free(ecsk);
+    EC_KEY_free(ecpk);
+    EVP_PKEY_free(evpkey);
+    X509_free(x);
     return 0;
+}
+
+size_t decrypt(const char *PrivateKey, size_t PrivateKeyLen,
+            const char *cipher, size_t CipherLen,
+            char *plain, size_t PlainLen, int format)
+{
+    EC_KEY *ecpk = NULL, *ecsk = NULL;
+    char session[128] = { '\0' };
+    int size = 0;
+    size_t i, j;
+
+    LoadObject(format, OBJECT_ECC_PRI, PrivateKey, PrivateKeyLen, (void**)&ecsk);
+    if(ecsk == NULL){
+        printf("LoadAsyKey\n");
+        goto err_decrypt;
+    }
+
+    if(format == FORMAT_PEM){
+        LoadObject(format, OBJECT_ECC_PUB, cipher, 215, (void**)&ecpk);
+    }
+    else if(format == FORMAT_ASN1){
+        goto err_decrypt;
+    }
+    else{
+        goto err_decrypt;
+    }
+    if(ecpk == NULL){
+        printf("LoadAsyKey\n");
+        goto err_decrypt;
+    }
+
+    size = ECDH_compute_key(session, sizeof(session), EC_KEY_get0_public_key(ecpk), ecsk, NULL);
+
+    // TODO 公钥长度
+    if(format == FORMAT_PEM){
+        if(PlainLen + 215 < CipherLen){
+            goto err_decrypt;
+        }
+        cipher += 215;
+        CipherLen -= 215;
+    }
+    else{
+        if(PlainLen + 120 < CipherLen){
+            goto err_decrypt;
+        }
+        cipher += 120;
+        CipherLen -= 120;
+        goto err_decrypt;
+    }
+
+    for(i = 0, j = 0; i < CipherLen; i++, j++)
+    {
+        plain[i] = cipher[i] ^ session[j];
+        if(j == size){
+            j = 0;
+        }
+    }
+    return CipherLen;
+
+err_decrypt:
+    EC_KEY_free(ecsk);
+    EC_KEY_free(ecpk);
+    return 0;
+}
+
+size_t GCMEncryption(const char *key, size_t KeyLen, 
+                const char *plain, size_t PlainLen,
+                const char *InitVector, size_t InitVectorLen,
+                const char *AssData, size_t AssDataLen,
+                char *cipher, size_t CipherLen,
+                char *tag, size_t TagLen)
+{
+    EVP_CIPHER_CTX *ctx = NULL;
+    int len = 0;
+    size_t ret = 0;
+
+    if(CipherLen < PlainLen || TagLen != 16){
+        goto err_gcm_enc;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if(ctx == NULL){
+        goto err_gcm_enc;
+    }
+    if(EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL) != 1){
+        printf("EVP_EncryptInit_ex-1\n");
+        goto err_gcm_enc;
+    }
+    if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, InitVectorLen, NULL) != 1){
+        printf("EVP_CTRL_GCM_SET_IVLEN-2\n");
+        goto err_gcm_enc;
+    }
+    if(EVP_EncryptInit_ex(ctx, NULL, NULL, (const unsigned char*)key, (const unsigned char*)InitVector) != 1){
+        printf("EVP_EncryptInit_ex-2\n");
+        goto err_gcm_enc;
+    }
+    if(EVP_EncryptUpdate(ctx, NULL, &len, (const unsigned char*)AssData, AssDataLen) != 1){
+        printf("EVP_EncryptUpdate-1\n");
+        goto err_gcm_enc;
+    }
+    if(EVP_EncryptUpdate(ctx, (unsigned char*)cipher, (int*)&CipherLen, (const unsigned char*)plain, PlainLen) != 1){
+        printf("EVP_EncryptUpdate-2\n");
+        goto err_gcm_enc;
+    }
+    if(EVP_EncryptFinal_ex(ctx, (unsigned char*)(cipher + CipherLen), &len) != 1){
+        printf("EVP_EncryptFinal_ex\n");
+        goto err_gcm_enc;
+    }
+    CipherLen += len;
+    if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, TagLen, tag) != 1){
+        printf("EVP_CTRL_GCM_GET_TAG\n");
+        goto err_gcm_enc;
+    }
+    ret = CipherLen;
+
+err_gcm_enc:
+    EVP_CIPHER_CTX_free(ctx);
+    return ret;
+}
+
+int GCMDecryption(const char *key, size_t KeyLen, 
+                const char *cipher, size_t CipherLen,
+                const char *InitVector, size_t InitVectorLen,
+                const char *AssData, size_t AssDataLen,
+                char *plain, size_t PlainLen,
+                char *tag, size_t TagLen)
+{
+    EVP_CIPHER_CTX *ctx = NULL;
+    int len = 0, ret = 0;
+
+    if(PlainLen < CipherLen || TagLen != 16){
+        goto err_gcm_dec;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if(ctx == NULL){
+        goto err_gcm_dec;
+    }
+    if(EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL) != 1){
+        printf("EVP_DecryptInit_ex-1\n");
+        goto err_gcm_dec;
+    }
+    if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, InitVectorLen, NULL) != 1){
+        printf("EVP_CTRL_GCM_SET_IVLEN\n");
+        goto err_gcm_dec;
+    }
+    if(EVP_DecryptInit_ex(ctx, NULL, NULL, (const unsigned char*)key, (const unsigned char*)InitVector) != 1){
+        printf("EVP_DecryptInit_ex-2\n");
+        goto err_gcm_dec;
+    }
+    if(EVP_DecryptUpdate(ctx, NULL, &len, (const unsigned char*)AssData, AssDataLen) != 1){
+        printf("EVP_DecryptUpdate-1\n");
+        goto err_gcm_dec;
+    }
+    if(EVP_DecryptUpdate(ctx, (unsigned char*)plain, (int*)&PlainLen, (const unsigned char*)cipher, CipherLen) != 1){
+        printf("EVP_DecryptUpdate-2\n");
+        goto err_gcm_dec;
+    }
+    if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TagLen, tag) != 1){
+        printf("EVP_CTRL_GCM_SET_TAG\n");
+        goto err_gcm_dec;
+    }
+    if(EVP_DecryptFinal_ex(ctx, (unsigned char*)(plain + PlainLen), &len) != 1){
+        printf("EVP_DecryptFinal_ex\n");
+        goto err_gcm_dec;
+    }
+    PlainLen += len;
+    ret = 1;
+
+err_gcm_dec:
+    EVP_CIPHER_CTX_free(ctx);
+    return ret;
+}
+
+size_t CCMEncryption(const char *key, size_t KeyLen, 
+                const char *plain, size_t PlainLen,
+                const char *InitVector, size_t InitVectorLen,
+                const char *AssData, size_t AssDataLen,
+                char *cipher, size_t CipherLen,
+                char *tag, size_t TagLen)
+{
+    EVP_CIPHER_CTX *ctx = NULL;
+    int len = 0;
+    size_t ret = 0;
+
+    if(CipherLen < PlainLen || TagLen != 16){
+        goto err_ccm_enc;
+    }
+    ctx = EVP_CIPHER_CTX_new();
+    if(ctx == NULL){
+        goto err_ccm_enc;
+    }
+    if(EVP_EncryptInit_ex(ctx, EVP_aes_128_ccm(), NULL, NULL, NULL) != 1){
+        printf("EVP_EncryptInit_ex-1\n");
+        goto err_ccm_enc;
+    }
+    // L长度默认为8，因此必须是15 - 8 = 7，可以通过EVP_CTRL_CCM_SET_L修改L
+    // if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_IVLEN, 7, NULL) != 1){
+    //     printf("EVP_CTRL_GCM_SET_IVLEN\n");
+    //     goto err_ccm_dec;
+    // }
+    if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_TAG, TagLen, NULL) != 1){
+        printf("EVP_CTRL_CCM_SET_TAG\n");
+        goto err_ccm_enc;
+    }
+    if(EVP_EncryptInit_ex(ctx, NULL, NULL, (const unsigned char*)key, (const unsigned char*)InitVector) != 1){
+        printf("EVP_EncryptInit_ex-2\n");
+        goto err_ccm_enc;
+    }
+    if(EVP_EncryptUpdate(ctx, NULL, &len, NULL, PlainLen) != 1){
+        printf("EVP_EncryptUpdate-1\n");
+        goto err_ccm_enc;
+    }
+    if(EVP_EncryptUpdate(ctx, NULL, &len, (const unsigned char*)AssData, AssDataLen) != 1){
+        printf("EVP_EncryptUpdate-2\n");
+        goto err_ccm_enc;
+    }
+    if(EVP_EncryptUpdate(ctx, (unsigned char*)cipher, (int*)&CipherLen, (const unsigned char*)plain, PlainLen) != 1){
+        printf("EVP_EncryptUpdate-3\n");
+        goto err_ccm_enc;
+    }
+    if(EVP_EncryptFinal_ex(ctx, (unsigned char*)(cipher + CipherLen), &len) != 1){
+        printf("EVP_EncryptFinal_ex\n");
+        goto err_ccm_enc;
+    }
+    CipherLen += len;
+    if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_GET_TAG, TagLen, tag) != 1){
+        printf("EVP_CTRL_CCM_GET_TAG\n");
+        goto err_ccm_enc;
+    }
+    ret = CipherLen;
+
+err_ccm_enc:
+    EVP_CIPHER_CTX_free(ctx);
+    return ret;
+}
+
+int CCMDecryption(const char *key, size_t KeyLen, 
+                const char *cipher, size_t CipherLen,
+                const char *InitData, size_t InitDataLen,
+                const char *AssData, size_t AssDataLen,
+                char *plain, size_t PlainLen,
+                char *tag, size_t TagLen)
+{
+    EVP_CIPHER_CTX *ctx = NULL;
+    int len = 0, ret = 0;
+
+    if(PlainLen < CipherLen || TagLen != 16){
+        goto err_ccm_dec;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if(ctx == NULL){
+        goto err_ccm_dec;
+    }
+    if(EVP_DecryptInit_ex(ctx, EVP_aes_128_ccm(), NULL, NULL, NULL) != 1){
+        printf("EVP_DecryptInit_ex-1\n");
+        goto err_ccm_dec;
+    }
+    // L长度默认为8，因此必须是15 - 8 = 7，可以通过EVP_CTRL_CCM_SET_L修改L
+    // if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_IVLEN, 7, NULL) != 1){
+    //     printf("EVP_CTRL_GCM_SET_IVLEN\n");
+    //     goto err_ccm_dec;
+    // }
+    if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, TagLen, tag) != 1){
+        printf("EVP_CTRL_GCM_SET_TAG\n");
+        goto err_ccm_dec;
+    }
+    if(EVP_DecryptInit_ex(ctx, NULL, NULL, (const unsigned char*)key, (const unsigned char*)InitData) != 1){
+        printf("EVP_DecryptInit_ex-2\n");
+        goto err_ccm_dec;
+    }
+    if(EVP_DecryptUpdate(ctx, NULL, &len, NULL, CipherLen) != 1){
+        printf("EVP_DecryptUpdate-1\n");
+        goto err_ccm_dec;
+    }
+    if(EVP_DecryptUpdate(ctx, NULL, &len, (const unsigned char*)AssData, AssDataLen) != 1){
+        printf("EVP_DecryptUpdate-2\n");
+        goto err_ccm_dec;
+    }
+    if(EVP_DecryptUpdate(ctx, (unsigned char*)plain, (int*)&PlainLen, (const unsigned char*)cipher, CipherLen) != 1){
+        printf("EVP_DecryptUpdate-3\n");
+        goto err_ccm_dec;
+    }
+    ret = 1;
+
+err_ccm_dec:
+    EVP_CIPHER_CTX_free(ctx);
+    return ret;
 }

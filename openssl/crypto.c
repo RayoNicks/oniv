@@ -734,7 +734,7 @@ void ECDHE()
         return;
     }
     group = EC_GROUP_new_by_curve_name(NID_secp384r1);
-    EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE); // 设置该标志位可以降低PEM互殴这ASN.1编码大小
+    EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE); // 设置该标志位可以降低PEM或者ASN.1编码大小
     EC_KEY_set_group(keya, group);
     EC_KEY_set_group(keyb, group);
     if(!EC_KEY_generate_key(keya)){
@@ -746,10 +746,10 @@ void ECDHE()
 
     puba = BIO_new(BIO_s_mem());
     pubb = BIO_new(BIO_s_mem());
-    // PEM_write_bio_EC_PUBKEY(puba, keya);
-    // PEM_write_bio_EC_PUBKEY(pubb, keyb);
-    i2d_EC_PUBKEY_bio(puba, keya);
-    i2d_EC_PUBKEY_bio(pubb, keyb);
+    PEM_write_bio_EC_PUBKEY(puba, keya);
+    PEM_write_bio_EC_PUBKEY(pubb, keyb);
+    // i2d_EC_PUBKEY_bio(puba, keya);
+    // i2d_EC_PUBKEY_bio(pubb, keyb);
 
     PublicKeyA.len = 1024;
     PublicKeyA.buf = OPENSSL_malloc(PublicKeyA.len);
@@ -762,10 +762,10 @@ void ECDHE()
 
     pria = BIO_new(BIO_s_mem());
     prib = BIO_new(BIO_s_mem());
-    // PEM_write_bio_ECPrivateKey(pria, keya, NULL, NULL, 0, NULL, NULL);
-    // PEM_write_bio_ECPrivateKey(prib, keyb, NULL, NULL, 0, NULL, NULL);
-    i2d_ECPrivateKey_bio(pria, keya);
-    i2d_ECPrivateKey_bio(prib, keyb);
+    PEM_write_bio_ECPrivateKey(pria, keya, NULL, NULL, 0, NULL, NULL);
+    PEM_write_bio_ECPrivateKey(prib, keyb, NULL, NULL, 0, NULL, NULL);
+    // i2d_ECPrivateKey_bio(pria, keya);
+    // i2d_ECPrivateKey_bio(prib, keyb);
 
     PrivateKeyA.len = 1024;
     PrivateKeyA.buf = OPENSSL_malloc(PrivateKeyA.len);
@@ -818,12 +818,12 @@ int main()
     // RSAEncryptionByCert();
     // RSADecryption();
 
-    EncAES128GCMSHA256();
-    DecAES128GCMSHA256();
+    // EncAES128GCMSHA256();
+    // DecAES128GCMSHA256();
 
-    EncAES128CCMSHA256();
-    DecAES128CCMSHA256();
+    // EncAES128CCMSHA256();
+    // DecAES128CCMSHA256();
 
-    // ECDHE();
+    ECDHE();
     return 0;
 }
