@@ -1,6 +1,8 @@
 #ifndef _LIB_ONIV_CRYPTO_H_
 #define _LIB_ONIV_CRYPTO_H_
 
+#include <cstddef>
+
 namespace libonivcrypto
 {
 #ifdef __cplusplus
@@ -46,6 +48,8 @@ size_t encrypt(const char *cert, size_t CertLen,
 size_t decrypt(const char *PrivateKey, size_t PrivateKeyLen,
             const char *cipher, size_t CipherLen,
             char *plain, size_t PlainLen, int format);
+
+int uuid5(const char *cert, size_t CertLen, char *uuid, size_t len, int format);
 
 size_t GCMEncryption(const char *key, size_t KeyLen, 
                     const char *plain, size_t PlainLen,

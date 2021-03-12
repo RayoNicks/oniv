@@ -2,11 +2,13 @@
 #define _ONIV_CRYPTO_H_
 
 #include <initializer_list>
+#include <fstream>
 #include <string>
 #include <vector>
 
 #include "oniv.h"
 
+using std::ifstream;
 using std::initializer_list;
 using std::string;
 using std::vector;
@@ -16,6 +18,7 @@ class OnivCrypto
 private:
     static string uuid;
     static vector<string> crts;
+    static string LoadCert(const string &subject);
 public:
     static const string& UUID();
     static OnivVerifyAlg PreVerifyAlg();
@@ -47,7 +50,7 @@ public:
     static size_t MsgAuthCodeSize(OnivVerifyAlg VerifyAlg);
     static size_t EscrowDataSize(const string &trustee);
 
-    static void LoadCerts(const string &HostName);
+    static bool LoadCerts(const string &subject);
 };
 
 #endif

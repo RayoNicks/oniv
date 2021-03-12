@@ -332,7 +332,6 @@ int verify(const char *cert, size_t CertLen,
     }
     if(EVP_DigestVerifyFinal(mdctx, (const unsigned char*)signature, SigLen) != 1){
         printf("Final\n");
-        ERR_print_errors_fp(stdout);
         goto err_verify;
     }
     ret = 1;
@@ -664,6 +663,89 @@ err_decrypt:
     EC_KEY_free(ecsk);
     EC_KEY_free(ecpk);
     return 0;
+}
+
+int uuid5(const char *cert, size_t CertLen, char *uuid, size_t len, int format)
+{
+    EVP_MD_CTX *mdctx = EVP_MD_CTX_create();
+    X509 *x = NULL;
+    EVP_PKEY *evpkey = NULL;
+    EC_KEY *ecpk = NULL;
+    BIO* bp = NULL;
+    const EVP_MD *md = NULL;
+    char pk[256] = { '\0' }, sha1[20] = { '\0' };
+    int read = 0, size = sizeof(md), ret = 0;
+
+    if(mdctx == NULL){
+        goto err_uuid5;
+    }
+
+    if(len < 16){
+        goto err_uuid5;
+    }
+
+    LoadObject(format, OBJECT_ECC_509, cert, CertLen, (void**)&x);
+    if(x == NULL){
+        goto err_uuid5;
+    }
+
+    evpkey = X509_get_pubkey(x);
+    if(evpkey == NULL){
+        goto err_uuid5;
+    }
+
+    ecpk = EVP_PKEY_get1_EC_KEY(evpkey);
+    if(ecpk == NULL){
+        goto err_uuid5;
+    }
+
+    bp = BIO_new(BIO_s_mem());
+    if(bp == NULL){
+        goto err_uuid5;
+    }
+    if(format == FORMAT_PEM){
+        PEM_write_bio_EC_PUBKEY(bp, ecpk);
+    }
+    else if(format == FORMAT_ASN1){
+        i2d_EC_PUBKEY_bio(bp, ecpk);
+    }
+    else{
+        goto err_uuid5;
+    }
+    read = BIO_read(bp, pk, sizeof(pk));
+
+    EVP_add_digest(EVP_sha1());
+    if((md = EVP_get_digestbyname("sha1")) == NULL){
+        printf("EVP_get_digestbyname\n");
+        goto err_uuid5;
+    }
+
+    if(EVP_DigestInit(mdctx, md) != 1){
+        printf("Init\n");
+        goto err_uuid5;
+    }
+    if(EVP_DigestUpdate(mdctx, pk, read) != 1){
+        printf("Update\n");
+        goto err_uuid5;
+    }
+    if(EVP_DigestFinal(mdctx, (unsigned char*)sha1, (unsigned int*)&size) != 1){
+        printf("Final\n");
+        goto err_uuid5;
+    }
+
+    memcpy(uuid, sha1, 16);
+    uuid[6] &= 0x0F;
+    uuid[6] |= 0x50;
+    uuid[8] &= 0x3F;
+    uuid[8] |= 0x80;
+    ret = 1;
+
+err_uuid5:
+    BIO_free(bp);
+    EVP_PKEY_free(evpkey);
+    X509_free(x);
+    EVP_MD_CTX_destroy(mdctx);
+    return ret;
 }
 
 size_t GCMEncryption(const char *key, size_t KeyLen, 

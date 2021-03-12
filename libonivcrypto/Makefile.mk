@@ -1,14 +1,12 @@
-LIB = onivcrypto
-
 FLAGS = -Wall
 
-all : lib$(LIB).so main
+all : main
 
-main: main.cpp lib$(LIB).so libonivcrypto.h
-	g++ $(FLAGS) $< -o $@ -std=c++11 -L. -l$(LIB) -lcrypto
+main: main.cpp libonivcrypto.o libonivcrypto.h
+	g++ $(FLAGS) $^ -o $@ -std=c++11 -lcrypto
 
-lib$(LIB).so: libonivcrypto.c
-	gcc $(FLAGS) -fPIC -shared -o $@ $<
+libonivcrypto.o: libonivcrypto.c
+	gcc $(FLAGS) -c -o $@ $< -lcrypto
 
 clean:
-	rm -f main lib$(LIB).so
+	rm -f main libonivcrypto.o

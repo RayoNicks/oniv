@@ -223,6 +223,31 @@ void TestCCM()
     cout << PlainBuf << endl;
 }
 
+void TestUUID()
+{
+    cout << "Test for UUID version 5" << endl;
+    ifstream crt;
+    string certificate, line, UUID;
+    char uuid[16] = { '\0' };
+
+    crt.open("ecc/guest2-ecc.crt", ifstream::in | ifstream::binary);
+    if(!crt){
+        return;
+    }
+    while(getline(crt, line)){
+        certificate += line;
+        certificate.push_back('\n');
+    }
+    cout << certificate << endl;
+    uuid5(certificate.c_str(), certificate.length(), uuid, sizeof(uuid), FORMAT_PEM);
+    UUID.assign(uuid, 16);
+    for(const char &c : uuid)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
+    cout << endl;
+}
+
 int main()
 {
     TestSignAndVerify();
@@ -231,5 +256,6 @@ int main()
     TestECDH();
     TestEncAndDec();
     TestCCM();
+    TestUUID();
     return 0;
 }

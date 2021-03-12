@@ -1,5 +1,21 @@
 #include "onivcrypto.h"
 
+string OnivCrypto::LoadCert(const string &subject)
+{
+    ifstream ifs(subject + "-ecc.crt", ifstream::in);
+    string cert, line;
+    if(!ifs){
+        return cert;
+    }
+    while(getline(ifs, line)){
+        cert.append(line);
+        cert.push_back('\n');
+    }
+    cert.pop_back();
+    ifs.close();
+    return cert;
+}
+
 const string& OnivCrypto::UUID()
 {
     return uuid;
@@ -227,14 +243,13 @@ size_t OnivCrypto::EscrowDataSize(const string &trustee)
     return 16;
 }
 
-void OnivCrypto::LoadCerts(const string &HostName)
+bool OnivCrypto::LoadCerts(const string &subject)
 {
-    crts.push_back("root");
-    crts.push_back(HostName + HostName);
-    while(uuid.size() < 16){
-        uuid.append(HostName);
-    }
-    uuid.resize(16);
+    crts.push_back(LoadCert("root"));
+    crts.push_back(LoadCert("second"));
+    crts.push_back(LoadCert(subject));
+    
+    uuid;
 }
 
 string OnivCrypto::uuid(16, '0');
