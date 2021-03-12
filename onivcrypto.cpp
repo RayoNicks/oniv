@@ -1,6 +1,6 @@
 #include "onivcrypto.h"
 
-string OnivCrypto::UUID()
+const string& OnivCrypto::UUID()
 {
     return uuid;
 }
@@ -237,5 +237,5 @@ void OnivCrypto::LoadCerts(const string &HostName)
     uuid.resize(16);
 }
 
-string OnivCrypto::uuid;
+string OnivCrypto::uuid(16, '0');
 vector<string> OnivCrypto::crts;

@@ -79,7 +79,7 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &res)
     ent.RemoteUUID.assign((char*)res.common.UUID, sizeof(res.common.UUID));
     ent.VerifyAlg = res.VerifyAlg;
     ent.KeyAgrAlg = res.KeyAgrAlg;
-    ent.RemotePubKey = res.pk;
+    ent.RemotePubKey = res.pk.data();
     ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
     ent.LocalPubKey = OnivCrypto::GenPubKey(ent.KeyAgrAlg, ent.LocalPriKey);
     ent.SessionKey = OnivCrypto::ComputeSessionKey(ent.KeyAgrAlg, ent.RemotePubKey, ent.LocalPriKey);

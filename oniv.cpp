@@ -161,12 +161,58 @@ template <> OnivSigAlg CastFrom16<OnivSigAlg>(uint16_t u)
     }
 }
 
+OnivVariableData::OnivVariableData()
+{
+
+}
+
+OnivVariableData::OnivVariableData(const string &data) : buf(data)
+{
+
+}
+
+void OnivVariableData::data(const string &data)
+{
+    buf = data;
+}
+
+string& OnivVariableData::data()
+{
+    return buf;
+}
+
+const string& OnivVariableData::data() const
+{
+    return buf;
+}
+
+size_t OnivVariableData::LinearSize()
+{
+    return sizeof(uint16_t) + buf.length();
+}
+
+void OnivVariableData::linearization(uint8_t *p)
+{
+    *(uint16_t*)p = htons(buf.length());
+    p += sizeof(uint16_t);
+    memcpy(p, buf.c_str(), buf.length());
+}
+
+size_t OnivVariableData::structuration(const uint8_t *p)
+{
+    const uint8_t *orgin = p;
+    uint16_t len = ntohs(*(uint16_t*)p);
+    p += sizeof(uint16_t);
+    buf.assign((char*)p, len);
+    return p -orgin;
+}
+
 OnivCertChain::OnivCertChain()
 {
 
 }
 
-OnivCertChain::OnivCertChain(const vector<string> &certs)
+void OnivCertChain::assign(const vector<string> &certs)
 {
     CertChain.assign(certs.begin(), certs.end());
 }
@@ -183,7 +229,7 @@ size_t OnivCertChain::LinearSize()
 
 void OnivCertChain::linearization(uint8_t *p)
 {
-    *(uint16_t*)p = htons(CastTo16<vector<string>::size_type>(CertChain.size()));
+    *(uint16_t*)p = htons(CertChain.size());
     p += sizeof(uint16_t);
     for(size_t i = 0; i < CertChain.size(); i++)
     {

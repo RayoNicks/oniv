@@ -3,7 +3,6 @@ HEADERS = \
 		onivadapter.h \
 		onivcmd.h \
 		onivcrypto.h \
-		onivctl.h \
 		onivd.h \
 		onivdb.h \
 		oniventry.h \
@@ -25,7 +24,7 @@ SOURCES = \
 		onivctl.cpp \
 		onivd.cpp \
 		onivdb.cpp \
-		oniventry.h \
+		oniventry.cpp \
 		oniverr.cpp \
 		onivfirst.cpp \
 		onivframe.cpp \

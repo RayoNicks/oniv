@@ -17,7 +17,7 @@ private:
     static string uuid;
     static vector<string> crts;
 public:
-    static string UUID();
+    static const string& UUID();
     static OnivVerifyAlg PreVerifyAlg();
     static OnivKeyAgrAlg PreKeyAgrAlg();
     static OnivSigAlg PreSigAlg();

@@ -28,7 +28,7 @@ public:
     OnivKeyAgrAlg PreKeyAgrAlg;
     OnivIDSet<OnivKeyAgrAlg> SupKeyAgrAlgSet;
     OnivSigAlg SigAlg;
-    string signature;
+    OnivVariableData signature;
     OnivCertChain certs;
     OnivTunReq(uint32_t vni); // 发送方构造函数
     OnivTunReq(const OnivPacket &packet); // 接收方构造函数
@@ -51,7 +51,7 @@ public:
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     OnivSigAlg SigAlg;
-    string pk, signature;
+    OnivVariableData pk, signature;
     OnivCertChain certs;
     OnivTunRes(uint32_t vni, const OnivKeyEntry *keyent); // 发送方构造函数
     OnivTunRes(const OnivPacket &packet); // 接收方构造函数
@@ -73,15 +73,14 @@ public:
     uint64_t UpdTs, AckTs;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
-    string pk, code, data;
+    OnivVariableData pk, code;
+    string data;
     OnivPort *ingress;
     OnivTunRecord(uint32_t vni, const OnivFrame &frame, const OnivKeyEntry *keyent); // 发送方构造函数
     OnivTunRecord(const OnivPacket &packet); // 接收方构造函数
     OnivTunRecord(const OnivTunRecord &rec) = delete;
     OnivTunRecord& operator=(const OnivTunRecord &rec) = delete;
     ~OnivTunRecord();
-    bool UpdSend();
-    bool AckSend();
     bool VerifyIdentity(const OnivKeyEntry *keyent);
     const char* record();
     const char* frame();

@@ -27,7 +27,7 @@ public:
     OnivKeyAgrAlg PreKeyAgrAlg;
     OnivIDSet<OnivKeyAgrAlg> SupKeyAgrAlgSet;
     OnivSigAlg SigAlg;
-    string signature;
+    OnivVariableData signature;
     OnivCertChain certs;
     OnivLnkReq(const OnivFrame &frame); // 发送方构造函数
     OnivLnkReq(const char *OnivHdr, size_t OnivSize); // 接收方构造函数
@@ -51,7 +51,7 @@ public:
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     OnivSigAlg SigAlg;
-    string pk, signature;
+    OnivVariableData pk, signature;
     OnivCertChain certs;
     OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent); // 发送方构造函数
     OnivLnkRes(const OnivFrame &frame); // 接收方构造函数
@@ -74,7 +74,8 @@ public:
     uint16_t OriginProtocol;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
-    string pk, code, trustee, escrow, data;
+    OnivVariableData pk, code, trustee, escrow;
+    string data;
     OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent); // 发送方构造函数
     OnivLnkRecord(const OnivFrame &frame); // 接收方构造函数
     OnivLnkRecord(const OnivLnkRecord &rec) = delete;

@@ -95,18 +95,18 @@ void OnivKeyEntry::UpdateOnSend()
 void OnivKeyEntry::UpdateOnRecvLnkRec(const OnivLnkRecord &record)
 {
     if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND)){
-        UpdatePublibKey(record.pk, record.UpdTs);
+        UpdatePublibKey(record.pk.data(), record.UpdTs);
     }
     else if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND)){
         UpdateAcknowledge(record.AckTs);
     }
-    ThirdName = record.trustee;
+    ThirdName = record.trustee.data();
 }
 
 void OnivKeyEntry::UpdateOnRecvTunRec(const OnivTunRecord &record)
 {
     if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND)){
-        UpdatePublibKey(record.pk, record.UpdTs);
+        UpdatePublibKey(record.pk.data(), record.UpdTs);
     }
     else if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND)){
         UpdateAcknowledge(record.AckTs);
