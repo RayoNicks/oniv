@@ -45,7 +45,7 @@ enum class OnivPacketFlag : uint16_t
 
 enum class OnivVerifyAlg : uint16_t
 {
-    NONE = 0x0000,
+    UNKNOWN = 0x0000,
     IV_SIMPLE_XOR = 0x0001,
     IV_AES_128_GCM_SHA256 = 0x1301,
     IV_AES_128_CCM_SHA256 = 0x1304,
@@ -53,7 +53,7 @@ enum class OnivVerifyAlg : uint16_t
 
 enum class OnivKeyAgrAlg : uint16_t
 {
-    NONE = 0x0000,
+    UNKNOWN = 0x0000,
     KA_SIMPLE_XOR = 0x0001,
     KA_SECP384R1 = 0x0018,
     KA_SECP521R1 = 0x0019,
@@ -61,10 +61,7 @@ enum class OnivKeyAgrAlg : uint16_t
 
 enum class OnivSigAlg : uint16_t
 {
-    NONE = 0x0000,
-    RSA_PKCS1_SHA256 = 0x0401,
-    RSA_PKCS1_SHA384 = 0x0501,
-    RSA_PKCS1_SHA512 = 0x0601,
+    UNKNOWN = 0x0000,
     ECDSA_SECP384R1_SHA384 = 0x0503,
     ECDSA_SECP521R1_SHA512 = 0x0603,
 };
@@ -79,7 +76,7 @@ struct OnivCommon
         offset表示OnivCommon之后的数据在整个密钥协商消息中的偏移
         total和offset是为了在密钥协商消息的接收方重组密钥协商消息而添加的
     */
-    uint16_t identifier, len, total, offset;
+    uint16_t identifier, total, len, offset;
     uint8_t UUID[16];
 
     void linearization(uint8_t *p);

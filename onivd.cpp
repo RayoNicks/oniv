@@ -631,12 +631,16 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
 
 OnivErr Onivd::ProcessLnkKeyAgrReq(const OnivFrame &frame)
 {
-    // 分片问题
-    OnivLnkReq req(frame.OnivHdr(), frame.buffer() + frame.size() - frame.OnivHdr());
+    OnivFragementEntry *fraent = rdb.AddFragement(frame);
+    if(!fraent->completed()){
+        return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+    }
+    OnivLnkReq req(fraent->OnivHdr(), fraent->size());
+    rdb.RemoveFragement(fraent);
     if(req.VerifySignature()){
         const OnivKeyEntry *keyent = kdb.update(frame, req);
         if(keyent != nullptr){
-            OnivLnkRes res(frame, keyent);
+            OnivLnkRes res(frame, keyent); // 只从frame中取地址信息
             frame.IngressPort()->EnSendingQueue(res.response()); // 唤醒发送线程
         }
         else{
@@ -651,8 +655,12 @@ OnivErr Onivd::ProcessLnkKeyAgrReq(const OnivFrame &frame)
 
 OnivErr Onivd::ProcessLnkKeyAgrRes(const OnivFrame &frame)
 {
-    // 分片问题
-    OnivLnkRes res(frame);
+    OnivFragementEntry *fraent = rdb.AddFragement(frame);
+    if(!fraent->completed()){
+        return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+    }
+    OnivLnkRes res(fraent->OnivHdr(), fraent->size());
+    rdb.RemoveFragement(fraent);
     if(res.VerifySignature()){
         OnivKeyEntry *keyent = kdb.update(frame, res);
         if(keyent != nullptr){ // 发送阻塞队列中的数据帧
@@ -760,6 +768,10 @@ OnivErr Onivd::CreateEgressThread()
 Onivd::Onivd(const string &TunnelAdapterName, const string &HostName)
 {
     OnivErr oe;
+    if(!OnivCrypto::LoadIdentity(HostName)){
+        cout << "Load certificates for " << HostName << " failed" << endl;
+        return;
+    }
     oe = CreateSwitchServer();
     if(oe.occured()){
         err(EXIT_FAILURE, "%s", oe.ErrMsg().c_str());
@@ -776,7 +788,6 @@ Onivd::Onivd(const string &TunnelAdapterName, const string &HostName)
     if(oe.occured()){
         err(EXIT_FAILURE, "%s", oe.ErrMsg().c_str());
     }
-    OnivCrypto::LoadCerts(HostName);
 }
 
 void Onivd::run()

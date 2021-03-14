@@ -5,8 +5,8 @@ void OnivCommon::linearization(uint8_t *p)
     *(uint16_t*)p = htons(type), p += sizeof(type);
     *(uint16_t*)p = htons(flag), p += sizeof(flag);
     *(uint16_t*)p = htons(identifier), p += sizeof(identifier);
-    *(uint16_t*)p = htons(len), p += sizeof(len);
     *(uint16_t*)p = htons(total), p += sizeof(total);
+    *(uint16_t*)p = htons(len), p += sizeof(len);
     *(uint16_t*)p = htons(offset), p += sizeof(offset);
     memcpy(p, UUID, sizeof(UUID)), p += sizeof(UUID);
 }
@@ -16,8 +16,8 @@ size_t OnivCommon::structuration(const uint8_t *p)
     type = ntohs(*(uint16_t*)p), p += sizeof(type);
     flag = ntohs(*(uint16_t*)p), p += sizeof(flag);
     identifier = ntohs(*(uint16_t*)p), p += sizeof(identifier);
-    len = ntohs(*(uint16_t*)p), p += sizeof(len);
     total = ntohs(*(uint16_t*)p), p += sizeof(total);
+    len = ntohs(*(uint16_t*)p), p += sizeof(len);
     offset = ntohs(*(uint16_t*)p), p += sizeof(offset);
     memcpy(UUID, p, sizeof(UUID));
     return LinearSize();
@@ -38,7 +38,7 @@ uint16_t OnivCommon::count()
 size_t OnivCommon::LinearSize()
 {
     return sizeof(type) + sizeof(flag) + sizeof(identifier)
-        + sizeof(len) + sizeof(total) + sizeof(offset)
+        + sizeof(total) + sizeof(len) + sizeof(offset)
         + sizeof(UUID);
 }
 
@@ -125,7 +125,7 @@ template <> OnivVerifyAlg CastFrom16<OnivVerifyAlg>(uint16_t u)
     case CastTo16<OnivVerifyAlg>(OnivVerifyAlg::IV_AES_128_CCM_SHA256):
         return OnivVerifyAlg::IV_AES_128_CCM_SHA256;
     default:
-        return OnivVerifyAlg::NONE;
+        return OnivVerifyAlg::UNKNOWN;
     }
 }
 
@@ -138,7 +138,7 @@ template <> OnivKeyAgrAlg CastFrom16<OnivKeyAgrAlg>(uint16_t u)
         return OnivKeyAgrAlg::KA_SECP521R1;
     }
     else{
-        return OnivKeyAgrAlg::NONE;
+        return OnivKeyAgrAlg::UNKNOWN;
     }
 }
 
@@ -146,18 +146,12 @@ template <> OnivSigAlg CastFrom16<OnivSigAlg>(uint16_t u)
 {
     switch(u)
     {
-    case CastTo16<OnivSigAlg>(OnivSigAlg::RSA_PKCS1_SHA256):
-        return OnivSigAlg::RSA_PKCS1_SHA256;
-    case CastTo16<OnivSigAlg>(OnivSigAlg::RSA_PKCS1_SHA384):
-        return OnivSigAlg::RSA_PKCS1_SHA384;
-    case CastTo16<OnivSigAlg>(OnivSigAlg::RSA_PKCS1_SHA512):
-        return OnivSigAlg::RSA_PKCS1_SHA512;
     case CastTo16<OnivSigAlg>(OnivSigAlg::ECDSA_SECP384R1_SHA384):
         return OnivSigAlg::ECDSA_SECP384R1_SHA384;
     case CastTo16<OnivSigAlg>(OnivSigAlg::ECDSA_SECP521R1_SHA512):
         return OnivSigAlg::ECDSA_SECP521R1_SHA512;
     default:
-        return OnivSigAlg::NONE;
+        return OnivSigAlg::UNKNOWN;
     }
 }
 

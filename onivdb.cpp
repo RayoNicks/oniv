@@ -56,7 +56,7 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkReq &req)
     ent.VerifyAlg = OnivCrypto::SelectVerifyAlg(req.PreVerifyAlg, req.SupVerifyAlgSet);
     ent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(req.PreKeyAgrAlg, req.SupKeyAgrAlgSet);
     ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
-    ent.LocalPubKey = OnivCrypto::GenPubKey(ent.KeyAgrAlg, ent.LocalPriKey);
+    ent.LocalPubKey = OnivCrypto::GenPubKey(ent.LocalPriKey);
     ent.ts = req.ts;
 
     mtx.lock();
@@ -81,9 +81,9 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &res)
     ent.KeyAgrAlg = res.KeyAgrAlg;
     ent.RemotePubKey = res.pk.data();
     ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
-    ent.LocalPubKey = OnivCrypto::GenPubKey(ent.KeyAgrAlg, ent.LocalPriKey);
-    ent.SessionKey = OnivCrypto::ComputeSessionKey(ent.KeyAgrAlg, ent.RemotePubKey, ent.LocalPriKey);
-    ent.ThirdName = OnivCrypto::SelectThirdParty(res.RmdTp, res.AppTp);
+    ent.LocalPubKey = OnivCrypto::GenPubKey(ent.LocalPriKey);
+    ent.SessionKey = OnivCrypto::ComputeSessionKey(ent.RemotePubKey, ent.LocalPriKey);
+    ent.ThirdCert = OnivCrypto::SelectTrusteeCert(res.RmdTp, res.AppTp);
     ent.UpdPk = true;
     ent.AckPk = false;
     ent.ts = res.ResTs;
@@ -98,4 +98,29 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &res)
     else{
         return nullptr;
     }
+}
+
+OnivFragementEntry* OnivRDB::AddFragement(const OnivFrame &frame)
+{
+    string RemoteUUID;
+    OnivCommon common;
+    common.structuration((const uint8_t*)frame.OnivHdr());
+    RemoteUUID.assign((char*)common.UUID, sizeof(common.UUID));
+    mtx.lock();
+    auto iter = FragTable.find(RemoteUUID);
+    if(iter == FragTable.end()){
+        FragTable.insert(make_pair(RemoteUUID, OnivFragementEntry(frame, common, RemoteUUID)));
+    }
+    else{
+        iter->second.AddFragement(frame, common);
+    }
+    mtx.unlock();
+    return &iter->second;
+}
+
+void OnivRDB::RemoveFragement(OnivFragementEntry *fraent)
+{
+    mtx.lock();
+    FragTable.erase(fraent->RemoteUUID);
+    mtx.unlock();
 }

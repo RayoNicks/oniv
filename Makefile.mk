@@ -14,7 +14,8 @@ HEADERS = \
 		onivport.h \
 		onivqueue.h \
 		onivsecond.h \
-		onivtunnel.h
+		onivtunnel.h \
+		libonivcrypto/libonivcrypto.h
 
 SOURCES = \
 		main.cpp \
@@ -33,7 +34,8 @@ SOURCES = \
 		onivport.cpp \
 		onivqueue.cpp \
 		onivsecond.cpp \
-		onivtunnel.cpp
+		onivtunnel.cpp \
+		libonivcrypto/libonivcrypto.c
 
 ONIVD_OBJECTS = \
 		main.o \
@@ -51,24 +53,29 @@ ONIVD_OBJECTS = \
 		onivport.o \
 		onivqueue.o \
 		onivsecond.o \
-		onivtunnel.o
+		onivtunnel.o \
+		libonivcrypto/libonivcrypto.o
 
-FLAGS = -Wall -g -std=c++11
+FLAGS = -Wall -g
 
 all: onivd onivctl
 
 onivd: $(ONIVD_OBJECTS)
-	g++ $^ -o $@ -lpthread
+	g++ $^ -o $@ -lpthread -lcrypto
 
 onivctl: onivctl.cpp onivglobal.o onivcmd.h onivglobal.h
-	g++ $^ -o $@ $(FLAGS)
+	g++ $^ -o $@ $(FLAGS) -std=c++11
 
 main.o: main.cpp
-	g++ $< -c -o $@ $(FLAGS)
+	g++ $< -c -o $@ $(FLAGS) -std=c++11
 
 %.o: %.cpp
-	g++ $< -c -o $@ $(FLAGS)
+	g++ $< -c -o $@ $(FLAGS) -std=c++11
+
+libonivcrypto/libonivcrypto.o: libonivcrypto/libonivcrypto.c
+	gcc $< -c -o $@ $(FLAGS) -lcrypto
 
 clean:
-	rm -rf *.o
-	rm -rf onivd onivctl
+	rm -f libonivcrypto/libonivcrypto.o
+	rm -f *.o
+	rm -f onivd onivctl

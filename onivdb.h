@@ -1,7 +1,6 @@
 #ifndef _ONIV_DB_H_
 #define _ONIV_DB_H_
 
-#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -9,8 +8,6 @@
 #include "onivfirst.h"
 #include "onivframe.h"
 
-using std::make_pair;
-using std::mutex;
 using std::unordered_map;
 using std::unordered_set;
 
@@ -36,6 +33,17 @@ public:
     OnivKeyEntry* SearchFrom(const string &RemoteUUID);
     OnivKeyEntry* update(const OnivFrame &frame, const OnivLnkReq &req);
     OnivKeyEntry* update(const OnivFrame &frame, const OnivLnkRes &res);
+};
+
+class OnivRDB
+{
+private:
+    unordered_map<string, OnivFragementEntry> FragTable;
+    mutex mtx;
+public:
+    OnivRDB() = default;
+    OnivFragementEntry* AddFragement(const OnivFrame &frame);
+    void RemoveFragement(OnivFragementEntry *fraent);
 };
 
 #endif

@@ -16,7 +16,7 @@ void TestSignAndVerify()
     char sigbuf[512] = { 0 };
     size_t length;
 
-    sk.open("./ecc/guest4-ecc-sk.pem", ifstream::in | ifstream::binary);
+    sk.open("../certs/ecc/guest4-ecc-sk.pem", ifstream::in | ifstream::binary);
     if(!sk){
         return;
     }
@@ -26,7 +26,7 @@ void TestSignAndVerify()
     }
     cout << PrivateKey << endl;
 
-    crt.open("./ecc/guest4-ecc.crt", ifstream::in | ifstream::binary);
+    crt.open("../certs/ecc/guest4-ecc.crt", ifstream::in | ifstream::binary);
     if(!crt){
         return;
     }
@@ -88,9 +88,9 @@ void TestCheckCerts()
     cout << "Test for checking certificates" << endl;
     ifstream root, second, guest;
     string ca, user, line;
-    root.open("ecc/root-ecc.crt", ifstream::in | ifstream::binary);
-    second.open("ecc/second-ecc.crt", ifstream::in | ifstream::binary);
-    guest.open("ecc/guest4-ecc.crt", ifstream::in | ifstream::binary);
+    root.open("../certs/ecc/root-ecc.crt", ifstream::in | ifstream::binary);
+    second.open("../certs/ecc/second-ecc.crt", ifstream::in | ifstream::binary);
+    guest.open("../certs/ecc/guest4-ecc.crt", ifstream::in | ifstream::binary);
     if(!root || !second || !guest){
         return;
     }
@@ -160,7 +160,7 @@ void TestEncAndDec()
     char CipherBuf[512] = { '\0' }, PlainBuf[512] = { '\0' };
     size_t size;
 
-    crt.open("ecc/guest2-ecc.crt", ifstream::in | ifstream::binary);
+    crt.open("../certs/ecc/guest2-ecc.crt", ifstream::in | ifstream::binary);
     if(!crt){
         return;
     }
@@ -230,7 +230,7 @@ void TestUUID()
     string certificate, line, UUID;
     char uuid[16] = { '\0' };
 
-    crt.open("ecc/guest2-ecc.crt", ifstream::in | ifstream::binary);
+    crt.open("../certs/ecc/guest2-ecc.crt", ifstream::in | ifstream::binary);
     if(!crt){
         return;
     }
@@ -248,6 +248,47 @@ void TestUUID()
     cout << endl;
 }
 
+void TestIssuer()
+{
+    cout << "Test for getting issuer" << endl;
+    ifstream crt;
+    string certificate, line;
+    char name[128] = { '\0' };
+
+    crt.open("MicrosoftECCRootCertificateAuthority2017.crt", ifstream::in | ifstream::binary);
+    if(!crt){
+        return;
+    }
+    while(getline(crt, line)){
+        certificate += line;
+        certificate.push_back('\n');
+    }
+    cout << certificate << endl;
+
+    GetIssuer(certificate.c_str(), certificate.length(), name, sizeof(name), FORMAT_PEM);
+    cout << "Issuer name is:\n" << name << endl;
+}
+
+void TestCurveName()
+{
+    cout << "Test for getting curve name" << endl;
+    ifstream crt;
+    string certificate, line;
+
+    crt.open("MicrosoftECCRootCertificateAuthority2017.crt", ifstream::in | ifstream::binary);
+    if(!crt){
+        return;
+    }
+    while(getline(crt, line)){
+        certificate += line;
+        certificate.push_back('\n');
+    }
+    cout << certificate << endl;
+
+    cout << "Curve name is:";
+    cout << GetCurveName(certificate.c_str(), certificate.length(), FORMAT_PEM) << endl;
+}
+
 int main()
 {
     TestSignAndVerify();
@@ -257,5 +298,7 @@ int main()
     TestEncAndDec();
     TestCCM();
     TestUUID();
+    TestIssuer();
+    TestCurveName();
     return 0;
 }

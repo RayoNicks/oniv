@@ -212,3 +212,8 @@ in_port_t OnivFrame::DestPort() const
         return 0;
     }
 }
+
+void OnivFrame::append(const char *p, size_t n)
+{
+    frame.append(p, n);
+}

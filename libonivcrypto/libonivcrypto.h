@@ -21,6 +21,8 @@ enum OBJECT
     OBJECT_RSA_PRI, OBJECT_RSA_PUB, OBJECT_RSA_509
 };
 
+size_t PEM2DER(int object, const char *in, size_t InLen, char *out, size_t OutLen);
+
 size_t sign(const char *PrivateKey, size_t PrivateKeyLen,
             const char *data, size_t DataLen,
             char *signature, size_t SigLen, int format);
@@ -32,9 +34,9 @@ int verify(const char *cert, size_t CertLen,
 int CheckCertificate(const char *CACerts, size_t CALength,
                     const char *UserCert, size_t UserLen, int format);
 
-size_t GenECPrivateKey(const char *name, char *PrivateKey, size_t PrivateKeyLen, int format);
+int GenECPrivateKey(const char *name, char *PrivateKey, size_t PrivateKeyLen, int format);
 
-size_t GetECPublicKey(const char *PrivateKey, size_t PrivateKeyLen,
+int GetECPublicKey(const char *PrivateKey, size_t PrivateKeyLen,
                     char *PublicKey, size_t PublicKeyLen, int format);
 
 size_t ComputeSK(const char *PrivateKey, size_t PrivateKeyLen,
@@ -50,6 +52,10 @@ size_t decrypt(const char *PrivateKey, size_t PrivateKeyLen,
             char *plain, size_t PlainLen, int format);
 
 int uuid5(const char *cert, size_t CertLen, char *uuid, size_t len, int format);
+
+size_t GetSubjectName(const char *cert, size_t CertLen, char *subject, size_t len, int format);
+
+const char* GetCurveName(const char *cert, size_t CertLen, int format);
 
 size_t GCMEncryption(const char *key, size_t KeyLen, 
                     const char *plain, size_t PlainLen,

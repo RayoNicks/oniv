@@ -61,6 +61,8 @@ public:
     bool IsUDP() const;
     in_port_t SrcPort() const;
     in_port_t DestPort() const;
+
+    void append(const char *p, size_t n);
 };
 
 #endif

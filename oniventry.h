@@ -1,19 +1,24 @@
 #ifndef _ONIV_ENTRY_H_
 #define _ONIV_ENTRY_H_
 
-#include <mutex>
 #include <functional>
+#include <list>
+#include <mutex>
 #include <string>
 
 #include <netinet/in.h>
 
 #include "oniv.h"
 #include "onivcrypto.h"
+#include "onivframe.h"
 #include "onivport.h"
 
 using std::equal_to;
 using std::hash;
+using std::list;
+using std::make_pair;
 using std::mutex;
+using std::pair;
 using std::string;
 
 class OnivLnkRecord;
@@ -56,7 +61,7 @@ private:
 public:
     in_addr_t RemoteAddress;
     in_port_t RemotePort;
-    string RemoteUUID, RemotePubKey, LocalPriKey, LocalPubKey, SessionKey, ThirdName;
+    string RemoteUUID, RemotePubKey, LocalPriKey, LocalPubKey, SessionKey, ThirdCert;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     bool UpdPk, AckPk;
@@ -69,6 +74,23 @@ public:
     void UpdateOnSend();
     void UpdateOnRecvLnkRec(const OnivLnkRecord &record);
     void UpdateOnRecvTunRec(const OnivTunRecord &record);
+};
+
+struct OnivFragementEntry
+{
+private:
+    char *buffer, *oniv;
+    size_t FrameSize;
+    list<pair<unsigned int, unsigned int>> unreached;
+    bool reassemble(uint16_t offset, uint16_t len);
+public:
+    string RemoteUUID;
+    OnivFragementEntry(const OnivFrame &frame, const OnivCommon &common, const string &RemoteUUID);
+    ~OnivFragementEntry();
+    void AddFragement(const OnivFrame &frame, const OnivCommon &common);
+    bool completed();
+    const char* OnivHdr();
+    size_t size();
 };
 
 #endif

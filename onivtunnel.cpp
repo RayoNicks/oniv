@@ -129,7 +129,7 @@ OnivErr OnivTunnel::VerifySignature(const OnivPacket &packet)
             keyent.RemotePubKey = res.pk.data();
             keyent.LocalPriKey = OnivCrypto::AcqPriKey(keyent.KeyAgrAlg);
             keyent.LocalPubKey = OnivCrypto::AcqPubKey(keyent.KeyAgrAlg);
-            keyent.SessionKey = OnivCrypto::ComputeSessionKey(keyent.KeyAgrAlg, keyent.RemotePubKey, keyent.LocalPriKey);
+            keyent.SessionKey = OnivCrypto::ComputeSessionKey(keyent.RemotePubKey, keyent.LocalPriKey);
             keyent.UpdPk = true;
             keyent.AckPk = false;
             keyent.ts = res.ResTs;

@@ -1,19 +1,26 @@
 #include "onivcrypto.h"
+#include "libonivcrypto/libonivcrypto.h"
 
-string OnivCrypto::LoadCert(const string &subject)
+using namespace libonivcrypto;
+
+string OnivCrypto::ReadFile(const string &subject, int type)
 {
-    ifstream ifs(subject + "-ecc.crt", ifstream::in);
-    string cert, line;
+    ifstream ifs(subject, ifstream::in);
+    string pem, der, line;
+    size_t DerSize;
     if(!ifs){
-        return cert;
+        return string();
     }
     while(getline(ifs, line)){
-        cert.append(line);
-        cert.push_back('\n');
+        pem.append(line);
+        pem.push_back('\n');
     }
-    cert.pop_back();
+    pem.pop_back();
     ifs.close();
-    return cert;
+    der.resize(pem.length());
+    DerSize = PEM2DER(type, pem.c_str(), pem.length(), const_cast<char*>(der.c_str()), der.size());
+    der.resize(DerSize);
+    return der;
 }
 
 const string& OnivCrypto::UUID()
@@ -29,6 +36,20 @@ OnivVerifyAlg OnivCrypto::PreVerifyAlg()
 OnivKeyAgrAlg OnivCrypto::PreKeyAgrAlg()
 {
     return OnivKeyAgrAlg::KA_SECP384R1;
+}
+
+OnivSigAlg OnivCrypto::SigAlg()
+{
+    const char *name = GetCurveName(crts.back().c_str(), crts.back().length(), FORMAT_ASN1);
+    if(string(name) == "secp384r1"){
+        return OnivSigAlg::ECDSA_SECP384R1_SHA384;
+    }
+    else if(string(name) == "secp521r1"){
+        return OnivSigAlg::ECDSA_SECP521R1_SHA512;
+    }
+    else{
+        return OnivSigAlg::UNKNOWN;
+    }
 }
 
 initializer_list<OnivVerifyAlg> OnivCrypto::ListVerifyAlg()
@@ -51,206 +72,182 @@ OnivKeyAgrAlg OnivCrypto::SelectKeyAgrAlg(OnivKeyAgrAlg pre, const OnivIDSet<Oni
     return pre;
 }
 
-string OnivCrypto::SelectThirdParty(uint16_t pre, uint16_t app)
+string OnivCrypto::SelectTrusteeCert(uint16_t pre, uint16_t app)
 {
-    return string("yuchi");
+    if(pre >= crts.size()){
+        return string();
+    }
+    else{
+        return crts[pre];
+    }
 }
 
-vector<string> OnivCrypto::CertChain()
+const vector<string>& OnivCrypto::CertChain()
 {
     return crts;
 }
 
-OnivSigAlg OnivCrypto::PreSigAlg()
+string OnivCrypto::GenSignature(const string &data)
 {
-    return OnivSigAlg::RSA_PKCS1_SHA256;
-}
-
-string OnivCrypto::GenSignature(const string &data, OnivSigAlg SigAlg)
-{
-    return string(256, 'S');
+    char signature[256] = { 0 };
+    size_t SignatureSize = 0;
+    SignatureSize = sign(sk.c_str(), sk.length(), data.c_str(), data.length(), signature, sizeof(signature), FORMAT_ASN1);
+    return string(signature, SignatureSize);
 }
 
 string OnivCrypto::AcqPriKey(OnivKeyAgrAlg KeyAgrAlg)
 {
-    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
-        return string("testing  private  key");
-    }
-    else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP384R1){
-        return string("SECP384R1 PriKey");
-    }
-    else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP521R1){
-        return string("SECP521R1 PriKey");
-    }
-    else{
-        return string();
-    }
+    return dhsk;
 }
 
 string OnivCrypto::AcqPubKey(OnivKeyAgrAlg KeyAgrAlg)
 {
-    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
-        return string("testing  public  key");
-    }
-    else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP384R1){
-        return string("SECP384R1 PubKey");
-    }
-    else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP521R1){
-        return string("SECP521R1 PubKey");
-    }
-    else{
-        return string();
-    }
+    return dhpk;
 }
 
 string OnivCrypto::GenPriKey(OnivKeyAgrAlg KeyAgrAlg)
 {
-    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
-        return string("generated private key");
-    }
-    else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP384R1){
-        return string("SECP384R1 PriKey");
+    char PrivateKey[512] = { 0 };
+    int size = 0;
+    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP384R1){
+        size = GenECPrivateKey("secp384r1", PrivateKey, sizeof(PrivateKey), FORMAT_ASN1);
+        return string(PrivateKey, size);
     }
     else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP521R1){
-        return string("SECP521R1 PriKey");
+        size = GenECPrivateKey("secp521r1", PrivateKey, sizeof(PrivateKey), FORMAT_ASN1);
+        return string(PrivateKey, size);
     }
     else{
         return string();
     }
 }
 
-string OnivCrypto::GenPubKey(OnivKeyAgrAlg KeyAgrAlg, const string &PubKey)
+string OnivCrypto::GenPubKey(const string &PrivateKey)
 {
-    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
-        return string("generated public key");
-    }
-    else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP384R1){
-        return string("SECP384R1 PubKey");
-    }
-    else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP521R1){
-        return string("SECP521R1 PubKey");
-    }
-    else{
-        return string();
-    }
+    char PublicKey[256] = { 0 };
+    int size = GetECPublicKey(PrivateKey.c_str(), PrivateKey.length(), PublicKey, sizeof(PublicKey), FORMAT_ASN1);
+    return string(PublicKey, size);
 }
 
-string OnivCrypto::ComputeSessionKey(OnivKeyAgrAlg KeyAgrAlg, const string &PubKey, const string &PriKey)
+string OnivCrypto::ComputeSessionKey(const string &PublicKey, const string &PrivateKey)
 {
-    string key;
-    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
-        for(size_t i = 0; i < PubKey.length() && PriKey.length(); i++)
-        {
-            key.push_back(PubKey[i] ^ PriKey[i]);
-        }
-    }
-    else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP384R1){
-        key.assign("SECP 384 R1   SK");
-    }
-    else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP521R1){
-        key.assign("SECP 521 R1   SK");
-    }
-    return key;
+    char SessionKey[128] = { 0 };
+    int size = ComputeSK(PrivateKey.c_str(), PrivateKey.length(), PublicKey.c_str(), PublicKey.length(),
+                        SessionKey, sizeof(SessionKey), FORMAT_ASN1);
+    return string(SessionKey, size);
 }
 
-string OnivCrypto::AcqThirdPubKey(const string &ThirdName)
+string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg,
+                            const string &SessionKey, string &UserData,
+                            const string &InitVector, const string &AssData)
 {
-    string Pk3rd;
-    while(Pk3rd.length() < 16){
-        Pk3rd.append("Escrow Key");
-    }
-    Pk3rd.resize(16);
-    return Pk3rd;
-}
-
-string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg, const string &SK, const string &UserData)
-{
-    if(VerifyAlg == OnivVerifyAlg::IV_SIMPLE_XOR){
-        return string("xor xor xor xor.");
-    }
-    else if(VerifyAlg == OnivVerifyAlg::IV_AES_128_GCM_SHA256){
-        return string("AES128GCM SHA256");
+    char cipher[UserData.length()] = { 0 }, tag[16] = { 0 };
+    size_t size;
+    if(VerifyAlg == OnivVerifyAlg::IV_AES_128_GCM_SHA256){
+        size = GCMEncryption(SessionKey.c_str(), SessionKey.length(),
+                    UserData.c_str(), UserData.length(),
+                    InitVector.c_str(), InitVector.length(),
+                    AssData.c_str(), AssData.length(), cipher, sizeof(cipher),
+                    tag, sizeof(tag));
+        UserData.assign(cipher, size);
+        return string(tag, MsgAuchCodeSize());
     }
     else if(VerifyAlg == OnivVerifyAlg::IV_AES_128_CCM_SHA256){
-        return string("AES128CCM SHA256");
+        size = CCMEncryption(SessionKey.c_str(), SessionKey.length(),
+                    UserData.c_str(), UserData.length(),
+                    InitVector.c_str(), InitVector.length(),
+                    AssData.c_str(), AssData.length(), cipher, sizeof(cipher),
+                    tag, sizeof(tag));
+        UserData.assign(cipher, size);
+        return string(tag, MsgAuchCodeSize());
     }
     else{
         return string();
     }
 }
 
-string OnivCrypto::GenEscrowData(const string &Pk3rd, OnivVerifyAlg VerifyAlg, const string &SK)
-{
-    // 使用Pk3rd加密会话密钥
-    return Pk3rd;
-}
-
-bool OnivCrypto::VerifySignature(const vector<string> &CertChain, const string &signature)
-{
-    return true;
-}
-
-size_t OnivCrypto::SignatureSize(OnivSigAlg SigAlg)
-{
-    switch (SigAlg)
-    {
-    case OnivSigAlg::RSA_PKCS1_SHA256:
-    case OnivSigAlg::RSA_PKCS1_SHA384:
-    case OnivSigAlg::RSA_PKCS1_SHA512:
-        return 256;
-    case OnivSigAlg::ECDSA_SECP384R1_SHA384:
-    case OnivSigAlg::ECDSA_SECP521R1_SHA512:
-        return 0;
-    default:
-        return 0;
-    }
-}
-
-size_t OnivCrypto::PubKeySize(OnivKeyAgrAlg KeyAgrAlg)
-{
-    if(KeyAgrAlg == OnivKeyAgrAlg::KA_SIMPLE_XOR){
-        return string("generated public key").length();
-    }
-    else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP384R1){
-        return 16;
-    }
-    else if(KeyAgrAlg == OnivKeyAgrAlg::KA_SECP521R1){
-        return 16;
-    }
-    else{
-        return 0;
-    }
-}
-
-size_t OnivCrypto::MsgAuthCodeSize(OnivVerifyAlg VerifyAlg)
-{
-    if(VerifyAlg == OnivVerifyAlg::IV_SIMPLE_XOR){
-        return 16;
-    }
-    else if(VerifyAlg == OnivVerifyAlg::IV_AES_128_GCM_SHA256){
-        return 16;
-    }
-    else if(VerifyAlg == OnivVerifyAlg::IV_AES_128_CCM_SHA256){
-        return 16;
-    }
-    else{
-        return 0;
-    }
-}
-
-size_t OnivCrypto::EscrowDataSize(const string &trustee)
+size_t OnivCrypto::MsgAuchCodeSize()
 {
     return 16;
 }
 
-bool OnivCrypto::LoadCerts(const string &subject)
+string OnivCrypto::GenEscrowData(const string &cert, const string &SessionKey, const string &aux)
 {
-    crts.push_back(LoadCert("root"));
-    crts.push_back(LoadCert("second"));
-    crts.push_back(LoadCert(subject));
-    
-    uuid;
+    char cipher[512] = { 0 };
+    size_t size = encrypt(cert.c_str(), cert.length(), SessionKey.c_str(), SessionKey.length(),
+            cipher, sizeof(cipher), FORMAT_ASN1);
+    return string(cipher, size);
 }
 
-string OnivCrypto::uuid(16, '0');
+bool OnivCrypto::VerifySignature(const vector<string> &CertChain, const string &data, const string &signature)
+{
+    const string &user = CertChain.back();
+    string ca;
+    bool ValidChain = false, ValidSignature = false;
+    
+    for(auto iter = CertChain.begin(); iter != CertChain.end() - 1; iter++)
+    {
+        ca.append(*iter);
+    }
+    ValidChain = CheckCertificate(ca.c_str(), ca.length(),
+                                user.c_str(), user.length(), FORMAT_ASN1) == 1;
+    ValidSignature = verify(user.c_str(), user.length(), data.c_str(), data.length(),
+                        signature.c_str(), signature.length(), FORMAT_ASN1) == 1;
+    return ValidChain && ValidSignature;
+}
+
+string OnivCrypto::GetSubject(const string &cert)
+{
+    char subject[512] = { 0 };
+    int size = GetSubjectName(cert.c_str(), cert.length(), subject, sizeof(subject), FORMAT_ASN1);
+    return string(subject, size);
+}
+
+string OnivCrypto::GetCertFromSubject(const string &subject)
+{
+    for(const string &cert : crts)
+    {
+        char subject[512] = { 0 };
+        int size = GetSubjectName(cert.c_str(), cert.length(), subject, sizeof(subject), FORMAT_ASN1);
+        if(string(subject, size) == subject){
+            return cert;
+        }
+    }
+    return string();
+}
+
+bool OnivCrypto::LoadIdentity(const string &subject)
+{
+    char buf[16] = { '\0' };
+
+    crts.push_back(ReadFile("certs/ecc/root-ecc.crt", OBJECT_ECC_509));
+    crts.push_back(ReadFile("certs/ecc/second-ecc.crt", OBJECT_ECC_509));
+    crts.push_back(ReadFile("certs/ecc/" + subject + "-ecc.crt", OBJECT_ECC_509));
+    for(const string cert : crts)
+    {
+        if(crts.back().empty()){
+            return false;;
+        }
+    }
+
+    if(!uuid5(crts.back().c_str(), crts.back().length(), buf, sizeof(buf), FORMAT_ASN1)){
+        return false;
+    }
+    uuid.assign(buf, sizeof(buf));
+
+    sk = ReadFile("certs/ecc/" + subject + "-ecc-sk.pem", OBJECT_ECC_PRI);
+    if(sk.empty()){
+        return false;
+    }
+
+    dhsk = GenPriKey(PreKeyAgrAlg());
+    dhpk = GenPubKey(dhsk);
+
+    return true;
+}
+
+string OnivCrypto::uuid;
+string OnivCrypto::sk;
+string OnivCrypto::dhsk;
+string OnivCrypto::dhpk;
 vector<string> OnivCrypto::crts;

@@ -78,7 +78,7 @@ in_addr_t OnivPacket::RemoteIPAddress() const
 
 uint32_t OnivPacket::BroadcastDomain() const
 {
-    return ntohl(*(uint32_t*)(buffer() + sizeof(OnivCommon)));
+    return ntohl(*(uint32_t*)(buffer() + OnivCommon::LinearSize()));
 }
 
 size_t OnivPacket::size() const

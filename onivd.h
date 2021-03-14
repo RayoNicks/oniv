@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 #include <list>
 #include <string>
 
@@ -23,6 +24,8 @@
 #include "onivsecond.h"
 #include "onivtunnel.h"
 
+using std::cout;
+using std::endl;
 using std::find_if;
 using std::list;
 using std::pair;
@@ -35,6 +38,7 @@ private:
     int ListenSocket, EpollAdapter, EpollTunnel, EpollEgress;
     OnivFDB fdb;
     OnivKDB kdb;
+    OnivRDB rdb;
 
     OnivBlockingQueue bq;
 

@@ -17,8 +17,8 @@ class OnivKeyEntry;
 class OnivLnkReq
 {
 private:
-    uint8_t *hdr, *buf;
-    size_t HdrSize;
+    uint8_t *buf;
+    vector<OnivFrame> frames;
 public:
     OnivCommon common;
     uint64_t ts;
@@ -35,15 +35,14 @@ public:
     OnivLnkReq& operator=(const OnivLnkReq &req) = delete;
     ~OnivLnkReq();
     bool VerifySignature();
-    OnivFrame request();
-    size_t size();
+    vector<OnivFrame> request();
 };
 
 class OnivLnkRes
 {
 private:
-    uint8_t *hdr, *buf;
-    size_t HdrSize;
+    uint8_t *buf;
+    vector<OnivFrame> frames;
 public:
     OnivCommon common;
     uint64_t ReqTs, ResTs;
@@ -53,21 +52,20 @@ public:
     OnivSigAlg SigAlg;
     OnivVariableData pk, signature;
     OnivCertChain certs;
-    OnivLnkRes(const OnivFrame &LnkReqFrame, const OnivKeyEntry *keyent); // 发送方构造函数
-    OnivLnkRes(const OnivFrame &frame); // 接收方构造函数
+    OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent); // 发送方构造函数
+    OnivLnkRes(const char *OnivHdr, size_t OnivSize); // 接收方构造函数
     OnivLnkRes(const OnivLnkRes &res) = delete;
     OnivLnkRes& operator=(const OnivLnkRes &res) = delete;
     ~OnivLnkRes();
     bool VerifySignature();
-    OnivFrame response();
-    size_t size();
+    vector<OnivFrame> response();
 };
 
 class OnivLnkRecord
 {
 private:
-    uint8_t *hdr, *buf;
-    size_t HdrSize;
+    uint8_t *buf;
+    OnivFrame output;
 public:
     OnivCommon common;
     uint64_t UpdTs, AckTs;
@@ -84,7 +82,6 @@ public:
     bool VerifyIdentity(const OnivKeyEntry *keyent);
     OnivFrame record();
     OnivFrame frame();
-    size_t size();
 };
 
 #endif
