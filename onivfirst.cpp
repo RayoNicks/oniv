@@ -381,7 +381,8 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     *(uint16_t*)p = htons(CastTo16<OnivVerifyAlg>(VerifyAlg));
     p += sizeof(VerifyAlg);
 
-    string InitVector(OnivCrypto::UUID()), AssData((char*)hdr + EncapHdrSize, OnivCommon::LinearSize());
+    string AssData((char*)hdr + EncapHdrSize, OnivCommon::LinearSize());
+    string InitVector((char*)common.UUID, sizeof(common.UUID));
     InitVector.append((char*)hdr + EncapHdrSize + 4, 2);
     code.data(OnivCrypto::MsgAuthCode(VerifyAlg, keyent->SessionKey, data, InitVector, AssData));
     code.linearization(p);
@@ -395,6 +396,22 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
 
     output.append((char*)hdr, HdrSizeWithOnivHdr);
     output.append((char*)buf, common.total);
+
+    cout << "\nSession Key is: ";
+    for(const char &c : keyent->SessionKey)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
+    cout << "\nInit Vector is: ";
+    for(const char &c : InitVector)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
+    cout << "\n Ass Data is: ";
+    for(const char &c : AssData)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
 }
 
 OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
@@ -465,8 +482,24 @@ OnivLnkRecord::~OnivLnkRecord()
 
 bool OnivLnkRecord::VerifyIdentity(const OnivKeyEntry *keyent)
 {
-    string InitVector(OnivCrypto::UUID()), AssData((char*)buf, OnivCommon::LinearSize());
+    string AssData((char*)buf, OnivCommon::LinearSize());
+    string InitVector((char*)common.UUID, sizeof(common.UUID));
     InitVector.append((char*)buf + 4, 2);
+    cout << "\nSession Key is: ";
+    for(const char &c : keyent->SessionKey)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
+    cout << "\nInit Vector is: ";
+    for(const char &c : InitVector)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
+    cout << "\nAss Data is: ";
+    for(const char &c : AssData)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
     return code.data() ==
         OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey,
                             data, InitVector, AssData);

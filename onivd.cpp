@@ -563,11 +563,11 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
 
     OnivKeyEntry *keyent = AcceptTunnel->KeyEntry();
     OnivTunRecord rec(packet); // 隧道身份验证
+    keyent->UpdateOnRecvTunRec(rec);
     if(!rec.VerifyIdentity(keyent)){
         // 构造隧道身份验证失败报文，添加到发送队列
         return OnivErr(OnivErrCode::ERROR_TUNNEL_VERIFICATION);
     }
-    keyent->UpdateOnRecvTunRec(rec);
     OnivFrame frame(rec.frame(), rec.FrameSize(), packet.IngressPort());
     if(frame.IsBroadcast()){ // 发送到广播域
         for(AdapterIter iter = adapters.begin(); iter != adapters.end(); iter++)

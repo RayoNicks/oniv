@@ -311,13 +311,29 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, const OnivKey
     *(uint16_t*)p = htons(CastTo16<OnivVerifyAlg>(VerifyAlg));
     p += sizeof(VerifyAlg);
 
-    string InitVector(OnivCrypto::UUID()), AssData((char*)buf, OnivCommon::LinearSize());
+    string AssData((char*)buf, OnivCommon::LinearSize());
+    string InitVector((char*)common.UUID, sizeof(common.UUID));
     InitVector.append((char*)buf + 4, 2);
     code.data(OnivCrypto::MsgAuthCode(VerifyAlg, keyent->SessionKey, data, InitVector, AssData));
     code.linearization(p);
     p += code.LinearSize();
 
     memcpy(p, data.c_str(), data.length());
+    cout << "\nSession Key is: ";
+    for(const char &c : keyent->SessionKey)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
+    cout << "\nInit Vector is: ";
+    for(const char &c : InitVector)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
+    cout << "\nAss Data is: ";
+    for(const char &c : AssData)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
 }
 
 OnivTunRecord::OnivTunRecord(const OnivPacket &packet) : buf(0)
@@ -371,8 +387,24 @@ OnivTunRecord::~OnivTunRecord()
 
 bool OnivTunRecord::VerifyIdentity(const OnivKeyEntry *keyent)
 {
-    string InitVector(OnivCrypto::UUID()), AssData((char*)buf, OnivCommon::LinearSize());
+    string AssData((char*)buf, OnivCommon::LinearSize());
+    string InitVector((char*)common.UUID, sizeof(common.UUID));
     InitVector.append((char*)buf + 4, 2);
+    cout << "\nSession Key is: ";
+    for(const char &c : keyent->SessionKey)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
+    cout << "\nInit Vector is: ";
+    for(const char &c : InitVector)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
+    cout << "\nAss Data is: ";
+    for(const char &c : AssData)
+    {
+        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
+    }
     return code.data() ==
         OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey,
                             data, InitVector, AssData);

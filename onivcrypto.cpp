@@ -137,7 +137,7 @@ string OnivCrypto::ComputeSessionKey(const string &PublicKey, const string &Priv
     char SessionKey[128] = { 0 };
     int size = ComputeSK(PrivateKey.c_str(), PrivateKey.length(), PublicKey.c_str(), PublicKey.length(),
                         SessionKey, sizeof(SessionKey), FORMAT_ASN1);
-    return string(SessionKey, size);
+    return string(SessionKey, 16);
 }
 
 string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg,
