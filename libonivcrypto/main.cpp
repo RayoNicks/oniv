@@ -52,15 +52,15 @@ void TestSignAndVerify()
     crt.close();
 }
 
-void TestGCM()
+void TestGCM(const string &name)
 {
-    cout << "Test for AES-128-GCM" << endl;
+    cout << "Test for " << name << endl;
     string sk("sharedsessionkey"), plain("plain text"), cipher, tag;
     string InitVector("UUIDUUIDUUID"), AssData("UUIDUUIDUUIDUUID-\x11");
     char CipherBuf[plain.length()] = { '\0' }, TagBuf[16] = { '\0' }, PlainBuf[plain.length() + 1] = { '\0' };
     size_t length;
 
-    length = GCMEncryption(sk.c_str(), sk.length(), plain.c_str(), plain.length(),
+    length = GCMEncryption(name.c_str(), sk.c_str(), sk.length(), plain.c_str(), plain.length(),
         InitVector.c_str(), InitVector.length(), AssData.c_str(), AssData.length(),
         CipherBuf, sizeof(CipherBuf), TagBuf, sizeof(TagBuf));
     cipher.assign(CipherBuf, length);
@@ -76,7 +76,7 @@ void TestGCM()
     }
     cout << endl;
 
-    cout << GCMDecryption(sk.c_str(), sk.length(), cipher.c_str(), cipher.length(),
+    cout << GCMDecryption(name.c_str(), sk.c_str(), sk.length(), cipher.c_str(), cipher.length(),
         InitVector.c_str(), InitVector.length(), AssData.c_str(), AssData.length(),
         PlainBuf, sizeof(PlainBuf), TagBuf, sizeof(TagBuf)) << endl;
     
@@ -90,7 +90,7 @@ void TestCheckCerts()
     string ca, user, line;
     root.open("../certs/ecc/root-ecc.crt", ifstream::in | ifstream::binary);
     second.open("../certs/ecc/second-ecc.crt", ifstream::in | ifstream::binary);
-    guest.open("../certs/ecc/guest4-ecc.crt", ifstream::in | ifstream::binary);
+    guest.open("../certs/ecc/guest1-ecc.crt", ifstream::in | ifstream::binary);
     if(!root || !second || !guest){
         return;
     }
@@ -248,9 +248,9 @@ void TestUUID()
     cout << endl;
 }
 
-void TestIssuer()
+void TestSubject()
 {
-    cout << "Test for getting issuer" << endl;
+    cout << "Test for getting subject" << endl;
     ifstream crt;
     string certificate, line;
     char name[128] = { '\0' };
@@ -265,8 +265,8 @@ void TestIssuer()
     }
     cout << certificate << endl;
 
-    GetIssuer(certificate.c_str(), certificate.length(), name, sizeof(name), FORMAT_PEM);
-    cout << "Issuer name is:\n" << name << endl;
+    GetSubjectName(certificate.c_str(), certificate.length(), name, sizeof(name), FORMAT_PEM);
+    cout << "Subject name is:\n" << name << endl;
 }
 
 void TestCurveName()
@@ -291,14 +291,15 @@ void TestCurveName()
 
 int main()
 {
-    TestSignAndVerify();
-    TestGCM();
+    LoadAlgorithms();
+    // TestSignAndVerify();
+    // TestGCM("aes-256-gcm");
     TestCheckCerts();
-    TestECDH();
-    TestEncAndDec();
-    TestCCM();
-    TestUUID();
-    TestIssuer();
-    TestCurveName();
+    // TestECDH();
+    // TestEncAndDec();
+    // TestCCM();
+    // TestUUID();
+    // TestSubject();
+    // TestCurveName();
     return 0;
 }

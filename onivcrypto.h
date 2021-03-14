@@ -40,7 +40,7 @@ public:
     static string GenPriKey(OnivKeyAgrAlg KeyAgrAlg);
     static string GenPubKey(const string &PrivateKey);
     static string ComputeSessionKey(const string &PublibKey, const string &PrivateKey);
-    
+
     static string MsgAuthCode(OnivVerifyAlg VerifyAlg,
                             const string &SessionKey, string &UserData,
                             const string &InitVector, const string &AssData);

@@ -12,11 +12,11 @@ OnivTunReq::OnivTunReq(uint32_t vni) : buf(nullptr)
     ts = (uint64_t)system_clock::to_time_t(system_clock::now());
     common.total += sizeof(ts);
 
-    PreVerifyAlg = OnivVerifyAlg::IV_AES_128_GCM_SHA256;
+    PreVerifyAlg = OnivCrypto::PreVerifyAlg();
     SupVerifyAlgSet.insert(OnivCrypto::ListVerifyAlg());
     common.total += sizeof(PreVerifyAlg) + SupVerifyAlgSet.LinearSize();
 
-    PreKeyAgrAlg = OnivKeyAgrAlg::KA_SECP384R1;
+    PreKeyAgrAlg = OnivCrypto::PreKeyAgrAlg();
     SupKeyAgrAlgSet.insert(OnivCrypto::ListKeyAgrAlg());
     common.total += sizeof(PreKeyAgrAlg) + SupKeyAgrAlgSet.LinearSize();
 
@@ -51,7 +51,7 @@ OnivTunReq::OnivTunReq(uint32_t vni) : buf(nullptr)
     *(uint16_t*)p = htons(CastTo16<OnivKeyAgrAlg>(PreKeyAgrAlg));
     p += sizeof(PreKeyAgrAlg);
     SupKeyAgrAlgSet.linearization(p);
-    p += SupVerifyAlgSet.LinearSize();
+    p += SupKeyAgrAlgSet.LinearSize();
 
     *(uint16_t*)p = htons(CastTo16<OnivSigAlg>(SigAlg));
     p += sizeof(SigAlg);
@@ -257,7 +257,7 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, const OnivKey
         UpdTs = (uint64_t)system_clock::to_time_t(system_clock::now());
         KeyAgrAlg = keyent->KeyAgrAlg;
         pk.data(keyent->LocalPubKey);
-        common.total = sizeof(UpdTs) + sizeof(KeyAgrAlg) + pk.LinearSize();
+        common.total += sizeof(UpdTs) + sizeof(KeyAgrAlg) + pk.LinearSize();
     }
     else if(keyent->AckPk){
         common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND);
@@ -315,6 +315,7 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, const OnivKey
     InitVector.append((char*)buf + 4, 2);
     code.data(OnivCrypto::MsgAuthCode(VerifyAlg, keyent->SessionKey, data, InitVector, AssData));
     code.linearization(p);
+    p += code.LinearSize();
 
     memcpy(p, data.c_str(), data.length());
 }
@@ -370,15 +371,11 @@ OnivTunRecord::~OnivTunRecord()
 
 bool OnivTunRecord::VerifyIdentity(const OnivKeyEntry *keyent)
 {
-    string UUID(OnivCrypto::UUID());
-    string InitVector, AssData;
-    InitVector.push_back((htons(common.identifier) >> 16) & 0xFF);
-    InitVector.push_back(htons(common.identifier) & 0XFF);
-    AssData.push_back((htons(common.type) >> 16) & 0xFF);
-    AssData.push_back(htons(common.type) & 0XFF);
+    string InitVector(OnivCrypto::UUID()), AssData((char*)buf, OnivCommon::LinearSize());
+    InitVector.append((char*)buf + 4, 2);
     return code.data() ==
         OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey,
-                            data, UUID + InitVector, UUID + AssData);
+                            data, InitVector, AssData);
 }
 
 const char* OnivTunRecord::record()

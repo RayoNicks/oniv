@@ -122,6 +122,8 @@ template <> OnivVerifyAlg CastFrom16<OnivVerifyAlg>(uint16_t u)
     {
     case CastTo16<OnivVerifyAlg>(OnivVerifyAlg::IV_AES_128_GCM_SHA256):
         return OnivVerifyAlg::IV_AES_128_GCM_SHA256;
+    case CastTo16<OnivVerifyAlg>(OnivVerifyAlg::IV_AES_256_GCM_SHA384):
+        return OnivVerifyAlg::IV_AES_256_GCM_SHA384;
     case CastTo16<OnivVerifyAlg>(OnivVerifyAlg::IV_AES_128_CCM_SHA256):
         return OnivVerifyAlg::IV_AES_128_CCM_SHA256;
     default:
@@ -198,7 +200,8 @@ size_t OnivVariableData::structuration(const uint8_t *p)
     uint16_t len = ntohs(*(uint16_t*)p);
     p += sizeof(uint16_t);
     buf.assign((char*)p, len);
-    return p -orgin;
+    p += len;
+    return p - orgin;
 }
 
 OnivCertChain::OnivCertChain()

@@ -14,11 +14,11 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
     ts = (uint64_t)system_clock::to_time_t(system_clock::now());
     common.total = sizeof(ts);
 
-    PreVerifyAlg = OnivVerifyAlg::IV_AES_128_GCM_SHA256;
+    PreVerifyAlg = OnivCrypto::PreVerifyAlg();
     SupVerifyAlgSet.insert(OnivCrypto::ListVerifyAlg());
     common.total += sizeof(PreVerifyAlg) + SupVerifyAlgSet.LinearSize();
 
-    PreKeyAgrAlg = OnivKeyAgrAlg::KA_SECP384R1;
+    PreKeyAgrAlg = OnivCrypto::PreKeyAgrAlg();
     SupKeyAgrAlgSet.insert(OnivCrypto::ListKeyAgrAlg());
     common.total += sizeof(PreKeyAgrAlg) + SupKeyAgrAlgSet.LinearSize();
 
@@ -382,7 +382,7 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     p += sizeof(VerifyAlg);
 
     string InitVector(OnivCrypto::UUID()), AssData((char*)hdr + EncapHdrSize, OnivCommon::LinearSize());
-    InitVector.append((char*)hdr + Layer2HdrSize + 4, 2); // IP首部中的标识符
+    InitVector.append((char*)hdr + EncapHdrSize + 4, 2);
     code.data(OnivCrypto::MsgAuthCode(VerifyAlg, keyent->SessionKey, data, InitVector, AssData));
     code.linearization(p);
     p += code.LinearSize();
@@ -465,15 +465,11 @@ OnivLnkRecord::~OnivLnkRecord()
 
 bool OnivLnkRecord::VerifyIdentity(const OnivKeyEntry *keyent)
 {
-    string UUID((char*)common.UUID, sizeof(common.UUID));
-    string InitVector, AssData;
-    InitVector.push_back((htons(common.identifier) >> 16) & 0xFF);
-    InitVector.push_back(htons(common.identifier) & 0XFF);
-    AssData.push_back((htons(common.type) >> 16) & 0xFF);
-    AssData.push_back(htons(common.type) & 0XFF);
+    string InitVector(OnivCrypto::UUID()), AssData((char*)buf, OnivCommon::LinearSize());
+    InitVector.append((char*)buf + 4, 2);
     return code.data() ==
         OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey,
-                            data, UUID + InitVector, UUID + AssData);
+                            data, InitVector, AssData);
 }
 
 OnivFrame OnivLnkRecord::record()

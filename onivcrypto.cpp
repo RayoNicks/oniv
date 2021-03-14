@@ -54,7 +54,10 @@ OnivSigAlg OnivCrypto::SigAlg()
 
 initializer_list<OnivVerifyAlg> OnivCrypto::ListVerifyAlg()
 {
-    return { OnivVerifyAlg::IV_AES_128_GCM_SHA256, OnivVerifyAlg::IV_AES_128_CCM_SHA256 };
+    return {
+            OnivVerifyAlg::IV_AES_128_GCM_SHA256,
+            OnivVerifyAlg::IV_AES_256_GCM_SHA384,
+            OnivVerifyAlg::IV_AES_128_CCM_SHA256 };
 }
 
 initializer_list<OnivKeyAgrAlg> OnivCrypto::ListKeyAgrAlg()
@@ -144,21 +147,30 @@ string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg,
     char cipher[UserData.length()] = { 0 }, tag[16] = { 0 };
     size_t size;
     if(VerifyAlg == OnivVerifyAlg::IV_AES_128_GCM_SHA256){
-        size = GCMEncryption(SessionKey.c_str(), SessionKey.length(),
+        size = GCMEncryption("aes-128-gcm", SessionKey.c_str(), SessionKey.length(),
                     UserData.c_str(), UserData.length(),
                     InitVector.c_str(), InitVector.length(),
-                    AssData.c_str(), AssData.length(), cipher, sizeof(cipher),
+                    AssData.c_str(), AssData.length(), cipher, UserData.length(),
                     tag, sizeof(tag));
-        UserData.assign(cipher, size);
+        // UserData.assign(cipher, size);
+        return string(tag, MsgAuchCodeSize());
+    }
+    else if(VerifyAlg == OnivVerifyAlg::IV_AES_256_GCM_SHA384){
+        size = GCMEncryption("aes-256-gcm", SessionKey.c_str(), SessionKey.length(),
+                    UserData.c_str(), UserData.length(),
+                    InitVector.c_str(), InitVector.length(),
+                    AssData.c_str(), AssData.length(), cipher, UserData.length(),
+                    tag, sizeof(tag));
+        // UserData.assign(cipher, size);
         return string(tag, MsgAuchCodeSize());
     }
     else if(VerifyAlg == OnivVerifyAlg::IV_AES_128_CCM_SHA256){
         size = CCMEncryption(SessionKey.c_str(), SessionKey.length(),
                     UserData.c_str(), UserData.length(),
                     InitVector.c_str(), InitVector.length(),
-                    AssData.c_str(), AssData.length(), cipher, sizeof(cipher),
+                    AssData.c_str(), AssData.length(), cipher, UserData.length(),
                     tag, sizeof(tag));
-        UserData.assign(cipher, size);
+        // UserData.assign(cipher, size);
         return string(tag, MsgAuchCodeSize());
     }
     else{
@@ -184,10 +196,11 @@ bool OnivCrypto::VerifySignature(const vector<string> &CertChain, const string &
     const string &user = CertChain.back();
     string ca;
     bool ValidChain = false, ValidSignature = false;
-    
     for(auto iter = CertChain.begin(); iter != CertChain.end() - 1; iter++)
     {
-        ca.append(*iter);
+        char pem[2048];
+        int size = DER2PEM(OBJECT_ECC_509, iter->c_str(), iter->length(), pem, sizeof(pem));
+        ca.append(pem, size);
     }
     ValidChain = CheckCertificate(ca.c_str(), ca.length(),
                                 user.c_str(), user.length(), FORMAT_ASN1) == 1;
@@ -218,7 +231,7 @@ string OnivCrypto::GetCertFromSubject(const string &subject)
 
 bool OnivCrypto::LoadIdentity(const string &subject)
 {
-    char buf[16] = { '\0' };
+    LoadAlgorithms();
 
     crts.push_back(ReadFile("certs/ecc/root-ecc.crt", OBJECT_ECC_509));
     crts.push_back(ReadFile("certs/ecc/second-ecc.crt", OBJECT_ECC_509));
@@ -230,6 +243,7 @@ bool OnivCrypto::LoadIdentity(const string &subject)
         }
     }
 
+    char buf[16] = { '\0' };
     if(!uuid5(crts.back().c_str(), crts.back().length(), buf, sizeof(buf), FORMAT_ASN1)){
         return false;
     }

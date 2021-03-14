@@ -48,6 +48,7 @@ enum class OnivVerifyAlg : uint16_t
     UNKNOWN = 0x0000,
     IV_SIMPLE_XOR = 0x0001,
     IV_AES_128_GCM_SHA256 = 0x1301,
+    IV_AES_256_GCM_SHA384 = 0x1302,
     IV_AES_128_CCM_SHA256 = 0x1304,
 };
 

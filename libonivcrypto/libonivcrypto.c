@@ -107,33 +107,22 @@ void* LoadAsn1(const char *p, size_t len, int object)
     
 }
 
+void LoadAlgorithms()
+{
+    EVP_add_digest(EVP_sha1());
+    EVP_add_digest(EVP_sha384());
+    EVP_add_digest(EVP_sha512());
+    EVP_add_cipher(EVP_aes_128_gcm());
+    EVP_add_cipher(EVP_aes_256_gcm());
+    EVP_add_cipher(EVP_aes_128_ccm());
+}
+
 const EVP_MD* DigestFromCurve(int nid)
 {
     if(nid == NID_secp384r1){
-        EVP_add_digest(EVP_sha384());
         return EVP_get_digestbyname("sha384");
     }
     else if(nid == NID_secp521r1){
-        EVP_add_digest(EVP_sha512());
-        return EVP_get_digestbyname("sha512");
-    }
-    else{
-        return NULL;
-    }
-}
-
-const EVP_MD* DigestFromRSA(int nid)
-{
-    if(nid == NID_sha256WithRSAEncryption){
-        EVP_add_digest(EVP_sha256());
-        return EVP_get_digestbyname("sha256");
-    }
-    else if(nid == NID_sha384WithRSAEncryption){
-        EVP_add_digest(EVP_sha384());
-        return EVP_get_digestbyname("sha384");
-    }
-    else if(nid == NID_sha512WithRSAEncryption){
-        EVP_add_digest(EVP_sha512());
         return EVP_get_digestbyname("sha512");
     }
     else{
@@ -230,49 +219,99 @@ void LoadObject(int format, int type, const char *buf, size_t len, void **object
     }
 }
 
-size_t PEM2DER(int object, const char *in, size_t InLen, char *out, size_t OutLen)
+int DER2PEM(int object, const char *in, size_t InLen, char *out, size_t OutLen)
 {
     BIO *bp = NULL;
     EC_KEY *ecsk = NULL, *ecpk = NULL;
     X509 *x = NULL;
-    size_t ret = 0;
-    
+    int ret = 0;
+
     bp = BIO_new(BIO_s_mem());
     if(bp == NULL){
-        goto err_2;
+        goto err_d2p;
+    }
+    switch(object)
+    {
+    case OBJECT_ECC_PRI:
+        LoadObject(FORMAT_ASN1, object, in, InLen, (void**)&ecsk);
+        if(ecsk == NULL){
+            goto err_d2p;
+        }
+        PEM_write_bio_ECPrivateKey(bp, ecsk, NULL, NULL, 0, NULL, NULL);
+        break;
+    case OBJECT_ECC_PUB:
+        LoadObject(FORMAT_ASN1, object, in, InLen, (void**)&ecpk);
+        if(ecpk == NULL){
+            goto err_d2p;
+        }
+        PEM_write_bio_EC_PUBKEY(bp, ecpk);
+        break;
+    case OBJECT_ECC_509:
+        LoadObject(FORMAT_ASN1, object, in, InLen, (void**)&x);
+        if(x == NULL){
+            goto err_d2p;
+        }
+        PEM_write_bio_X509(bp, x);
+        break;
+    default:
+        goto err_d2p;
+    }
+    ret = BIO_read(bp, out, OutLen);
+    if(ret == OutLen){
+        ret = 0;
+    }
+
+err_d2p:
+    BIO_free(bp);
+    EC_KEY_free(ecsk);
+    EC_KEY_free(ecpk);
+    X509_free(x);
+    return ret;
+}
+
+int PEM2DER(int object, const char *in, size_t InLen, char *out, size_t OutLen)
+{
+    BIO *bp = NULL;
+    EC_KEY *ecsk = NULL, *ecpk = NULL;
+    X509 *x = NULL;
+    int ret = 0;
+
+    bp = BIO_new(BIO_s_mem());
+    if(bp == NULL){
+        goto err_p2d;
     }
     switch(object)
     {
     case OBJECT_ECC_PRI:
         LoadObject(FORMAT_PEM, object, in, InLen, (void**)&ecsk);
         if(ecsk == NULL){
-            goto err_2;
+            goto err_p2d;
         }
         i2d_ECPrivateKey_bio(bp, ecsk);
         break;
     case OBJECT_ECC_PUB:
         LoadObject(FORMAT_PEM, object, in, InLen, (void**)&ecpk);
         if(ecpk == NULL){
-            goto err_2;
+            goto err_p2d;
         }
         i2d_EC_PUBKEY_bio(bp, ecpk);
         break;
     case OBJECT_ECC_509:
         LoadObject(FORMAT_PEM, object, in, InLen, (void**)&x);
         if(x == NULL){
-            goto err_2;
+            goto err_p2d;
         }
         i2d_X509_bio(bp, x);
         break;
     default:
-        goto err_2;
+        goto err_p2d;
     }
     ret = BIO_read(bp, out, OutLen);
     if(ret == OutLen){
-        goto err_2;
+        ret = 0;
     }
 
-err_2:
+err_p2d:
     BIO_free(bp);
     EC_KEY_free(ecsk);
     EC_KEY_free(ecpk);
@@ -386,14 +425,14 @@ err_verify:
 }
 
 int CheckCertificate(const char *CACerts, size_t CALength,
-                    const char *UserCert, size_t UserLen, int format)
+                    const char *UserCert, size_t UserLen, int UserFormat)
 {
     X509_STORE_CTX *StoreCtx = NULL;
     X509_STORE *store = NULL;
     BIO *ca = NULL, *user = NULL;
-    STACK_OF(X509_INFO) *info = NULL;
+    STACK_OF(X509_INFO) *InfoStack = NULL;
     X509 *x = NULL;
-    X509_INFO *itmp = NULL;
+    X509_INFO *info = NULL;
     int i = 0, ret = 0;
 
     StoreCtx = X509_STORE_CTX_new();
@@ -409,21 +448,21 @@ int CheckCertificate(const char *CACerts, size_t CALength,
         goto err_check;
     }
     BIO_write(ca, CACerts, CALength);
-    info = PEM_X509_INFO_read_bio(ca, NULL, NULL, NULL);
-    if(info == NULL){
+    InfoStack = PEM_X509_INFO_read_bio(ca, NULL, NULL, NULL);
+    if(InfoStack == NULL){
         goto err_check;
     }
-    for (i = 0; i < sk_X509_INFO_num(info); i++) {
-        itmp = sk_X509_INFO_value(info, i);
-        if(itmp->x509) {
-            X509_STORE_add_cert(store, itmp->x509);
+    for (i = 0; i < sk_X509_INFO_num(InfoStack); i++) {
+        info = sk_X509_INFO_value(InfoStack, i);
+        if(info->x509) {
+            X509_STORE_add_cert(store, info->x509);
         }
-        if(itmp->crl) {
-            X509_STORE_add_crl(store, itmp->crl);
+        if(info->crl) {
+            X509_STORE_add_crl(store, info->crl);
         }
     }
 
-    LoadObject(format, OBJECT_ECC_509, UserCert, UserLen, (void**)&x);
+    LoadObject(UserFormat, OBJECT_ECC_509, UserCert, UserLen, (void**)&x);
     if(x == NULL){
         goto err_check;
     }
@@ -438,7 +477,7 @@ int CheckCertificate(const char *CACerts, size_t CALength,
 err_check:
     X509_free(x);
     BIO_free(user);
-    sk_X509_INFO_pop_free(info, X509_INFO_free);
+    sk_X509_INFO_pop_free(InfoStack, X509_INFO_free);
     BIO_free(ca);
     X509_STORE_free(store);
     X509_STORE_CTX_free(StoreCtx);
@@ -529,12 +568,12 @@ err_get_ec_pub:
     return ret;
 }
 
-size_t ComputeSK(const char *PrivateKey, size_t PrivateKeyLen,
+int ComputeSK(const char *PrivateKey, size_t PrivateKeyLen,
                 const char *PublicKey, size_t PublicKeyLen,
                 char *SessionKey, size_t SessionKeyLen, int format)
 {
     EC_KEY *ecsk = NULL, *ecpk = NULL;
-    size_t ret = 0;
+    int ret = 0;
 
     LoadObject(format, OBJECT_ECC_PRI, PrivateKey, PrivateKeyLen, (void**)&ecsk);
     LoadObject(format, OBJECT_ECC_PUB, PublicKey, PublicKeyLen, (void**)&ecpk);
@@ -750,7 +789,6 @@ int uuid5(const char *cert, size_t CertLen, char *uuid, size_t len, int format)
     }
     read = BIO_read(bp, pk, sizeof(pk));
 
-    EVP_add_digest(EVP_sha1());
     if((md = EVP_get_digestbyname("sha1")) == NULL){
         goto err_uuid5;
     }
@@ -841,7 +879,8 @@ err_curve_name:
     return ret;
 }
 
-size_t GCMEncryption(const char *key, size_t KeyLen, 
+size_t GCMEncryption(const char *name,
+                const char *key, size_t KeyLen, 
                 const char *plain, size_t PlainLen,
                 const char *InitVector, size_t InitVectorLen,
                 const char *AssData, size_t AssDataLen,
@@ -860,7 +899,7 @@ size_t GCMEncryption(const char *key, size_t KeyLen,
     if(ctx == NULL){
         goto err_gcm_enc;
     }
-    if(EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL) != 1){
+    if(EVP_EncryptInit_ex(ctx, EVP_get_cipherbyname(name), NULL, NULL, NULL) != 1){
         goto err_gcm_enc;
     }
     if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, InitVectorLen, NULL) != 1){
@@ -889,7 +928,8 @@ err_gcm_enc:
     return ret;
 }
 
-int GCMDecryption(const char *key, size_t KeyLen, 
+int GCMDecryption(const char *name,
+                const char *key, size_t KeyLen, 
                 const char *cipher, size_t CipherLen,
                 const char *InitVector, size_t InitVectorLen,
                 const char *AssData, size_t AssDataLen,
@@ -907,7 +947,7 @@ int GCMDecryption(const char *key, size_t KeyLen,
     if(ctx == NULL){
         goto err_gcm_dec;
     }
-    if(EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL) != 1){
+    if(EVP_DecryptInit_ex(ctx, EVP_get_cipherbyname(name), NULL, NULL, NULL) != 1){
         goto err_gcm_dec;
     }
     if(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, InitVectorLen, NULL) != 1){

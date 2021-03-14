@@ -90,7 +90,7 @@ OnivErr OnivTunnel::recv(OnivPacket &packet)
     socklen_t len = sizeof(struct sockaddr_in);
     char buf[OnivGlobal::KeyAgrBufSize] = { 0 };
     size_t PacketSize;
-    PacketSize = recvfrom(LocalTunnelSocket, buf, mtu, 0, (struct sockaddr*)&remote, &len);
+    PacketSize = recvfrom(LocalTunnelSocket, buf, OnivGlobal::KeyAgrBufSize, 0, (struct sockaddr*)&remote, &len);
     if(PacketSize < 0){
         return OnivErr(OnivErrCode::ERROR_RECV_TUNNEL);
     }
