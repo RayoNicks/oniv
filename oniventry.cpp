@@ -125,7 +125,7 @@ bool OnivFragementEntry::reassemble(uint16_t offset, uint16_t len)
                     unreached.erase(iter);
                 }
                 else{
-                    iter->first = offset;
+                    iter->first = offset + len;
                 }
             }
             else if(offset + len == iter->second){
@@ -142,15 +142,34 @@ bool OnivFragementEntry::reassemble(uint16_t offset, uint16_t len)
 }
 
 OnivFragementEntry::OnivFragementEntry(const OnivFrame &frame, const OnivCommon &common, const string &RemoteUUID)
-    : buffer(nullptr), oniv(nullptr), FrameSize(0), RemoteUUID(RemoteUUID)
+    : buffer(nullptr), fragment(nullptr), BufferSize(0), RemoteUUID(RemoteUUID)
 {
-    FrameSize = frame.OnivHdr() - frame.Layer2Hdr() + OnivCommon::LinearSize() + common.total;
-    buffer = new char[FrameSize];
-    oniv = buffer + OnivCommon::LinearSize() + common.total;
-    memcpy(buffer, frame.Layer2Hdr(), frame.OnivHdr() + OnivCommon::LinearSize() - frame.Layer2Hdr());
-    memcpy(oniv + common.offset, frame.OnivHdr() + OnivCommon::LinearSize(), common.len);
+    BufferSize = frame.OnivHdr() - frame.Layer2Hdr() + OnivCommon::LinearSize() + common.total;
+    buffer = new char[BufferSize];
+    fragment = buffer + BufferSize - common.total;
+    memcpy(buffer, frame.Layer2Hdr(), BufferSize - common.total);
+    memcpy(fragment + common.offset, frame.OnivHdr() + OnivCommon::LinearSize(), common.len);
     unreached.push_back(make_pair(0, common.total));
     reassemble(common.offset, common.len);
+}
+
+OnivFragementEntry::OnivFragementEntry(const OnivFragementEntry &frgent)
+    : BufferSize(frgent.BufferSize), unreached(frgent.unreached), RemoteUUID(frgent.RemoteUUID)
+{
+    buffer = new char[BufferSize];
+    fragment = buffer + (frgent.fragment - frgent.buffer);
+    memcpy(buffer, frgent.buffer, BufferSize);
+}
+
+OnivFragementEntry& OnivFragementEntry::operator=(const OnivFragementEntry &frgent)
+{
+    BufferSize = frgent.BufferSize;
+    unreached = frgent.unreached;
+    RemoteUUID = frgent.RemoteUUID;
+    buffer = new char[BufferSize];
+    fragment = buffer + (frgent.fragment - frgent.buffer);
+    memcpy(buffer, frgent.buffer, BufferSize);
+    return *this;
 }
 
 OnivFragementEntry::~OnivFragementEntry()
@@ -160,9 +179,9 @@ OnivFragementEntry::~OnivFragementEntry()
 
 void OnivFragementEntry::AddFragement(const OnivFrame &frame, const OnivCommon &common)
 {
-    memcpy(buffer, frame.Layer2Hdr(), frame.OnivHdr() - frame.Layer2Hdr());
+    memcpy(buffer, frame.Layer2Hdr(), BufferSize - common.total);
     if(reassemble(common.offset, common.len)){
-        memcpy(oniv + common.offset, frame.OnivHdr() + OnivCommon::LinearSize(), common.len);
+        memcpy(fragment + common.offset, frame.OnivHdr() + OnivCommon::LinearSize(), common.len);
     }
 }
 
@@ -173,10 +192,10 @@ bool OnivFragementEntry::completed()
 
 const char* OnivFragementEntry::OnivHdr()
 {
-    return oniv;
+    return fragment - OnivCommon::LinearSize();
 }
 
-size_t OnivFragementEntry::size()
+size_t OnivFragementEntry::OnivSize()
 {
-    return FrameSize;
+    return buffer + BufferSize - OnivHdr();
 }

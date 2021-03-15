@@ -631,12 +631,15 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
 
 OnivErr Onivd::ProcessLnkKeyAgrReq(const OnivFrame &frame)
 {
-    OnivFragementEntry *fraent = rdb.AddFragement(frame);
-    if(!fraent->completed()){
-        return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+    OnivFragementEntry *frgent = rdb.AddFragement(frame);
+    if(frgent == nullptr){
+        return OnivErr(OnivErrCode::ERROR_NO_FRAGEMENT_ENTRY);
     }
-    OnivLnkReq req(fraent->OnivHdr(), fraent->size());
-    rdb.RemoveFragement(fraent);
+    if(!frgent->completed()){
+        return OnivErr(OnivErrCode::ERROR_REASSEMBLING_FRAGEMENTS);
+    }
+    OnivLnkReq req(frgent->OnivHdr(), frgent->OnivSize());
+    rdb.RemoveFragement(frgent);
     if(req.VerifySignature()){
         const OnivKeyEntry *keyent = kdb.update(frame, req);
         if(keyent != nullptr){
@@ -655,12 +658,15 @@ OnivErr Onivd::ProcessLnkKeyAgrReq(const OnivFrame &frame)
 
 OnivErr Onivd::ProcessLnkKeyAgrRes(const OnivFrame &frame)
 {
-    OnivFragementEntry *fraent = rdb.AddFragement(frame);
-    if(!fraent->completed()){
-        return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+    OnivFragementEntry *frgent = rdb.AddFragement(frame);
+    if(frgent == nullptr){
+        return OnivErr(OnivErrCode::ERROR_NO_FRAGEMENT_ENTRY);
     }
-    OnivLnkRes res(fraent->OnivHdr(), fraent->size());
-    rdb.RemoveFragement(fraent);
+    if(!frgent->completed()){
+        return OnivErr(OnivErrCode::ERROR_REASSEMBLING_FRAGEMENTS);
+    }
+    OnivLnkRes res(frgent->OnivHdr(), frgent->OnivSize());
+    rdb.RemoveFragement(frgent);
     if(res.VerifySignature()){
         OnivKeyEntry *keyent = kdb.update(frame, res);
         if(keyent != nullptr){ // 发送阻塞队列中的数据帧

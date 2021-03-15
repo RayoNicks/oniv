@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <list>
+#include <memory>
 #include <mutex>
 #include <string>
 
@@ -17,8 +18,10 @@ using std::equal_to;
 using std::hash;
 using std::list;
 using std::make_pair;
+using std::make_shared;
 using std::mutex;
 using std::pair;
+using std::shared_ptr;
 using std::string;
 
 class OnivLnkRecord;
@@ -79,18 +82,20 @@ public:
 struct OnivFragementEntry
 {
 private:
-    char *buffer, *oniv;
-    size_t FrameSize;
-    list<pair<unsigned int, unsigned int>> unreached;
+    char *buffer, *fragment;
+    size_t BufferSize;
+    list<pair<unsigned short, unsigned short>> unreached;
     bool reassemble(uint16_t offset, uint16_t len);
 public:
     string RemoteUUID;
     OnivFragementEntry(const OnivFrame &frame, const OnivCommon &common, const string &RemoteUUID);
+    OnivFragementEntry(const OnivFragementEntry &frgent);
+    OnivFragementEntry& operator=(const OnivFragementEntry &frgent);
     ~OnivFragementEntry();
     void AddFragement(const OnivFrame &frame, const OnivCommon &common);
     bool completed();
     const char* OnivHdr();
-    size_t size();
+    size_t OnivSize();
 };
 
 #endif

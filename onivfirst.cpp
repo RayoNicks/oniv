@@ -54,7 +54,7 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
     *(uint16_t*)p = htons(CastTo16<OnivKeyAgrAlg>(PreKeyAgrAlg));
     p += sizeof(PreKeyAgrAlg);
     SupKeyAgrAlgSet.linearization(p);
-    p += SupVerifyAlgSet.LinearSize();
+    p += SupKeyAgrAlgSet.LinearSize();
 
     *(uint16_t*)p = htons(CastTo16<OnivSigAlg>(SigAlg));
     p += sizeof(SigAlg);
@@ -412,6 +412,7 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     {
         cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
     }
+    cout << '\n';
 }
 
 OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
@@ -500,6 +501,7 @@ bool OnivLnkRecord::VerifyIdentity(const OnivKeyEntry *keyent)
     {
         cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
     }
+    cout << '\n';
     return code.data() ==
         OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey,
                             data, InitVector, AssData);

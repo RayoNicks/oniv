@@ -109,7 +109,11 @@ OnivFragementEntry* OnivRDB::AddFragement(const OnivFrame &frame)
     mtx.lock();
     auto iter = FragTable.find(RemoteUUID);
     if(iter == FragTable.end()){
-        FragTable.insert(make_pair(RemoteUUID, OnivFragementEntry(frame, common, RemoteUUID)));
+        auto ret = FragTable.insert(make_pair(RemoteUUID, OnivFragementEntry(frame, common, RemoteUUID)));
+        if(!ret.second){
+            return nullptr;
+        }
+        iter = ret.first;
     }
     else{
         iter->second.AddFragement(frame, common);

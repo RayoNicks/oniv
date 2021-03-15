@@ -59,6 +59,8 @@ const vector<string> OnivErr::ErrMsgs = {
     "Wait epoll failed",
     "Can't not find forwarding entry",
     "Can't find key entry",
+    "No corresponding fragement entry",
+    "Reassembling link fragements",
     // verification error
     "Verify signature failed",
     "Tunnel verification failed",

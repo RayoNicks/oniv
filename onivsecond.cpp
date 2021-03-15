@@ -334,6 +334,7 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, const OnivKey
     {
         cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
     }
+    cout << '\n';
 }
 
 OnivTunRecord::OnivTunRecord(const OnivPacket &packet) : buf(0)
@@ -405,6 +406,7 @@ bool OnivTunRecord::VerifyIdentity(const OnivKeyEntry *keyent)
     {
         cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
     }
+    cout << '\n';
     return code.data() ==
         OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey,
                             data, InitVector, AssData);
