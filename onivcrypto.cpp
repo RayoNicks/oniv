@@ -134,43 +134,40 @@ string OnivCrypto::GenPubKey(const string &PrivateKey)
 
 string OnivCrypto::ComputeSessionKey(const string &PublicKey, const string &PrivateKey)
 {
-    char SessionKey[128] = { 0 };
-    int size = ComputeSK(PrivateKey.c_str(), PrivateKey.length(), PublicKey.c_str(), PublicKey.length(),
+    char SessionKey[128] = { 0 }; // 大一点的缓冲区保证可以得到16字节的密钥
+    ComputeSK(PrivateKey.c_str(), PrivateKey.length(), PublicKey.c_str(), PublicKey.length(),
                         SessionKey, sizeof(SessionKey), FORMAT_ASN1);
-    return string(SessionKey, 16);
+   return string(SessionKey, 16);
 }
 
 string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg,
                             const string &SessionKey, string &UserData,
                             const string &InitVector, const string &AssData)
 {
+    // 只认证，不加密
     char cipher[UserData.length()] = { 0 }, tag[16] = { 0 };
-    size_t size;
     if(VerifyAlg == OnivVerifyAlg::IV_AES_128_GCM_SHA256){
-        size = GCMEncryption("aes-128-gcm", SessionKey.c_str(), SessionKey.length(),
+        GCMEncryption("aes-128-gcm", SessionKey.c_str(), SessionKey.length(),
                     UserData.c_str(), UserData.length(),
                     InitVector.c_str(), InitVector.length(),
                     AssData.c_str(), AssData.length(), cipher, UserData.length(),
                     tag, sizeof(tag));
-        // UserData.assign(cipher, size);
         return string(tag, MsgAuchCodeSize());
     }
     else if(VerifyAlg == OnivVerifyAlg::IV_AES_256_GCM_SHA384){
-        size = GCMEncryption("aes-256-gcm", SessionKey.c_str(), SessionKey.length(),
+        GCMEncryption("aes-256-gcm", SessionKey.c_str(), SessionKey.length(),
                     UserData.c_str(), UserData.length(),
                     InitVector.c_str(), InitVector.length(),
                     AssData.c_str(), AssData.length(), cipher, UserData.length(),
                     tag, sizeof(tag));
-        // UserData.assign(cipher, size);
         return string(tag, MsgAuchCodeSize());
     }
     else if(VerifyAlg == OnivVerifyAlg::IV_AES_128_CCM_SHA256){
-        size = CCMEncryption(SessionKey.c_str(), SessionKey.length(),
+        CCMEncryption(SessionKey.c_str(), SessionKey.length(),
                     UserData.c_str(), UserData.length(),
                     InitVector.c_str(), InitVector.length(),
                     AssData.c_str(), AssData.length(), cipher, UserData.length(),
                     tag, sizeof(tag));
-        // UserData.assign(cipher, size);
         return string(tag, MsgAuchCodeSize());
     }
     else{

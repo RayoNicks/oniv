@@ -396,23 +396,6 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
 
     output.append((char*)hdr, HdrSizeWithOnivHdr);
     output.append((char*)buf, common.total);
-
-    cout << "\nSession Key is: ";
-    for(const char &c : keyent->SessionKey)
-    {
-        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
-    }
-    cout << "\nInit Vector is: ";
-    for(const char &c : InitVector)
-    {
-        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
-    }
-    cout << "\n Ass Data is: ";
-    for(const char &c : AssData)
-    {
-        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
-    }
-    cout << '\n';
 }
 
 OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
@@ -434,13 +417,6 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
     if(common.total != OnivSize - OnivCommon::LinearSize()){
         return;
     }
-
-    // TODO
-    // 如果覆盖网络支持NAT，则在传输过程中IP首部和传输层首部会发生变化，需要进行修正，现在只修正帧类型
-    size_t HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
-    uint8_t hdr[HdrSize] = { 0 };
-    memcpy(hdr, frame.Layer2Hdr(), HdrSize);
-    *(uint16_t*)(hdr + 12) = htons(OriginProtocol);
 
     buf = new uint8_t[OnivSize];
     memcpy(buf, frame.OnivHdr(), OnivSize);
@@ -472,6 +448,12 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
 
     data.assign((char*)p, buf + OnivSize - p);
 
+    // TODO
+    // 如果覆盖网络支持NAT，则在传输过程中IP首部和传输层首部会发生变化，需要进行修正，现在只修正帧类型即可
+    size_t HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
+    uint8_t hdr[HdrSize] = { 0 };
+    memcpy(hdr, frame.Layer2Hdr(), HdrSize);
+    *(uint16_t*)(hdr + 12) = htons(OriginProtocol);
     output.append((char*)hdr, HdrSize);
     output.append(data.c_str(), data.length());
 }
@@ -486,22 +468,6 @@ bool OnivLnkRecord::VerifyIdentity(const OnivKeyEntry *keyent)
     string AssData((char*)buf, OnivCommon::LinearSize());
     string InitVector((char*)common.UUID, sizeof(common.UUID));
     InitVector.append((char*)buf + 4, 2);
-    cout << "\nSession Key is: ";
-    for(const char &c : keyent->SessionKey)
-    {
-        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
-    }
-    cout << "\nInit Vector is: ";
-    for(const char &c : InitVector)
-    {
-        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
-    }
-    cout << "\nAss Data is: ";
-    for(const char &c : AssData)
-    {
-        cout << hex << setw(2) << setfill('0') << (c & 0xFF) << ' ';
-    }
-    cout << '\n';
     return code.data() ==
         OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey,
                             data, InitVector, AssData);

@@ -13,6 +13,7 @@
 #include "onivglobal.h"
 
 using std::cout;
+using std::endl;
 using std::hex;
 using std::setfill;
 using std::setw;

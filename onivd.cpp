@@ -698,8 +698,8 @@ OnivErr Onivd::ProcessLnkRecord(const OnivFrame &frame)
     OnivLnkRecord rec(frame);
     OnivKeyEntry *keyent = kdb.SearchFrom(string((char*)rec.common.UUID, sizeof(rec.common.UUID)));
     if(keyent != nullptr){
+        keyent->UpdateOnRecvLnkRec(rec);
         if(rec.VerifyIdentity(keyent)){
-            keyent->UpdateOnRecvLnkRec(rec);
             forent->egress->EnSendingQueue(rec.frame()); // 唤醒发送线程
             fdb.update(frame); // 更新转发表
             return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
@@ -774,10 +774,6 @@ OnivErr Onivd::CreateEgressThread()
 Onivd::Onivd(const string &TunnelAdapterName, const string &HostName)
 {
     OnivErr oe;
-    if(!OnivCrypto::LoadIdentity(HostName)){
-        cout << "Load certificates for " << HostName << " failed" << endl;
-        return;
-    }
     oe = CreateSwitchServer();
     if(oe.occured()){
         err(EXIT_FAILURE, "%s", oe.ErrMsg().c_str());

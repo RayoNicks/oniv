@@ -50,7 +50,7 @@ void OnivFrame::dump() const
         }
         cout << '\n';
     }
-    cout << '\n';
+    cout << endl;
 }
 
 OnivPort* OnivFrame::IngressPort() const

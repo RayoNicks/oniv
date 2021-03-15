@@ -16,8 +16,14 @@ int main(int argc, char *argv[])
         usage();
         return 0;
     }
-    string TunnelAdapterName(argv[1]);
+
     string HostName(argv[2]);
+    if(!OnivCrypto::LoadIdentity(HostName)){
+        cout << "Load certificates for " << HostName << " failed" << endl;
+        return 0;
+    }
+
+    string TunnelAdapterName(argv[1]);
     Onivd oniv(TunnelAdapterName, HostName);
     oniv.run();
     return 0;

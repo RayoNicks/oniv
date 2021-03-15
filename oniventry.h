@@ -3,7 +3,6 @@
 
 #include <functional>
 #include <list>
-#include <memory>
 #include <mutex>
 #include <string>
 
@@ -18,10 +17,8 @@ using std::equal_to;
 using std::hash;
 using std::list;
 using std::make_pair;
-using std::make_shared;
 using std::mutex;
 using std::pair;
-using std::shared_ptr;
 using std::string;
 
 class OnivLnkRecord;

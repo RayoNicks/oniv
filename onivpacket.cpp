@@ -53,7 +53,7 @@ void OnivPacket::dump() const
         }
         cout << '\n';
     }
-    cout << '\n';
+    cout << endl;
 }
 
 OnivTunnel* OnivPacket::IngressPort() const
