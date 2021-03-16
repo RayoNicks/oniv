@@ -153,7 +153,7 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf
     ReqTs = keyent->ts, ResTs = (uint64_t)system_clock::to_time_t(system_clock::now());
     common.total = sizeof(ReqTs) + sizeof(ResTs);
 
-    RmdTp = 1, AppTp = 1;
+    RmdTp = 0, AppTp = 1; // 选择根证书作为托管第三方
     common.total += sizeof(RmdTp) + sizeof(AppTp);
 
     VerifyAlg = keyent->VerifyAlg, KeyAgrAlg = keyent->KeyAgrAlg;

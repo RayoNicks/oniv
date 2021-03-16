@@ -1,6 +1,7 @@
 #ifndef _ONIV_ADAPTER_H_
 #define _ONIV_ADAPTER_H_
 
+#include <algorithm>
 #include <cstring>
 
 #include <fcntl.h>
@@ -11,6 +12,8 @@
 
 #include "onivglobal.h"
 #include "onivport.h"
+
+using std::min;
 
 class OnivAdapter : public OnivPort
 {

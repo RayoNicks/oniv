@@ -217,3 +217,37 @@ void OnivFrame::append(const char *p, size_t n)
 {
     frame.append(p, n);
 }
+
+vector<OnivFrame> OnivFrame::fragement(int mtu)
+{
+    vector<OnivFrame> frames;
+    if(!IsIP()){
+        return vector<OnivFrame>(1, *this);
+    }
+    uint16_t HdrLen = IPHdrLen();
+    uint16_t total = ntohs(*(uint16_t*)(Layer3Hdr() + 2)) - HdrLen;
+    uint16_t mf = 0, base = 0, offset = 0, len = (mtu - (Layer4Hdr() - Layer2Hdr())) & (~0x7);
+    char IPHdr[HdrLen] = { 0 };
+    memcpy(IPHdr, Layer3Hdr(), HdrLen);
+    mf = ntohs(*(uint16_t*)(IPHdr + 6)) & (1 << 13);
+    base = ntohs(*(uint16_t*)(IPHdr + 6)) << 3;
+    while(offset + len < total){
+        frames.push_back(OnivFrame(Layer2Hdr(), Layer3Hdr() - Layer2Hdr(), ingress));
+        *(uint16_t*)(IPHdr + 2) = htons(HdrLen + len); // IP首部长度字段
+        *(uint16_t*)(IPHdr + 6) = htons((1 << 13) + ((base + offset) >> 3)); // 分片字段
+        *(uint16_t*)(IPHdr + 10) = 0;
+        *(uint16_t*)(IPHdr + 10) = OnivCommon::IPChecksum((uint8_t*)IPHdr, HdrLen);
+        frames.back().append(IPHdr, HdrLen);
+        frames.back().append(Layer4Hdr() + offset, len);
+        offset += len;
+    }
+    len = total - offset;
+    frames.push_back(OnivFrame(Layer2Hdr(), Layer3Hdr() - Layer2Hdr(), ingress));
+    *(uint16_t*)(IPHdr + 2) = htons(HdrLen + len);
+    *(uint16_t*)(IPHdr + 6) = htons(mf + ((base + offset) >> 3));
+    *(uint16_t*)(IPHdr + 10) = 0;
+    *(uint16_t*)(IPHdr + 10) = OnivCommon::IPChecksum((uint8_t*)IPHdr, HdrLen);
+    frames.back().append(IPHdr, HdrLen);
+    frames.back().append(Layer4Hdr() + offset, len);
+    return frames;
+}

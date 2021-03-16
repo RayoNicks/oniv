@@ -1,7 +1,8 @@
 #include "onivadapter.h"
 
 OnivAdapter::OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu)
-    : OnivPort(mtu, vni), fd(-1), ctrl(-1), AdapterName(name), addr(address), NetMask(mask)
+    : OnivPort(min(mtu, OnivGlobal::AdapterMTU), vni),
+    fd(-1), ctrl(-1), AdapterName(name), addr(address), NetMask(mask)
 {
     // 创建隧道设备
     struct ifreq ifr;

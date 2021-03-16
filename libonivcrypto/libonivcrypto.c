@@ -536,34 +536,21 @@ int GetECPublicKey(const char *PrivateKey, size_t PrivateKeyLen,
                     char *PublicKey, size_t PublicKeyLen, int format)
 {
     EC_KEY *eckey = NULL;
-    BIO *pub = NULL;
+    const EC_GROUP *group = NULL;
     int ret = 0;
 
     LoadObject(format, OBJECT_ECC_PRI, PrivateKey, PrivateKeyLen, (void**)&eckey);
     if(eckey == NULL){
         goto err_get_ec_pub;
     }
-    pub = BIO_new(BIO_s_mem());
-    if(pub == NULL){
-        goto err_get_ec_pub;
-    }
-    if(format == FORMAT_PEM){
-        PEM_write_bio_EC_PUBKEY(pub, eckey);
-    }
-    else if(format == FORMAT_ASN1){
-        i2d_EC_PUBKEY_bio(pub, eckey);
-    }
-    else{
-        goto err_get_ec_pub;
-    }
 
-    ret = BIO_read(pub, PublicKey, PublicKeyLen);
-    if(ret == PublicKeyLen){
-        ret = 0;
+    group = EC_KEY_get0_group(eckey);
+    if(group == NULL){
+        goto err_get_ec_pub;
     }
+    ret = EC_POINT_point2oct(group, EC_KEY_get0_public_key(eckey), POINT_CONVERSION_COMPRESSED, (unsigned char*)PublicKey, PublicKeyLen, NULL);
 
 err_get_ec_pub:
-    BIO_free(pub);
     EC_KEY_free(eckey);
     return ret;
 }
@@ -572,22 +559,34 @@ int ComputeSK(const char *PrivateKey, size_t PrivateKeyLen,
                 const char *PublicKey, size_t PublicKeyLen,
                 char *SessionKey, size_t SessionKeyLen, int format)
 {
-    EC_KEY *ecsk = NULL, *ecpk = NULL;
+    EC_KEY *ecsk = NULL;
+    const EC_GROUP *group = NULL;
+    EC_POINT *point = NULL;
     int ret = 0;
 
     LoadObject(format, OBJECT_ECC_PRI, PrivateKey, PrivateKeyLen, (void**)&ecsk);
-    LoadObject(format, OBJECT_ECC_PUB, PublicKey, PublicKeyLen, (void**)&ecpk);
     if(ecsk == NULL){
         goto err_com_sk;
     }
-    if(ecpk == NULL){
+
+    group = EC_KEY_get0_group(ecsk);
+    if(group == NULL){
         goto err_com_sk;
     }
 
-    ret = ECDH_compute_key(SessionKey, SessionKeyLen, EC_KEY_get0_public_key(ecpk), ecsk, NULL);
+    point = EC_POINT_new(group);
+    if(point == NULL){
+        goto err_com_sk;
+    }
+
+    if(EC_POINT_oct2point(group, point, (unsigned char*)PublicKey, PublicKeyLen, NULL) == 0){
+        goto err_com_sk;
+    }
+
+    ret = ECDH_compute_key(SessionKey, SessionKeyLen, point, ecsk, NULL);
 
 err_com_sk:
-    EC_KEY_free(ecpk);
+    EC_POINT_free(point);
     EC_KEY_free(ecsk);
     return ret;
 }
@@ -598,11 +597,10 @@ size_t encrypt(const char *cert, size_t CertLen,
 {
     X509 *x = NULL;
     EVP_PKEY *evpkey = NULL;
-    EC_GROUP *group;
+    EC_GROUP *group = NULL;
     EC_KEY *ecpk = NULL, *ecsk = NULL;
-    char session[128] = { '\0' }, pk[256] = { '\0' };
-    BIO *bp = NULL;
-    int size = 0, read = 0;
+    char session[128] = { 0 }, pk[256] = { 0 };
+    int size = 0, pklen = 0;
     size_t i, j;
 
     LoadObject(format, OBJECT_ECC_509, cert, CertLen, (void**)&x);
@@ -641,25 +639,20 @@ size_t encrypt(const char *cert, size_t CertLen,
         goto err_encrypt;
     }
 
-    bp = BIO_new(BIO_s_mem());
-    if(format == FORMAT_PEM){
-        PEM_write_bio_EC_PUBKEY(bp, ecsk);
-    }
-    else if(format == FORMAT_ASN1){
-        i2d_EC_PUBKEY_bio(bp, ecsk);
-    }
-    else{
-        goto err_encrypt;
-    }
-    read = BIO_read(bp, pk, sizeof(pk));
-
-    if(CipherLen < PlainLen + read){
+    pklen = EC_POINT_point2oct(group, EC_KEY_get0_public_key(ecsk), POINT_CONVERSION_COMPRESSED, (unsigned char*)pk, sizeof(pk), NULL);
+    if(pklen == 0){
         goto err_encrypt;
     }
 
-    // TODO 公钥长度
-    memcpy(cipher, pk, read);
-    cipher += read;
+    if(CipherLen < 2 + pklen + PlainLen){
+        goto err_encrypt;
+    }
+
+    *cipher = (pklen >> 16) & 0xFF;
+    *(cipher + 1) = pklen & 0xFF;
+    cipher += 2;
+    memcpy(cipher, pk, pklen);
+    cipher += pklen;
 
     for(i = 0, j = 0; i < PlainLen; i++, j++)
     {
@@ -668,10 +661,10 @@ size_t encrypt(const char *cert, size_t CertLen,
             j = 0;
         }
     }
-    return read + PlainLen;
+    return 2 + pklen + PlainLen;
 
 err_encrypt:
-    BIO_free(bp);
+    EC_GROUP_free(group);
     EC_KEY_free(ecsk);
     EC_KEY_free(ecpk);
     EVP_PKEY_free(evpkey);
@@ -684,8 +677,10 @@ size_t decrypt(const char *PrivateKey, size_t PrivateKeyLen,
             char *plain, size_t PlainLen, int format)
 {
     EC_KEY *ecpk = NULL, *ecsk = NULL;
-    char session[128] = { '\0' };
-    int size = 0;
+    const EC_GROUP *group = NULL;
+    EC_POINT *point = NULL;
+    char session[128] = { 0 };
+    int size = 0, pklen = 0;
     size_t i, j;
 
     LoadObject(format, OBJECT_ECC_PRI, PrivateKey, PrivateKeyLen, (void**)&ecsk);
@@ -693,37 +688,29 @@ size_t decrypt(const char *PrivateKey, size_t PrivateKeyLen,
         goto err_decrypt;
     }
 
-    if(format == FORMAT_PEM){
-        LoadObject(format, OBJECT_ECC_PUB, cipher, 215, (void**)&ecpk);
-    }
-    else if(format == FORMAT_ASN1){
-        goto err_decrypt;
-    }
-    else{
-        goto err_decrypt;
-    }
-    if(ecpk == NULL){
+    pklen = (((*cipher) << 16) & 0xFF00) | (*(cipher + 1) & 0xFF);
+
+    group = EC_KEY_get0_group(ecsk);
+    if(group == NULL){
         goto err_decrypt;
     }
 
-    size = ECDH_compute_key(session, sizeof(session), EC_KEY_get0_public_key(ecpk), ecsk, NULL);
-
-    // TODO 公钥长度
-    if(format == FORMAT_PEM){
-        if(PlainLen + 215 < CipherLen){
-            goto err_decrypt;
-        }
-        cipher += 215;
-        CipherLen -= 215;
-    }
-    else{
-        if(PlainLen + 120 < CipherLen){
-            goto err_decrypt;
-        }
-        cipher += 120;
-        CipherLen -= 120;
+    point = EC_POINT_new(group);
+    if(point == NULL){
         goto err_decrypt;
     }
+
+    if(EC_POINT_oct2point(group, point, (unsigned char*)cipher + 2, pklen, NULL) == 0){
+        goto err_decrypt;
+    }
+
+    size = ECDH_compute_key(session, sizeof(session), point, ecsk, NULL);
+    if(size == 0){
+        goto err_decrypt;
+    }
+
+    cipher += 2 + pklen;
+    CipherLen -= 2 + pklen;
 
     for(i = 0, j = 0; i < CipherLen; i++, j++)
     {
@@ -736,6 +723,7 @@ size_t decrypt(const char *PrivateKey, size_t PrivateKeyLen,
 
 err_decrypt:
     EC_KEY_free(ecsk);
+    EC_POINT_free(point);
     EC_KEY_free(ecpk);
     return 0;
 }
@@ -746,10 +734,11 @@ int uuid5(const char *cert, size_t CertLen, char *uuid, size_t len, int format)
     X509 *x = NULL;
     EVP_PKEY *evpkey = NULL;
     EC_KEY *ecpk = NULL;
-    BIO* bp = NULL;
+    const EC_POINT *point = NULL;
+    const EC_GROUP *group = NULL;
     const EVP_MD *md = NULL;
-    char pk[256] = { '\0' }, sha1[20] = { '\0' };
-    int read = 0, size = sizeof(md), ret = 0;
+    char pk[256] = { 0 }, sha1[20] = { 0 };
+    int size = 0, ret = 0;
 
     if(mdctx == NULL){
         goto err_uuid5;
@@ -774,20 +763,12 @@ int uuid5(const char *cert, size_t CertLen, char *uuid, size_t len, int format)
         goto err_uuid5;
     }
 
-    bp = BIO_new(BIO_s_mem());
-    if(bp == NULL){
+    group = EC_KEY_get0_group(ecpk);
+    point = EC_KEY_get0_public_key(ecpk);
+    size = EC_POINT_point2oct(group, point, POINT_CONVERSION_UNCOMPRESSED, (unsigned char*)pk, sizeof(pk), NULL);
+    if(size == 0){
         goto err_uuid5;
     }
-    if(format == FORMAT_PEM){
-        PEM_write_bio_EC_PUBKEY(bp, ecpk);
-    }
-    else if(format == FORMAT_ASN1){
-        i2d_EC_PUBKEY_bio(bp, ecpk);
-    }
-    else{
-        goto err_uuid5;
-    }
-    read = BIO_read(bp, pk, sizeof(pk));
 
     if((md = EVP_get_digestbyname("sha1")) == NULL){
         goto err_uuid5;
@@ -796,7 +777,7 @@ int uuid5(const char *cert, size_t CertLen, char *uuid, size_t len, int format)
     if(EVP_DigestInit(mdctx, md) != 1){
         goto err_uuid5;
     }
-    if(EVP_DigestUpdate(mdctx, pk, read) != 1){
+    if(EVP_DigestUpdate(mdctx, pk, size) != 1){
         goto err_uuid5;
     }
     if(EVP_DigestFinal(mdctx, (unsigned char*)sha1, (unsigned int*)&size) != 1){
@@ -811,7 +792,6 @@ int uuid5(const char *cert, size_t CertLen, char *uuid, size_t len, int format)
     ret = 1;
 
 err_uuid5:
-    BIO_free(bp);
     EVP_PKEY_free(evpkey);
     X509_free(x);
     EVP_MD_CTX_destroy(mdctx);

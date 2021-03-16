@@ -87,16 +87,23 @@ void* Onivd::AdapterThread(void *para)
                     }
                     );
                     if(iter != oniv->adapters.end()){ // 链路起点
+                        vector<OnivFrame> fragemenmts = frame.fragement(frame.IngressPort()->MTU() - OnivGlobal::LinkExtra);
                         OnivKeyEntry *keyent = oniv->kdb.SearchTo(frame.DestIPAddr());
                         if(keyent == nullptr){
                             OnivLnkReq req(frame); // 根据要发送的数据帧构造链路密钥协商请求
                             forent->egress->EnSendingQueue(req.request()); // 唤醒发送线程
-                            oniv->bq.enqueue(frame);
+                            for(const OnivFrame &fragement : fragemenmts)
+                            {
+                                oniv->bq.enqueue(fragement);
+                            }
                         }
                         else{
-                            OnivLnkRecord rec(frame, keyent);
-                            forent->egress->EnSendingQueue(rec.record());
-                            keyent->UpdateOnSend();
+                            for(const OnivFrame &fragement : fragemenmts)
+                            {
+                                OnivLnkRecord rec(fragement, keyent);
+                                forent->egress->EnSendingQueue(rec.record());
+                                keyent->UpdateOnSend();
+                            }
                         }
                     }
                     else{
