@@ -15,13 +15,21 @@ using std::chrono::system_clock;
 using std::string;
 using std::vector;
 
+struct OnivTunCommon
+{
+    OnivCommon common;
+    uint32_t bdi; // broadcast domain identifier
+    void linearization(uint8_t *p);
+    size_t structuration(const uint8_t *p);
+    static size_t LinearSize();
+};
+
 class OnivTunReq
 {
 private:
     uint8_t *buf;
 public:
-    OnivCommon common;
-    uint32_t bdi; // broadcast domain identifier
+    OnivTunCommon tc;
     uint64_t ts;
     OnivVerifyAlg PreVerifyAlg;
     OnivIDSet<OnivVerifyAlg> SupVerifyAlgSet;
@@ -45,8 +53,7 @@ class OnivTunRes
 private:
     uint8_t *buf;
 public:
-    OnivCommon common;
-    uint32_t bdi; // broadcast domain identifier
+    OnivTunCommon tc;
     uint64_t ReqTs, ResTs;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
@@ -68,8 +75,7 @@ class OnivTunRecord
 private:
     uint8_t *buf;
 public:
-    OnivCommon common;
-    uint32_t bdi; // broadcast domain identifier
+    OnivTunCommon tc;
     uint64_t UpdTs, AckTs;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;

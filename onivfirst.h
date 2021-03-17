@@ -14,13 +14,29 @@ using std::vector;
 
 class OnivKeyEntry;
 
+struct OnivLnkKA
+{
+    OnivCommon common;
+    /*
+        密钥协商消息中会传输的证书、签名和公钥会导致无法在一个数据包中发送全部信息，因此需要进行分片
+        size表示OnivKACommon之后的密钥协商数据大小
+        total表示完整的密钥协商消息大小
+        offset表示OnivKACommon之后的数据在完整的密钥协商消息中的偏移
+        total和offset是为了在密钥协商消息的接收方重组密钥协商消息而添加的
+    */
+    uint16_t total, FrgSize, offset;
+    void linearization(uint8_t *p);
+    size_t structuration(const uint8_t *p);
+    static size_t LinearSize();
+};
+
 class OnivLnkReq
 {
 private:
     uint8_t *buf;
     vector<OnivFrame> frames;
 public:
-    OnivCommon common;
+    OnivLnkKA lka;
     uint64_t ts;
     OnivVerifyAlg PreVerifyAlg;
     OnivIDSet<OnivVerifyAlg> SupVerifyAlgSet;
@@ -44,7 +60,7 @@ private:
     uint8_t *buf;
     vector<OnivFrame> frames;
 public:
-    OnivCommon common;
+    OnivLnkKA lka;
     uint64_t ReqTs, ResTs;
     uint16_t RmdTp, AppTp;
     OnivVerifyAlg VerifyAlg;

@@ -137,7 +137,7 @@ string OnivCrypto::ComputeSessionKey(const string &PublicKey, const string &Priv
     char SessionKey[128] = { 0 }; // 大一点的缓冲区保证可以得到16字节的密钥
     ComputeSK(PrivateKey.c_str(), PrivateKey.length(), PublicKey.c_str(), PublicKey.length(),
                         SessionKey, sizeof(SessionKey), FORMAT_ASN1);
-   return string(SessionKey, 16);
+    return string(SessionKey, 16);
 }
 
 string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg,

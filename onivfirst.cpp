@@ -1,46 +1,69 @@
 #include "onivfirst.h"
 #include "oniventry.h"
 
+void OnivLnkKA::linearization(uint8_t *p)
+{
+    common.linearization(p), p += OnivCommon::LinearSize();
+    *(uint16_t*)p = htons(total), p += sizeof(total);
+    *(uint16_t*)p = htons(FrgSize), p += sizeof(FrgSize);
+    *(uint16_t*)p = htons(offset), p += sizeof(offset);
+}
+
+size_t OnivLnkKA::structuration(const uint8_t *p)
+{
+    p += common.structuration(p);
+    total = ntohs(*(uint16_t*)p), p += sizeof(total);
+    FrgSize = ntohs(*(uint16_t*)p), p += sizeof(FrgSize);
+    offset = ntohs(*(uint16_t*)p), p += sizeof(offset);
+    return LinearSize();
+}
+
+size_t OnivLnkKA::LinearSize()
+{
+    return OnivCommon::LinearSize() +
+        sizeof(total) + sizeof(FrgSize) + sizeof(offset);
+}
+
 OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
 {
     if(!frame.IsARP() && !frame.IsIP()){
         return;
     }
 
-    common.type = CastTo16<OnivPacketType>(OnivPacketType::LNK_KA_REQ);
-    common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
-    common.identifier = OnivCommon::count();
+    lka.common.type = CastTo16<OnivPacketType>(OnivPacketType::LNK_KA_REQ);
+    lka.common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
+    lka.common.identifier = OnivCommon::count();
 
     ts = (uint64_t)system_clock::to_time_t(system_clock::now());
-    common.total = sizeof(ts);
+    lka.total = sizeof(ts);
 
     PreVerifyAlg = OnivCrypto::PreVerifyAlg();
     SupVerifyAlgSet.insert(OnivCrypto::ListVerifyAlg());
-    common.total += sizeof(PreVerifyAlg) + SupVerifyAlgSet.LinearSize();
+    lka.total += sizeof(PreVerifyAlg) + SupVerifyAlgSet.LinearSize();
 
     PreKeyAgrAlg = OnivCrypto::PreKeyAgrAlg();
     SupKeyAgrAlgSet.insert(OnivCrypto::ListKeyAgrAlg());
-    common.total += sizeof(PreKeyAgrAlg) + SupKeyAgrAlgSet.LinearSize();
+    lka.total += sizeof(PreKeyAgrAlg) + SupKeyAgrAlgSet.LinearSize();
 
     SigAlg = OnivCrypto::SigAlg();
     signature.data(OnivCrypto::GenSignature(OnivCrypto::UUID()));
-    common.total += sizeof(SigAlg) + signature.LinearSize();
+    lka.total += sizeof(SigAlg) + signature.LinearSize();
 
     certs.assign(OnivCrypto::CertChain());
-    common.total += certs.LinearSize();
+    lka.total += certs.LinearSize();
 
-    memcpy(common.UUID, OnivCrypto::UUID().c_str(), sizeof(common.UUID));
+    memcpy(lka.common.UUID, OnivCrypto::UUID().c_str(), sizeof(lka.common.UUID));
 
     // 使用自构建的IP协议封装
     size_t Layer2HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
     size_t EncapHdrSize = Layer2HdrSize + 20 + 8;
-    size_t HdrSizeWithOnivHdr = EncapHdrSize + OnivCommon::LinearSize();
+    size_t HdrSizeWithOnivHdr = EncapHdrSize + OnivLnkKA::LinearSize();
     uint8_t hdr[HdrSizeWithOnivHdr] = { 0 };
     memcpy(hdr, frame.Layer2Hdr(), Layer2HdrSize);
     *(uint16_t*)(hdr + 12) = htons(0x0800);
 
     // 以网络字节序线性化
-    buf = new uint8_t[common.total];
+    buf = new uint8_t[lka.total];
     uint8_t *p = buf;
 
     *(uint64_t*)p = ts;
@@ -64,46 +87,48 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
     certs.linearization(p);
 
     // 分片
-    common.offset = 0;
-    common.len = OnivGlobal::AdapterMTU - HdrSizeWithOnivHdr;
-    while(common.offset + common.len < common.total){
+    lka.offset = 0;
+    lka.FrgSize = OnivGlobal::AdapterMTU - HdrSizeWithOnivHdr;
+    while(lka.offset + lka.FrgSize < lka.total){
         OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, OnivCommon::count(),
             frame.SrcIPAddr(), frame.DestIPAddr(),
             htons(OnivGlobal::OnivPort), htons(OnivGlobal::OnivPort),
-            OnivCommon::LinearSize() + common.len);
-        common.linearization(hdr + EncapHdrSize);
+            OnivLnkKA::LinearSize() + lka.FrgSize);
+        lka.common.len = OnivLnkKA::LinearSize() - OnivCommon::LinearSize() + lka.FrgSize;
+        lka.linearization(hdr + EncapHdrSize);
         frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr));
-        frames.back().append((char*)(buf + common.offset), common.len);
-        common.offset += common.len;
+        frames.back().append((char*)(buf + lka.offset), lka.FrgSize);
+        lka.offset += lka.FrgSize;
     }
-    common.len = common.total - common.offset;
+    lka.FrgSize = lka.total - lka.offset;
     OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, OnivCommon::count(),
             frame.SrcIPAddr(), frame.DestIPAddr(),
             htons(OnivGlobal::OnivPort), htons(OnivGlobal::OnivPort),
-            OnivCommon::LinearSize() + common.len);
-    common.linearization(hdr + EncapHdrSize);
+            OnivLnkKA::LinearSize() + lka.FrgSize);
+    lka.common.len = OnivLnkKA::LinearSize() - OnivCommon::LinearSize() + lka.FrgSize;
+    lka.linearization(hdr + EncapHdrSize);
     frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr));
-    frames.back().append((char*)(buf + common.offset), common.len);
+    frames.back().append((char*)(buf + lka.offset), lka.FrgSize);
 }
 
 OnivLnkReq::OnivLnkReq(const char *OnivHdr, size_t OnivSize) : buf(nullptr)
 {
-    if(OnivSize < OnivCommon::LinearSize()){
+    if(OnivSize < OnivLnkKA::LinearSize()){
         return;
     }
 
     const uint8_t *p = (uint8_t*)OnivHdr;
-    common.structuration(p);
-    if(common.type != CastTo16<OnivPacketType>(OnivPacketType::LNK_KA_REQ)){
+    lka.structuration(p);
+    if(lka.common.type != CastTo16<OnivPacketType>(OnivPacketType::LNK_KA_REQ)){
         return;
     }
-    if(common.total != OnivSize - OnivCommon::LinearSize()){
+    if(lka.total != OnivSize - OnivLnkKA::LinearSize()){
         return;
     }
 
     buf = new uint8_t[OnivSize];
     memcpy(buf, OnivHdr, OnivSize);
-    p = buf + OnivCommon::LinearSize();
+    p = buf + OnivLnkKA::LinearSize();
 
     ts = *(uint64_t*)p;
     p += sizeof(ts);
@@ -131,7 +156,7 @@ OnivLnkReq::~OnivLnkReq()
 bool OnivLnkReq::VerifySignature()
 {
     return OnivCrypto::VerifySignature(certs.CertChain,
-        string((char*)common.UUID, sizeof(common.UUID)),
+        string((char*)lka.common.UUID, sizeof(lka.common.UUID)),
         signature.data());
 }
 
@@ -146,42 +171,42 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf
         return;
     }
 
-    common.type = CastTo16<OnivPacketType>(OnivPacketType::LNK_KA_RES);
-    common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
-    common.identifier = OnivCommon::count();
+    lka.common.type = CastTo16<OnivPacketType>(OnivPacketType::LNK_KA_RES);
+    lka.common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
+    lka.common.identifier = OnivCommon::count();
 
     ReqTs = keyent->ts, ResTs = (uint64_t)system_clock::to_time_t(system_clock::now());
-    common.total = sizeof(ReqTs) + sizeof(ResTs);
+    lka.total = sizeof(ReqTs) + sizeof(ResTs);
 
     RmdTp = 0, AppTp = 1; // 选择根证书作为托管第三方
-    common.total += sizeof(RmdTp) + sizeof(AppTp);
+    lka.total += sizeof(RmdTp) + sizeof(AppTp);
 
     VerifyAlg = keyent->VerifyAlg, KeyAgrAlg = keyent->KeyAgrAlg;
-    common.total += sizeof(VerifyAlg) + sizeof(KeyAgrAlg);
+    lka.total += sizeof(VerifyAlg) + sizeof(KeyAgrAlg);
 
     pk.data(keyent->LocalPubKey);
-    common.total += pk.LinearSize();
+    lka.total += pk.LinearSize();
 
     SigAlg = OnivCrypto::SigAlg();
     signature.data(OnivCrypto::GenSignature(OnivCrypto::UUID() + pk.data())),
-    common.total += sizeof(SigAlg) + signature.LinearSize();
+    lka.total += sizeof(SigAlg) + signature.LinearSize();
 
     certs.assign(OnivCrypto::CertChain());
-    common.total += certs.LinearSize();
+    lka.total += certs.LinearSize();
 
-    memcpy(common.UUID, OnivCrypto::UUID().c_str(), sizeof(common.UUID));
+    memcpy(lka.common.UUID, OnivCrypto::UUID().c_str(), sizeof(lka.common.UUID));
 
     // 使用自构建的IP协议封装
     size_t Layer2HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
     size_t EncapHdrSize = Layer2HdrSize + 20 + 8;
-    size_t HdrSizeWithOnivHdr = EncapHdrSize + OnivCommon::LinearSize();
+    size_t HdrSizeWithOnivHdr = EncapHdrSize + OnivLnkKA::LinearSize();
     uint8_t hdr[HdrSizeWithOnivHdr] = { 0 };
     memcpy(hdr, frame.SrcHwAddr().c_str(), frame.SrcHwAddr().length());
     memcpy(hdr + frame.SrcHwAddr().length(), frame.DestHwAddr().c_str(), frame.DestHwAddr().length());
     *(uint16_t*)(hdr + 12) = htons(0x0800);
 
     // 以网络字节序线性化
-    buf = new uint8_t[common.total];
+    buf = new uint8_t[lka.total];
     uint8_t *p = buf;
 
     *(uint64_t*)p = ReqTs;
@@ -210,46 +235,48 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf
     certs.linearization(p);
 
     // 分片
-    common.offset = 0;
-    common.len = OnivGlobal::AdapterMTU - HdrSizeWithOnivHdr;
-    while(common.offset + common.len < common.total){
+    lka.offset = 0;
+    lka.FrgSize = OnivGlobal::AdapterMTU - HdrSizeWithOnivHdr;
+    while(lka.offset + lka.FrgSize < lka.total){
         OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, OnivCommon::count(),
             frame.DestIPAddr(), frame.SrcIPAddr(),
             frame.DestPort(), frame.SrcPort(),
-            OnivCommon::LinearSize() + common.len);
-        common.linearization(hdr + EncapHdrSize);
+            OnivLnkKA::LinearSize() + lka.FrgSize);
+        lka.common.len = OnivLnkKA::LinearSize() - OnivCommon::LinearSize() + lka.FrgSize;
+        lka.linearization(hdr + EncapHdrSize);
         frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr));
-        frames.back().append((char*)(buf + common.offset), common.len);
-        common.offset += common.len;
+        frames.back().append((char*)(buf + lka.offset), lka.FrgSize);
+        lka.offset += lka.FrgSize;
     }
-    common.len = common.total - common.offset;
+    lka.FrgSize = lka.total - lka.offset;
     OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, OnivCommon::count(),
             frame.DestIPAddr(), frame.SrcIPAddr(),
             frame.DestPort(), frame.SrcPort(),
-            OnivCommon::LinearSize() + common.len);
-    common.linearization(hdr + EncapHdrSize);
+            OnivLnkKA::LinearSize() + lka.FrgSize);
+    lka.common.len = OnivLnkKA::LinearSize() - OnivCommon::LinearSize() + lka.FrgSize;
+    lka.linearization(hdr + EncapHdrSize);
     frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr));
-    frames.back().append((char*)(buf + common.offset), common.len);
+    frames.back().append((char*)(buf + lka.offset), lka.FrgSize);
 }
 
 OnivLnkRes::OnivLnkRes(const char *OnivHdr, size_t OnivSize) : buf(nullptr)
 {
-    if(OnivSize < OnivCommon::LinearSize()){
+    if(OnivSize < OnivLnkKA::LinearSize()){
         return;
     }
 
     const uint8_t *p = (uint8_t*)OnivHdr;
-    common.structuration(p);
-    if(common.type != CastTo16<OnivPacketType>(OnivPacketType::LNK_KA_RES)){
+    lka.structuration(p);
+    if(lka.common.type != CastTo16<OnivPacketType>(OnivPacketType::LNK_KA_RES)){
         return;
     }
-    if(common.total != OnivSize - OnivCommon::LinearSize()){
+    if(lka.total != OnivSize - OnivLnkKA::LinearSize()){
         return;
     }
 
     buf = new uint8_t[OnivSize];
     memcpy(buf, OnivHdr, OnivSize);
-    p = buf + OnivCommon::LinearSize();
+    p = buf + OnivLnkKA::LinearSize();
 
     ReqTs = *(uint64_t*)p;
     p += sizeof(ReqTs);
@@ -283,7 +310,7 @@ OnivLnkRes::~OnivLnkRes()
 bool OnivLnkRes::VerifySignature()
 {
     return OnivCrypto::VerifySignature(certs.CertChain,
-        string((char*)common.UUID, sizeof(common.UUID)) + pk.data(),
+        string((char*)lka.common.UUID, sizeof(lka.common.UUID)) + pk.data(),
         signature.data());
 }
 
@@ -304,19 +331,18 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
         UpdTs = (uint64_t)system_clock::to_time_t(system_clock::now());
         KeyAgrAlg = keyent->KeyAgrAlg;
         pk.data(keyent->LocalPubKey);
-        common.total = sizeof(UpdTs) + sizeof(KeyAgrAlg) + pk.LinearSize();
+        common.len = sizeof(UpdTs) + sizeof(KeyAgrAlg) + pk.LinearSize();
     }
     else if(keyent->AckPk){
         common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND);
         UpdTs = keyent->ts;
         AckTs = (uint64_t)system_clock::to_time_t(system_clock::now());
-        common.total = sizeof(UpdTs) + sizeof(AckTs);
+        common.len = sizeof(UpdTs) + sizeof(AckTs);
     }
     else{
         common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
-        common.total = 0;
+        common.len = 0;
     }
-    common.identifier = OnivCommon::count();
 
     if(frame.IsARP()){
         OriginProtocol = 0x0806;
@@ -324,22 +350,17 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     else{
         OriginProtocol = 0x0800;
     }
-    common.total += sizeof(OriginProtocol);
+    common.len += sizeof(OriginProtocol);
 
     VerifyAlg = keyent->VerifyAlg;
-    common.total += sizeof(VerifyAlg);
+    common.len += sizeof(VerifyAlg);
 
     code.data(string(OnivCrypto::MsgAuchCodeSize(), '\0')); // 占位
     trustee.data(OnivCrypto::GetSubject(keyent->ThirdCert));
     escrow.data(OnivCrypto::GenEscrowData(keyent->ThirdCert, keyent->SessionKey, string()));
     data = frame.OriginUserData(); // data中包含原始的IP首部和四层首部
-    common.total += code.LinearSize();
-    common.total += trustee.LinearSize();
-    common.total += escrow.LinearSize();
-    common.total += data.length();
-
-    common.len = common.total;
-    common.offset = 0;
+    common.len += code.LinearSize() + trustee.LinearSize() + escrow.LinearSize();
+    common.len += data.length();
 
     memcpy(common.UUID, OnivCrypto::UUID().c_str(), sizeof(common.UUID));
 
@@ -350,14 +371,14 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     uint8_t hdr[HdrSizeWithOnivHdr] = { 0 };
     memcpy(hdr, frame.Layer2Hdr(), Layer2HdrSize);
     *(uint16_t*)(hdr + 12) = htons(0x0800);
-    OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, htons(common.identifier),
+    OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, OnivCommon::count(),
         frame.SrcIPAddr(), frame.DestIPAddr(),
         htons(OnivGlobal::OnivPort), keyent->RemotePort,
-        OnivCommon::LinearSize() + common.total);
+        OnivCommon::LinearSize() + common.len);
     common.linearization(hdr + EncapHdrSize);
 
     // 以网络字节序线性化
-    buf = new uint8_t[common.total];
+    buf = new uint8_t[common.len];
     uint8_t *p = buf;
 
     if(keyent->UpdPk){
@@ -383,7 +404,7 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
 
     string AssData((char*)hdr + EncapHdrSize, OnivCommon::LinearSize());
     string InitVector((char*)common.UUID, sizeof(common.UUID));
-    InitVector.append((char*)hdr + EncapHdrSize + 4, 2);
+    InitVector.append((char*)hdr + EncapHdrSize + 4, 2); // identifier
     code.data(OnivCrypto::MsgAuthCode(VerifyAlg, keyent->SessionKey, data, InitVector, AssData));
     code.linearization(p);
     p += code.LinearSize();
@@ -395,7 +416,7 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     memcpy(p, data.c_str(), data.length());
 
     output.append((char*)hdr, HdrSizeWithOnivHdr);
-    output.append((char*)buf, common.total);
+    output.append((char*)buf, common.len);
 }
 
 OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
@@ -414,7 +435,7 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
     if(common.type != CastTo16<OnivPacketType>(OnivPacketType::ONIV_RECORD)){
         return;
     }
-    if(common.total != OnivSize - OnivCommon::LinearSize()){
+    if(common.len != OnivSize - OnivCommon::LinearSize()){
         return;
     }
 
@@ -467,7 +488,7 @@ bool OnivLnkRecord::VerifyIdentity(const OnivKeyEntry *keyent)
 {
     string AssData((char*)buf, OnivCommon::LinearSize());
     string InitVector((char*)common.UUID, sizeof(common.UUID));
-    InitVector.append((char*)buf + 4, 2);
+    InitVector.append((char*)buf + 4, 2); // identifier
     return code.data() ==
         OnivCrypto::MsgAuthCode(keyent->VerifyAlg, keyent->SessionKey,
                             data, InitVector, AssData);

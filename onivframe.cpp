@@ -236,7 +236,7 @@ vector<OnivFrame> OnivFrame::fragement(int mtu)
         *(uint16_t*)(IPHdr + 2) = htons(HdrLen + len); // IP首部长度字段
         *(uint16_t*)(IPHdr + 6) = htons((1 << 13) + ((base + offset) >> 3)); // 分片字段
         *(uint16_t*)(IPHdr + 10) = 0;
-        *(uint16_t*)(IPHdr + 10) = OnivCommon::IPChecksum((uint8_t*)IPHdr, HdrLen);
+        *(uint16_t*)(IPHdr + 10) = OnivCommon::Checksum((uint8_t*)IPHdr, HdrLen);
         frames.back().append(IPHdr, HdrLen);
         frames.back().append(Layer4Hdr() + offset, len);
         offset += len;
@@ -246,7 +246,7 @@ vector<OnivFrame> OnivFrame::fragement(int mtu)
     *(uint16_t*)(IPHdr + 2) = htons(HdrLen + len);
     *(uint16_t*)(IPHdr + 6) = htons(mf + ((base + offset) >> 3));
     *(uint16_t*)(IPHdr + 10) = 0;
-    *(uint16_t*)(IPHdr + 10) = OnivCommon::IPChecksum((uint8_t*)IPHdr, HdrLen);
+    *(uint16_t*)(IPHdr + 10) = OnivCommon::Checksum((uint8_t*)IPHdr, HdrLen);
     frames.back().append(IPHdr, HdrLen);
     frames.back().append(Layer4Hdr() + offset, len);
     return frames;

@@ -107,10 +107,10 @@ void OnivKeyEntry::UpdateOnRecvLnkRec(const OnivLnkRecord &record)
 
 void OnivKeyEntry::UpdateOnRecvTunRec(const OnivTunRecord &record)
 {
-    if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND)){
+    if(record.tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND)){
         UpdatePublibKey(record.pk.data(), record.UpdTs);
     }
-    else if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND)){
+    else if(record.tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND)){
         UpdateAcknowledge(record.AckTs);
     }
 }
@@ -141,16 +141,16 @@ bool OnivFragementEntry::reassemble(uint16_t offset, uint16_t len)
     return false;
 }
 
-OnivFragementEntry::OnivFragementEntry(const OnivFrame &frame, const OnivCommon &common, const string &RemoteUUID)
+OnivFragementEntry::OnivFragementEntry(const OnivFrame &frame, const OnivLnkKA &lka, const string &RemoteUUID)
     : buffer(nullptr), fragment(nullptr), BufferSize(0), RemoteUUID(RemoteUUID)
 {
-    BufferSize = frame.OnivHdr() - frame.Layer2Hdr() + OnivCommon::LinearSize() + common.total;
+    BufferSize = frame.OnivHdr() - frame.Layer2Hdr() + OnivLnkKA::LinearSize() + lka.total;
     buffer = new char[BufferSize];
-    fragment = buffer + BufferSize - common.total;
-    memcpy(buffer, frame.Layer2Hdr(), BufferSize - common.total);
-    memcpy(fragment + common.offset, frame.OnivHdr() + OnivCommon::LinearSize(), common.len);
-    unreached.push_back(make_pair(0, common.total));
-    reassemble(common.offset, common.len);
+    fragment = buffer + BufferSize - lka.total;
+    memcpy(buffer, frame.Layer2Hdr(), BufferSize - lka.total);
+    memcpy(fragment + lka.offset, frame.OnivHdr() + OnivLnkKA::LinearSize(), lka.FrgSize);
+    unreached.push_back(make_pair(0, lka.total));
+    reassemble(lka.offset, lka.FrgSize);
 }
 
 OnivFragementEntry::OnivFragementEntry(const OnivFragementEntry &frgent)
@@ -177,11 +177,11 @@ OnivFragementEntry::~OnivFragementEntry()
     delete[] buffer;
 }
 
-void OnivFragementEntry::AddFragement(const OnivFrame &frame, const OnivCommon &common)
+void OnivFragementEntry::AddFragement(const OnivFrame &frame, const OnivLnkKA &lka)
 {
-    memcpy(buffer, frame.Layer2Hdr(), BufferSize - common.total);
-    if(reassemble(common.offset, common.len)){
-        memcpy(fragment + common.offset, frame.OnivHdr() + OnivCommon::LinearSize(), common.len);
+    memcpy(buffer, frame.Layer2Hdr(), BufferSize - lka.total);
+    if(reassemble(lka.offset, lka.FrgSize)){
+        memcpy(fragment + lka.offset, frame.OnivHdr() + OnivLnkKA::LinearSize(), lka.FrgSize);
     }
 }
 
@@ -192,7 +192,7 @@ bool OnivFragementEntry::completed()
 
 const char* OnivFragementEntry::OnivHdr()
 {
-    return fragment - OnivCommon::LinearSize();
+    return fragment - OnivLnkKA::LinearSize();
 }
 
 size_t OnivFragementEntry::OnivSize()

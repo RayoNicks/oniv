@@ -5,9 +5,7 @@ void OnivCommon::linearization(uint8_t *p)
     *(uint16_t*)p = htons(type), p += sizeof(type);
     *(uint16_t*)p = htons(flag), p += sizeof(flag);
     *(uint16_t*)p = htons(identifier), p += sizeof(identifier);
-    *(uint16_t*)p = htons(total), p += sizeof(total);
     *(uint16_t*)p = htons(len), p += sizeof(len);
-    *(uint16_t*)p = htons(offset), p += sizeof(offset);
     memcpy(p, UUID, sizeof(UUID)), p += sizeof(UUID);
 }
 
@@ -16,9 +14,7 @@ size_t OnivCommon::structuration(const uint8_t *p)
     type = ntohs(*(uint16_t*)p), p += sizeof(type);
     flag = ntohs(*(uint16_t*)p), p += sizeof(flag);
     identifier = ntohs(*(uint16_t*)p), p += sizeof(identifier);
-    total = ntohs(*(uint16_t*)p), p += sizeof(total);
     len = ntohs(*(uint16_t*)p), p += sizeof(len);
-    offset = ntohs(*(uint16_t*)p), p += sizeof(offset);
     memcpy(UUID, p, sizeof(UUID));
     return LinearSize();
 }
@@ -37,9 +33,7 @@ uint16_t OnivCommon::count()
 
 size_t OnivCommon::LinearSize()
 {
-    return sizeof(type) + sizeof(flag) + sizeof(identifier)
-        + sizeof(total) + sizeof(len) + sizeof(offset)
-        + sizeof(UUID);
+    return sizeof(type) + sizeof(flag) + sizeof(identifier) + sizeof(len) + sizeof(UUID);
 }
 
 void OnivCommon::ConstructEncapHdr(uint8_t *hdr, uint16_t identifier, in_addr_t SrcAddr, in_addr_t DestAddr, in_port_t SrcPort, in_port_t DestPort, size_t OnivSize)
@@ -60,10 +54,10 @@ void OnivCommon::ConstructEncapHdr(uint8_t *hdr, uint16_t identifier, in_addr_t 
     *(uint16_t*)(hdr + 10) = 0;
     *(uint32_t*)(hdr + 12) = SrcAddr;
     *(uint32_t*)(hdr + 16) = DestAddr;
-    *(uint16_t*)(hdr + 10) = IPChecksum((uint8_t*)hdr, IPHdrSize); // IP首部校验和
+    *(uint16_t*)(hdr + 10) = Checksum((uint8_t*)hdr, IPHdrSize); // IP首部校验和
 }
 
-uint16_t OnivCommon::IPChecksum(const uint8_t *buf, size_t len)
+uint16_t OnivCommon::Checksum(const uint8_t *buf, size_t len)
 {
     if(len % 2 != 0){
         return 0;
@@ -77,12 +71,6 @@ uint16_t OnivCommon::IPChecksum(const uint8_t *buf, size_t len)
     cs = (cs >> 16) + (cs & 0xFFFF);
     cs += cs >> 16;
     return ~(cs & 0xFFFF);
-}
-
-uint16_t OnivCommon::UDPChecksum(const uint8_t *buf, size_t len)
-{
-    // TODO
-    return 0;
 }
 
 template <> OnivPacketType CastFrom16<OnivPacketType>(uint16_t u)

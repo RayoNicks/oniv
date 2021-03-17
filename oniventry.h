@@ -10,6 +10,7 @@
 
 #include "oniv.h"
 #include "onivcrypto.h"
+#include "onivfirst.h"
 #include "onivframe.h"
 #include "onivport.h"
 
@@ -85,11 +86,11 @@ private:
     bool reassemble(uint16_t offset, uint16_t len);
 public:
     string RemoteUUID;
-    OnivFragementEntry(const OnivFrame &frame, const OnivCommon &common, const string &RemoteUUID);
+    OnivFragementEntry(const OnivFrame &frame, const OnivLnkKA &lka, const string &RemoteUUID);
     OnivFragementEntry(const OnivFragementEntry &frgent);
     OnivFragementEntry& operator=(const OnivFragementEntry &frgent);
     ~OnivFragementEntry();
-    void AddFragement(const OnivFrame &frame, const OnivCommon &common);
+    void AddFragement(const OnivFrame &frame, const OnivLnkKA &lka);
     bool completed();
     const char* OnivHdr();
     size_t OnivSize();

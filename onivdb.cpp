@@ -52,7 +52,7 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkReq &req)
     OnivKeyEntry ent;
     ent.RemoteAddress = frame.SrcIPAddr();
     ent.RemotePort = frame.SrcPort();
-    ent.RemoteUUID.assign((char*)req.common.UUID, sizeof(req.common.UUID));
+    ent.RemoteUUID.assign((char*)req.lka.common.UUID, sizeof(req.lka.common.UUID));
     ent.VerifyAlg = OnivCrypto::SelectVerifyAlg(req.PreVerifyAlg, req.SupVerifyAlgSet);
     ent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(req.PreKeyAgrAlg, req.SupKeyAgrAlgSet);
     ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
@@ -76,7 +76,7 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &res)
     OnivKeyEntry ent;
     ent.RemoteAddress = frame.SrcIPAddr();
     ent.RemotePort = frame.SrcPort();
-    ent.RemoteUUID.assign((char*)res.common.UUID, sizeof(res.common.UUID));
+    ent.RemoteUUID.assign((char*)res.lka.common.UUID, sizeof(res.lka.common.UUID));
     ent.VerifyAlg = res.VerifyAlg;
     ent.KeyAgrAlg = res.KeyAgrAlg;
     ent.RemotePubKey = res.pk.data();
@@ -103,20 +103,20 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &res)
 OnivFragementEntry* OnivRDB::AddFragement(const OnivFrame &frame)
 {
     string RemoteUUID;
-    OnivCommon common;
-    common.structuration((const uint8_t*)frame.OnivHdr());
-    RemoteUUID.assign((char*)common.UUID, sizeof(common.UUID));
+    OnivLnkKA lka;
+    lka.structuration((const uint8_t*)frame.OnivHdr());
+    RemoteUUID.assign((char*)lka.common.UUID, sizeof(lka.common.UUID));
     mtx.lock();
     auto iter = FragTable.find(RemoteUUID);
     if(iter == FragTable.end()){
-        auto ret = FragTable.insert(make_pair(RemoteUUID, OnivFragementEntry(frame, common, RemoteUUID)));
+        auto ret = FragTable.insert(make_pair(RemoteUUID, OnivFragementEntry(frame, lka, RemoteUUID)));
         if(!ret.second){
             return nullptr;
         }
         iter = ret.first;
     }
     else{
-        iter->second.AddFragement(frame, common);
+        iter->second.AddFragement(frame, lka);
     }
     mtx.unlock();
     return &iter->second;

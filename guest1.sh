@@ -2,7 +2,7 @@
 set -x
 
 # 添加网卡
-sudo ./onivctl add-adp onivgst1 172.16.1.11 255.255.255.0 1000 1200
+sudo ./onivctl add-adp onivgst1 172.16.1.11 255.255.255.0 1000 1300
 
 # 添加网关
 sudo ./onivctl add-route 172.16.3.0 255.255.255.0 172.16.1.1 onivgst1
