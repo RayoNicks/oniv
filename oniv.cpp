@@ -1,5 +1,7 @@
 #include "oniv.h"
 
+using std::mutex;
+
 void OnivCommon::linearization(uint8_t *p)
 {
     *(uint16_t*)p = htons(type), p += sizeof(type);

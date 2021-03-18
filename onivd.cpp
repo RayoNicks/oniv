@@ -1,5 +1,7 @@
 #include "onivd.h"
 
+using std::find_if;
+
 void* Onivd::SwitchServerThread(void *para)
 {
     Onivd *oniv = (Onivd*)para;
@@ -723,7 +725,7 @@ OnivErr Onivd::ProcessLnkRecord(const OnivFrame &frame)
 
 OnivErr Onivd::CreateSwitchServer()
 {
-    OnivErr oe = CreateSwitchServerSocket(OnivGlobal::SwitchServerTmpPath);
+    OnivErr oe = CreateSwitchServerSocket(OnivGlobal::SwitchServerPath);
     if(oe.occured()){
         return oe;
     }
@@ -778,7 +780,7 @@ OnivErr Onivd::CreateEgressThread()
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-Onivd::Onivd(const string &TunnelAdapterName, const string &HostName)
+Onivd::Onivd(const string &TunnelAdapterName)
 {
     OnivErr oe;
     oe = CreateSwitchServer();

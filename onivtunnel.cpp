@@ -1,6 +1,8 @@
 #include "onivtunnel.h"
 #include "onivpacket.h"
 
+using std::min;
+
 in_addr_t OnivTunnel::AdapterNameToAddr(const string &TunnelAdapterName)
 {
     struct ifreq ifr;

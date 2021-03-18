@@ -2,6 +2,7 @@
 #include "libonivcrypto/libonivcrypto.h"
 
 using namespace libonivcrypto;
+using std::ifstream;
 
 string OnivCrypto::ReadFile(const string &subject, int type)
 {
@@ -226,33 +227,35 @@ string OnivCrypto::GetCertFromSubject(const string &subject)
     return string();
 }
 
-bool OnivCrypto::LoadIdentity(const string &subject)
+bool OnivCrypto::LoadIdentity()
 {
     LoadAlgorithms();
 
-    crts.push_back(ReadFile("certs/ecc/root-ecc.crt", OBJECT_ECC_509));
-    crts.push_back(ReadFile("certs/ecc/second-ecc.crt", OBJECT_ECC_509));
-    crts.push_back(ReadFile("certs/ecc/" + subject + "-ecc.crt", OBJECT_ECC_509));
-    for(const string cert : crts)
+    vector<string> CertFile(OnivGlobal::CertsFile());
+    for(const string &file : CertFile)
     {
+        crts.push_back(ReadFile(file, OBJECT_ECC_509));
         if(crts.back().empty()){
             return false;;
         }
     }
 
-    char buf[16] = { '\0' };
+    char buf[16] = { 0 };
     if(!uuid5(crts.back().c_str(), crts.back().length(), buf, sizeof(buf), FORMAT_ASN1)){
         return false;
     }
     uuid.assign(buf, sizeof(buf));
 
-    sk = ReadFile("certs/ecc/" + subject + "-ecc-sk.pem", OBJECT_ECC_PRI);
+    sk = ReadFile(OnivGlobal::GetConfig("private_key_file"), OBJECT_ECC_PRI);
     if(sk.empty()){
         return false;
     }
 
     dhsk = GenPriKey(PreKeyAgrAlg());
     dhpk = GenPubKey(dhsk);
+    if(dhsk.empty() || dhpk.empty()){
+        return false;
+    }
 
     return true;
 }

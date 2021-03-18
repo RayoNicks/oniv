@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <cstring>
-#include <iostream>
 #include <list>
 #include <string>
 
@@ -24,11 +23,7 @@
 #include "onivsecond.h"
 #include "onivtunnel.h"
 
-using std::cout;
-using std::endl;
-using std::find_if;
 using std::list;
-using std::pair;
 using std::string;
 
 class Onivd
@@ -86,7 +81,7 @@ private:
     OnivErr CreateTunnelThread(const string &TunnelAdapterName);
     OnivErr CreateEgressThread();
 public:
-    Onivd(const string &TunnelAdapterName, const string &HostName);
+    Onivd(const string &TunnelAdapterName);
     void run();
 };
 

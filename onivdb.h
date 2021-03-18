@@ -1,6 +1,8 @@
 #ifndef _ONIV_DB_H_
 #define _ONIV_DB_H_
 
+#include <mutex>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -8,6 +10,8 @@
 #include "onivfirst.h"
 #include "onivframe.h"
 
+using std::mutex;
+using std::string;
 using std::unordered_map;
 using std::unordered_set;
 

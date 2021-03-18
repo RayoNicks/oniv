@@ -8,7 +8,6 @@
 
 #include "oniv.h"
 
-using std::ifstream;
 using std::initializer_list;
 using std::string;
 using std::vector;
@@ -50,7 +49,7 @@ public:
     static string GetSubject(const string &cert);
     static string GetCertFromSubject(const string &subject);
 
-    static bool LoadIdentity(const string &subject);
+    static bool LoadIdentity();
 };
 
 #endif

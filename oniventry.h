@@ -17,7 +17,6 @@
 using std::equal_to;
 using std::hash;
 using std::list;
-using std::make_pair;
 using std::mutex;
 using std::pair;
 using std::string;

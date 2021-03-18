@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <string>
 
 #include <fcntl.h>
 #include <linux/if_tun.h>
@@ -13,7 +14,7 @@
 #include "onivglobal.h"
 #include "onivport.h"
 
-using std::min;
+using std::string;
 
 class OnivAdapter : public OnivPort
 {

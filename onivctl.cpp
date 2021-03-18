@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    ClientSocket = ConnectControllerSocket(OnivGlobal::SwitchServerTmpPath.c_str());
+    ClientSocket = ConnectControllerSocket(OnivGlobal::SwitchServerPath.c_str());
     if((WriteNumber = write(ClientSocket, CmdBuf.c_str(), CmdBuf.size()) < 0)){
         err(EXIT_FAILURE, "Write command failed");
     }

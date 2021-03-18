@@ -1,4 +1,11 @@
 #include "onivframe.h"
+#include "onivport.h"
+
+using std::cout;
+using std::endl;
+using std::hex;
+using std::setfill;
+using std::setw;
 
 OnivFrame::OnivFrame() : ingress(nullptr)
 {

@@ -9,7 +9,7 @@
 #include "onivcrypto.h"
 #include "onivframe.h"
 
-using std::chrono::system_clock;
+using std::string;
 using std::vector;
 
 class OnivKeyEntry;

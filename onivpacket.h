@@ -2,11 +2,16 @@
 #define _ONIV_PACKET_H_
 
 #include <cstring>
+#include <iomanip>
+#include <iostream>
+#include <string>
 
 #include <netinet/in.h>
 #include <unistd.h>
 
 #include "oniv.h"
+
+using std::string;
 
 class OnivTunnel;
 

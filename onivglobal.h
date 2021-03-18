@@ -1,15 +1,26 @@
 #ifndef _ONIV_GLOBAL_H_
 #define _ONIV_GLOBAL_H_
 
+#include <iostream>
+#include <fstream>
+#include <map>
+#include <set>
+#include <sstream>
 #include <string>
+#include <vector>
 
+using std::map;
+using std::set;
 using std::string;
+using std::vector;
 
 class OnivGlobal
 {
+private:
+    static map<string, string> config;
+    static const set<string> keywords;
 public:
     static const string SwitchServerPath;
-    static const string SwitchServerTmpPath;
     static const size_t SwitchServerCmdBufSize;
     static const size_t MaxEpollEvents;
     static const int LinkExtra;
@@ -18,6 +29,9 @@ public:
     static const int TunnelMTU;
     static const uint16_t OnivPort;
     static const uint16_t KeyAgrBufSize;
+    static bool LoadConfiguration(const string &file);
+    static string GetConfig(const string &key);
+    static vector<string> CertsFile();
 };
 
 #endif

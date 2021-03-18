@@ -14,7 +14,6 @@
 #include "onivport.h"
 #include "onivsecond.h"
 
-using std::min;
 using std::string;
 
 class OnivPacket;

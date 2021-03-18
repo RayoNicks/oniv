@@ -7,13 +7,13 @@
 
 #include "oniv.h"
 #include "onivcrypto.h"
-#include "oniventry.h"
 #include "onivframe.h"
 #include "onivpacket.h"
 
-using std::chrono::system_clock;
 using std::string;
 using std::vector;
+
+class OnivKeyEntry;
 
 struct OnivTunCommon
 {
@@ -44,7 +44,7 @@ public:
     OnivTunReq& operator=(const OnivTunReq &req) = delete;
     ~OnivTunReq();
     bool VerifySignature();
-    const char* request();
+    const uint8_t* request();
     size_t size();
 };
 
@@ -66,7 +66,7 @@ public:
     OnivTunRes& operator=(const OnivTunRes &res) = delete;
     ~OnivTunRes();
     bool VerifySignature();
-    const char* response();
+    const uint8_t* response();
     size_t size();
 };
 
@@ -88,7 +88,7 @@ public:
     OnivTunRecord& operator=(const OnivTunRecord &rec) = delete;
     ~OnivTunRecord();
     bool VerifyIdentity(const OnivKeyEntry *keyent);
-    const char* record();
+    const uint8_t* record();
     const char* frame();
     size_t size();
     size_t FrameSize();

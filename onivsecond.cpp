@@ -1,4 +1,7 @@
 #include "onivsecond.h"
+#include "oniventry.h"
+
+using std::chrono::system_clock;
 
 void OnivTunCommon::linearization(uint8_t *p)
 {
@@ -122,9 +125,9 @@ bool OnivTunReq::VerifySignature()
         signature.data());
 }
 
-const char* OnivTunReq::request()
+const uint8_t* OnivTunReq::request()
 {
-    return (const char*)buf;
+    return buf;
 }
 
 size_t OnivTunReq::size()
@@ -236,9 +239,9 @@ bool OnivTunRes::VerifySignature()
         signature.data());
 }
 
-const char* OnivTunRes::response()
+const uint8_t* OnivTunRes::response()
 {
-    return (const char*)buf;
+    return buf;
 }
 
 size_t OnivTunRes::size()
@@ -372,9 +375,9 @@ bool OnivTunRecord::VerifyIdentity(const OnivKeyEntry *keyent)
                             data, InitVector, AssData);
 }
 
-const char* OnivTunRecord::record()
+const uint8_t* OnivTunRecord::record()
 {
-    return (const char*)buf;
+    return buf;
 }
 
 const char* OnivTunRecord::frame()

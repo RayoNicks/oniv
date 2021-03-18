@@ -1,24 +1,19 @@
 #ifndef _ONIV_FRAME_H_
 #define _ONIV_FRAME_H_
 
-#include <algorithm>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include <netinet/in.h>
 
 #include "oniv.h"
 #include "onivglobal.h"
 
-using std::cout;
-using std::endl;
-using std::hex;
-using std::setfill;
-using std::setw;
 using std::string;
-using std::swap;
+using std::vector;
 
 class OnivPort;
 

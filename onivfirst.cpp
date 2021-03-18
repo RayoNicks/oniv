@@ -1,6 +1,8 @@
 #include "onivfirst.h"
 #include "oniventry.h"
 
+using std::chrono::system_clock;
+
 void OnivLnkKA::linearization(uint8_t *p)
 {
     common.linearization(p), p += OnivCommon::LinearSize();

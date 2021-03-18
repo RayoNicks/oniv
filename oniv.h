@@ -12,7 +12,6 @@
 #include "onivglobal.h"
 
 using std::initializer_list;
-using std::mutex;
 using std::string;
 using std::vector;
 

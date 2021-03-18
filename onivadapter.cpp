@@ -1,5 +1,7 @@
 #include "onivadapter.h"
 
+using std::min;
+
 OnivAdapter::OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu)
     : OnivPort(min(mtu, OnivGlobal::AdapterMTU), vni),
     fd(-1), ctrl(-1), AdapterName(name), addr(address), NetMask(mask)

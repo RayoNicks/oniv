@@ -2,6 +2,8 @@
 #include "onivfirst.h"
 #include "onivsecond.h"
 
+using std::make_pair;
+
 OnivForwardingEntry::OnivForwardingEntry(const string &HwAddr, OnivPort *egress)
     : HwAddr(HwAddr), egress(egress)
 {

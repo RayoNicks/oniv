@@ -1,6 +1,12 @@
 #include "onivpacket.h"
 #include "onivtunnel.h"
 
+using std::cout;
+using std::endl;
+using std::hex;
+using std::setfill;
+using std::setw;
+
 OnivPacket::OnivPacket() : ingress(nullptr)
 {
 
@@ -63,7 +69,9 @@ OnivTunnel* OnivPacket::IngressPort() const
 
 string OnivPacket::SenderID() const
 {
-    return string((char*)(((OnivCommon*)buffer())->UUID), sizeof(OnivCommon::UUID));
+    OnivTunCommon tc;
+    tc.structuration((const uint8_t*)buffer());
+    return string((char*)tc.common.UUID, sizeof(tc.common.UUID));
 }
 
 in_port_t OnivPacket::RemotePortNo() const

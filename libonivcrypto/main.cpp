@@ -16,7 +16,7 @@ void TestSignAndVerify()
     char sigbuf[512] = { 0 };
     size_t length;
 
-    sk.open("../certs/ecc/guest4-ecc-sk.pem", ifstream::in | ifstream::binary);
+    sk.open("../ecc/secp384r1/private/guest3-sk.pem", ifstream::in | ifstream::binary);
     if(!sk){
         return;
     }
@@ -26,7 +26,7 @@ void TestSignAndVerify()
     }
     cout << "private key is:\n" << PrivateKey << endl;
 
-    crt.open("../certs/ecc/guest4-ecc.crt", ifstream::in | ifstream::binary);
+    crt.open("../ecc/secp384r1/cert/guest3-3rd.crt", ifstream::in | ifstream::binary);
     if(!crt){
         return;
     }
@@ -87,19 +87,19 @@ void TestGCM(const string &name)
 void TestCheckCerts()
 {
     cout << "Test for checking certificates" << endl;
-    ifstream root, second, guest;
+    ifstream root, proxy, guest;
     string ca, user, line;
-    root.open("../certs/ecc/root-ecc.crt", ifstream::in | ifstream::binary);
-    second.open("../certs/ecc/second-ecc.crt", ifstream::in | ifstream::binary);
-    guest.open("../certs/ecc/guest1-ecc.crt", ifstream::in | ifstream::binary);
-    if(!root || !second || !guest){
+    root.open("../ecc/secp384r1/cert/root.crt", ifstream::in | ifstream::binary);
+    proxy.open("../ecc/secp384r1/cert/proxy.crt", ifstream::in | ifstream::binary);
+    guest.open("../ecc/secp384r1/cert/guest1-3rd.crt", ifstream::in | ifstream::binary);
+    if(!root || !proxy || !guest){
         return;
     }
     while(getline(root, line)){
         ca += line;
         ca.push_back('\n');
     }
-    while(getline(second, line)){
+    while(getline(proxy, line)){
         ca += line;
         ca.push_back('\n');
     }
@@ -109,12 +109,12 @@ void TestCheckCerts()
     }
 
     cout << "ca file is:\n" << ca << endl;
-    cout << "user certificate is\n:" << user << endl;
+    cout << "user certificate is:\n" << user << endl;
 
     cout << CheckCertificate(ca.c_str(), ca.length(), user.c_str(), user.length(), FORMAT_PEM) << endl;
 
     root.close();
-    second.close();
+    proxy.close();
     guest.close();
 }
 
@@ -168,7 +168,7 @@ void TestEncAndDec()
     char CipherBuf[512] = { 0 }, PlainBuf[512] = { 0 };
     size_t size;
 
-    crt.open("../certs/ecc/guest2-ecc.crt", ifstream::in | ifstream::binary);
+    crt.open("../ecc/secp384r1/cert/guest2-3rd.crt", ifstream::in | ifstream::binary);
     if(!crt){
         return;
     }
@@ -178,7 +178,7 @@ void TestEncAndDec()
     }
     cout << "certificate is:\n" << certificate << endl;
 
-    sk.open("../certs/ecc/guest2-ecc-sk.pem", ifstream::in | ifstream::binary);
+    sk.open("../ecc/secp384r1/private/guest2.pem", ifstream::in | ifstream::binary);
     if(!sk){
         return;
     }
@@ -236,7 +236,7 @@ void TestUUID()
     string certificate, line;
     char uuid[16] = { 0 };
 
-    crt.open("../certs/ecc/guest2-ecc.crt", ifstream::in | ifstream::binary);
+    crt.open("../ecc/secp384r1/cert/guest2-3rd.crt", ifstream::in | ifstream::binary);
     if(!crt){
         return;
     }
@@ -298,14 +298,14 @@ void TestCurveName()
 int main()
 {
     LoadAlgorithms();
-    // TestSignAndVerify();
-    // TestGCM("aes-256-gcm");
-    // TestCheckCerts();
+    TestSignAndVerify();
+    TestGCM("aes-256-gcm");
+    TestCheckCerts();
     TestECDH();
-    // TestEncAndDec();
-    // TestCCM();
-    // TestUUID();
-    // TestSubject();
-    // TestCurveName();
+    TestEncAndDec();
+    TestCCM();
+    TestUUID();
+    TestSubject();
+    TestCurveName();
     return 0;
 }
