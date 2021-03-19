@@ -51,4 +51,8 @@ noinst_HEADERS += libonivcrypto/libonivcrypto.h
 
 onivd_LDADD = -lcrypto -lpthread
 
-EXTRA_DIST = README.md guest1.sh guest2.sh guest3.sh guest4.sh
+EXTRA_DIST = README.md guest1.sh guest2.sh guest3.sh guest4.sh \
+	oniv.conf \
+	ecc/secp384r1/* ecc/secp521r1/* \
+	Makefile.mk libonivcrypto/Makefile.mk socket/Makefile.mk
+
