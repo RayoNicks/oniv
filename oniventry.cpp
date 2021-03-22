@@ -96,10 +96,10 @@ void OnivKeyEntry::UpdateOnSend()
 
 void OnivKeyEntry::UpdateOnRecvLnkRec(const OnivLnkRecord &record)
 {
-    if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND)){
+    if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK)){
         UpdatePublibKey(record.pk.data(), record.UpdTs);
     }
-    else if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND)){
+    else if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_PK)){
         UpdateAcknowledge(record.AckTs);
     }
     lock();
@@ -109,10 +109,10 @@ void OnivKeyEntry::UpdateOnRecvLnkRec(const OnivLnkRecord &record)
 
 void OnivKeyEntry::UpdateOnRecvTunRec(const OnivTunRecord &record)
 {
-    if(record.tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND)){
+    if(record.tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK)){
         UpdatePublibKey(record.pk.data(), record.UpdTs);
     }
-    else if(record.tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND)){
+    else if(record.tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_PK)){
         UpdateAcknowledge(record.AckTs);
     }
 }

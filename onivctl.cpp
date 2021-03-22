@@ -118,7 +118,7 @@ string ParseCommand(int argc, char *argv[])
     return cmd;
 }
 
-int ConnectControllerSocket(const char *ControllerSocketPath)
+int ConnectSwitchServerSocket(const char *ControllerSocketPath)
 {
     int ClientSocket;
     struct sockaddr_un ControllerAddress;
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    ClientSocket = ConnectControllerSocket(OnivGlobal::SwitchServerPath.c_str());
+    ClientSocket = ConnectSwitchServerSocket(OnivGlobal::SwitchServerPath.c_str());
     if((WriteNumber = write(ClientSocket, CmdBuf.c_str(), CmdBuf.size()) < 0)){
         err(EXIT_FAILURE, "Write command failed");
     }

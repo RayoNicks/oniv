@@ -110,8 +110,8 @@ OnivErr OnivTunnel::VerifySignature(const OnivPacket &packet)
             keyent.RemoteUUID.assign((char*)req.tc.common.UUID, sizeof(req.tc.common.UUID));
             keyent.VerifyAlg = OnivCrypto::SelectVerifyAlg(req.PreVerifyAlg, req.SupVerifyAlgSet);
             keyent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(req.PreKeyAgrAlg, req.SupKeyAgrAlgSet);
-            keyent.LocalPriKey = OnivCrypto::AcqPriKey(keyent.KeyAgrAlg);
-            keyent.LocalPubKey = OnivCrypto::AcqPubKey(keyent.KeyAgrAlg);
+            keyent.LocalPriKey = OnivCrypto::GenPriKey(keyent.KeyAgrAlg);
+            keyent.LocalPubKey = OnivCrypto::GenPubKey(keyent.LocalPriKey);
             keyent.ts = req.ts;
             keyent.unlock();
             return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
@@ -129,8 +129,8 @@ OnivErr OnivTunnel::VerifySignature(const OnivPacket &packet)
             keyent.VerifyAlg = res.VerifyAlg;
             keyent.KeyAgrAlg = res.KeyAgrAlg;
             keyent.RemotePubKey = res.pk.data();
-            keyent.LocalPriKey = OnivCrypto::AcqPriKey(keyent.KeyAgrAlg);
-            keyent.LocalPubKey = OnivCrypto::AcqPubKey(keyent.KeyAgrAlg);
+            keyent.LocalPriKey = OnivCrypto::GenPriKey(keyent.KeyAgrAlg);
+            keyent.LocalPubKey = OnivCrypto::GenPubKey(keyent.LocalPriKey);
             keyent.SessionKey = OnivCrypto::ComputeSessionKey(keyent.RemotePubKey, keyent.LocalPriKey);
             keyent.UpdPk = true;
             keyent.AckPk = false;

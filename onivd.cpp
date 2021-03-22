@@ -17,8 +17,7 @@ void* Onivd::SwitchServerThread(void *para)
         if((ReadNumber = read(AcceptSocket, cmd, sizeof(cmd))) > 0){
             oe = oniv->ProcessCommand(cmd, ReadNumber);
             if(oe.occured()){
-                warn("%s", oe.ErrMsg().c_str());
-                // write(AcceptSocket, oe.ErrMsg().c_str(), oe.ErrMsg().length());
+                write(AcceptSocket, oe.ErrMsg().c_str(), oe.ErrMsg().length());
             }
             else{
                 write(AcceptSocket, "success", strlen("success"));
@@ -66,7 +65,6 @@ void* Onivd::AdapterThread(void *para)
                 if(!frame.IsARP() && !frame.IsIP()){
                     continue;
                 }
-                // frame.dump();
                 if(frame.IsBroadcast()){ // 发送到广播域
                     for(TunnelIter iter = ++oniv->tunnels.begin(); iter != oniv->tunnels.end(); iter++)
                     {
@@ -143,7 +141,6 @@ void* Onivd::TunnelThread(void *para)
                 if(oe.occured()){
                     continue;
                 }
-                // packet.dump();
                 switch(packet.type())
                 {
                 case OnivPacketType::TUN_KA_REQ:
@@ -359,7 +356,7 @@ OnivErr Onivd::ManipulateRoute(in_addr_t dest, in_addr_t mask, in_addr_t gateway
     struct rtentry rt;
     struct sockaddr_in *sa;
     unsigned long request = gateway != 0 ? SIOCADDRT : SIOCDELRT;
-    char device[IFNAMSIZ];
+    char device[IFNAMSIZ] = { 0 };
 
     strncpy(device, name.c_str(), IFNAMSIZ);
     memset(&rt, 0, sizeof(struct rtentry));
@@ -454,7 +451,7 @@ OnivErr Onivd::ProcessCommand(const char *cmd, size_t length)
     {
     case COMMAND_STOP:
         if(length == 1){
-            printf("stop\n");
+            printf("stopped\n");
             // pthread_cancel();
             exit(EXIT_SUCCESS);
         }
@@ -652,7 +649,7 @@ OnivErr Onivd::ProcessLnkKeyAgrReq(const OnivFrame &frame)
     if(req.VerifySignature()){
         const OnivKeyEntry *keyent = kdb.update(frame, req);
         if(keyent != nullptr){
-            OnivLnkRes res(frame, keyent); // 只从frame中取地址信息
+            OnivLnkRes res(frame, keyent);
             frame.IngressPort()->EnSendingQueue(res.response()); // 唤醒发送线程
         }
         else{
@@ -714,7 +711,7 @@ OnivErr Onivd::ProcessLnkRecord(const OnivFrame &frame)
             return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
         }
         else{
-            // 构造隧道身份验证失败报文，添加到发送队列
+            // 构造链路身份验证失败报文，添加到发送队列
             return OnivErr(OnivErrCode::ERROR_LINK_VERIFICATION);
         }
     }

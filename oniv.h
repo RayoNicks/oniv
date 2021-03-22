@@ -35,11 +35,9 @@ enum class OnivPacketFlag : uint16_t
 {
     NONE = 0x0000,
     UPD_ID = 0x0001,
-    UPD_SEND = 0x0002,
-    UPD_RECV = 0x0004,
+    UPD_PK = 0x0002,
     ACK_ID = 0x00010,
-    ACK_SEND = 0x0020,
-    ACK_RECV = 0x0040,
+    ACK_PK = 0x0020,
 };
 
 enum class OnivVerifyAlg : uint16_t

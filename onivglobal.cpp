@@ -62,7 +62,8 @@ vector<string> OnivGlobal::CertsFile()
 map<string, string> OnivGlobal::config;
 
 const set<string> OnivGlobal::keywords = { 
-    "private_key_file", "cert_path", "cert_chain", "tunnel_interface"
+    "private_key_file", "cert_path", "cert_chain", "tunnel_interface",
+    "verification_algorithm", "key_agreement_algorithm"
     };
 
 const string OnivGlobal::SwitchServerPath("/var/run/oniv");
@@ -71,6 +72,6 @@ const size_t OnivGlobal::MaxEpollEvents = 32;
 const int OnivGlobal::LinkExtra= 300;
 const int OnivGlobal::AdapterMTU = 1300;
 const int OnivGlobal::AdapterExtraMTU = 14; // mtu不包含以太网头部
-const int OnivGlobal::TunnelMTU = 1500 - 14 - 20 - 8; // 1458
+const int OnivGlobal::TunnelMTU = 1458; // 1500 - 14 - 20 - 8
 const uint16_t OnivGlobal::OnivPort = 8888;
 const uint16_t OnivGlobal::KeyAgrBufSize = 8 * 1024;

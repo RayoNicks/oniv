@@ -16,6 +16,8 @@ class OnivCrypto
 {
 private:
     static string uuid, sk, dhsk, dhpk;
+    static OnivVerifyAlg VerifyAlg;
+    static OnivKeyAgrAlg KeyAgrAlg;
     static vector<string> crts;
     static string ReadFile(const string &subject, int type);
 public:
@@ -34,8 +36,6 @@ public:
     static string GenSignature(const string &data);
     static bool VerifySignature(const vector<string> &CertChain, const string &data, const string &signature);
 
-    static string AcqPriKey(OnivKeyAgrAlg KeyAgrAlg);
-    static string AcqPubKey(OnivKeyAgrAlg KeyAgrAlg);
     static string GenPriKey(OnivKeyAgrAlg KeyAgrAlg);
     static string GenPubKey(const string &PrivateKey);
     static string ComputeSessionKey(const string &PublibKey, const string &PrivateKey);

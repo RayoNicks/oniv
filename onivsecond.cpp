@@ -150,7 +150,7 @@ OnivTunRes::OnivTunRes(uint32_t vni, const OnivKeyEntry *keyent) : buf(nullptr)
     VerifyAlg = keyent->VerifyAlg, KeyAgrAlg = keyent->KeyAgrAlg;
     tc.common.len += sizeof(VerifyAlg) + sizeof(KeyAgrAlg);
 
-    pk.data(OnivCrypto::AcqPubKey(KeyAgrAlg));
+    pk.data(keyent->LocalPubKey);
     tc.common.len += pk.LinearSize();
 
     SigAlg = OnivCrypto::SigAlg();
@@ -256,14 +256,14 @@ OnivTunRecord::OnivTunRecord(uint32_t vni, const OnivFrame &frame, const OnivKey
     tc.common.len = sizeof(tc.bdi);
 
     if(keyent->UpdPk){
-        tc.common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND);
+        tc.common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK);
         UpdTs = (uint64_t)system_clock::to_time_t(system_clock::now());
         KeyAgrAlg = keyent->KeyAgrAlg;
         pk.data(keyent->LocalPubKey);
         tc.common.len = sizeof(UpdTs) + sizeof(KeyAgrAlg) + pk.LinearSize();
     }
     else if(keyent->AckPk){
-        tc.common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND);
+        tc.common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_PK);
         UpdTs = keyent->ts;
         AckTs = (uint64_t)system_clock::to_time_t(system_clock::now());
         tc.common.len = sizeof(UpdTs) + sizeof(AckTs);
@@ -338,14 +338,14 @@ OnivTunRecord::OnivTunRecord(const OnivPacket &packet) : buf(0)
     memcpy(buf, packet.buffer(), packet.size());
     p = buf + tc.LinearSize();
 
-    if((tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND)) != 0){
+    if((tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK)) != 0){
         UpdTs = *(uint64_t*)p;
         p += sizeof(UpdTs);
         KeyAgrAlg = CastFrom16<OnivKeyAgrAlg>(ntohs(*(uint16_t*)p));
         p += sizeof(KeyAgrAlg);
         p += pk.structuration(p);
     }
-    else if((tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND)) != 0){
+    else if((tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_PK)) != 0){
         UpdTs = *(uint64_t*)p;
         p += sizeof(UpdTs);
         AckTs = *(uint64_t*)p;

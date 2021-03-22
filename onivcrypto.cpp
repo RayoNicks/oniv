@@ -31,12 +31,12 @@ const string& OnivCrypto::UUID()
 
 OnivVerifyAlg OnivCrypto::PreVerifyAlg()
 {
-    return OnivVerifyAlg::IV_AES_128_GCM_SHA256;
+    return OnivCrypto::VerifyAlg;
 }
 
 OnivKeyAgrAlg OnivCrypto::PreKeyAgrAlg()
 {
-    return OnivKeyAgrAlg::KA_SECP384R1;
+    return OnivCrypto::KeyAgrAlg;
 }
 
 OnivSigAlg OnivCrypto::SigAlg()
@@ -97,16 +97,6 @@ string OnivCrypto::GenSignature(const string &data)
     size_t SignatureSize = 0;
     SignatureSize = sign(sk.c_str(), sk.length(), data.c_str(), data.length(), signature, sizeof(signature), FORMAT_ASN1);
     return string(signature, SignatureSize);
-}
-
-string OnivCrypto::AcqPriKey(OnivKeyAgrAlg KeyAgrAlg)
-{
-    return dhsk;
-}
-
-string OnivCrypto::AcqPubKey(OnivKeyAgrAlg KeyAgrAlg)
-{
-    return dhpk;
 }
 
 string OnivCrypto::GenPriKey(OnivKeyAgrAlg KeyAgrAlg)
@@ -251,10 +241,29 @@ bool OnivCrypto::LoadIdentity()
         return false;
     }
 
-    dhsk = GenPriKey(PreKeyAgrAlg());
-    dhpk = GenPubKey(dhsk);
-    if(dhsk.empty() || dhpk.empty()){
-        return false;
+    string VerifyAlgName = OnivGlobal::GetConfig("verification_algorithm");
+    if(VerifyAlgName == "AES-128-GCM-SHA256"){
+        VerifyAlg = OnivVerifyAlg::IV_AES_128_GCM_SHA256;
+    }
+    else if(VerifyAlgName == "AES-256-GCM-SHA384"){
+        VerifyAlg = OnivVerifyAlg::IV_AES_256_GCM_SHA384;
+    }
+    else if(VerifyAlgName == "AES-128-CCM-SHA256"){
+        VerifyAlg = OnivVerifyAlg::IV_AES_128_CCM_SHA256;
+    }
+    else{
+        VerifyAlg = OnivVerifyAlg::IV_AES_128_GCM_SHA256;
+    }
+
+    string KeyAgrAlgName = OnivGlobal::GetConfig("key_agreement_algorithm");
+    if(KeyAgrAlgName == "secp384r1"){
+        KeyAgrAlg = OnivKeyAgrAlg::KA_SECP384R1;
+    }
+    else if(KeyAgrAlgName == "secp521r1"){
+        KeyAgrAlg = OnivKeyAgrAlg::KA_SECP521R1;
+    }
+    else{
+        KeyAgrAlg = OnivKeyAgrAlg::KA_SECP384R1;
     }
 
     return true;
@@ -262,6 +271,6 @@ bool OnivCrypto::LoadIdentity()
 
 string OnivCrypto::uuid;
 string OnivCrypto::sk;
-string OnivCrypto::dhsk;
-string OnivCrypto::dhpk;
+OnivVerifyAlg OnivCrypto::VerifyAlg;
+OnivKeyAgrAlg OnivCrypto::KeyAgrAlg;
 vector<string> OnivCrypto::crts;

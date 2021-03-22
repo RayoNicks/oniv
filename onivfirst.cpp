@@ -329,14 +329,14 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
 
     common.type = CastTo16<OnivPacketType>(OnivPacketType::ONIV_RECORD);
     if(keyent->UpdPk){
-        common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND);
+        common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK);
         UpdTs = (uint64_t)system_clock::to_time_t(system_clock::now());
         KeyAgrAlg = keyent->KeyAgrAlg;
         pk.data(keyent->LocalPubKey);
         common.len = sizeof(UpdTs) + sizeof(KeyAgrAlg) + pk.LinearSize();
     }
     else if(keyent->AckPk){
-        common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND);
+        common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_PK);
         UpdTs = keyent->ts;
         AckTs = (uint64_t)system_clock::to_time_t(system_clock::now());
         common.len = sizeof(UpdTs) + sizeof(AckTs);
@@ -445,14 +445,14 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
     memcpy(buf, frame.OnivHdr(), OnivSize);
     p = buf + OnivCommon::LinearSize();
 
-    if((common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_SEND)) != 0){
+    if((common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK)) != 0){
         UpdTs = *(uint64_t*)p;
         p += sizeof(UpdTs);
         KeyAgrAlg = CastFrom16<OnivKeyAgrAlg>(ntohs(*(uint16_t*)p));
         p += sizeof(KeyAgrAlg);
         p += pk.structuration(p);
     }
-    else if((common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_SEND)) != 0){
+    else if((common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_PK)) != 0){
         UpdTs = *(uint64_t*)p;
         p += sizeof(UpdTs);
         AckTs = *(uint64_t*)p;
