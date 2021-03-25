@@ -66,50 +66,15 @@ void* Onivd::AdapterThread(void *para)
                     continue;
                 }
                 if(frame.IsBroadcast()){ // 发送到广播域
-                    for(TunnelIter iter = ++oniv->tunnels.begin(); iter != oniv->tunnels.end(); iter++)
-                    {
-                        if(iter->BroadcastDomain() == adapter->BroadcastDomain()){
-                            iter->EnSendingQueue(frame); // 唤醒发送线程
-                        }
-                    }
-                    oniv->fdb.update(frame); // 更新转发表
+                    oniv->ProcessBroadcast(frame);
                 }
                 else{
-                    const OnivForwardingEntry *forent = oniv->fdb.search(frame);
-                    if(forent == nullptr){
-                        continue;
-                    }
-                    // TODO 新的判断链路起点的逻辑
-                    AdapterIter iter = find_if(oniv->adapters.begin(), oniv->adapters.end(), [&frame](const OnivAdapter &adapter)
-                    {
-                        // 根据IP地址判断链路起点
-                        return adapter.address() == frame.SrcIPAddr();
-                    }
-                    );
-                    if(iter != oniv->adapters.end()){ // 链路起点
-                        vector<OnivFrame> fragemenmts = frame.fragement(frame.IngressPort()->MTU() - OnivGlobal::LinkExtra);
-                        OnivKeyEntry *keyent = oniv->kdb.SearchTo(frame.DestIPAddr());
-                        if(keyent == nullptr){
-                            OnivLnkReq req(frame); // 根据要发送的数据帧构造链路密钥协商请求
-                            forent->egress->EnSendingQueue(req.request()); // 唤醒发送线程
-                            for(const OnivFrame &fragement : fragemenmts)
-                            {
-                                oniv->bq.enqueue(fragement);
-                            }
-                        }
-                        else{
-                            for(const OnivFrame &fragement : fragemenmts)
-                            {
-                                OnivLnkRecord rec(fragement, keyent);
-                                forent->egress->EnSendingQueue(rec.record());
-                                keyent->UpdateOnSend();
-                            }
-                        }
+                    if(OnivGlobal::EnableLnk()){
+                        oniv->ProcessLnkEncapusulation(frame);
                     }
                     else{
-                        forent->egress->EnSendingQueue(frame);
+                        oniv->ProcessLnkForwarding(frame);
                     }
-                    oniv->fdb.update(frame); // 更新转发表
                 }
             }
         }
@@ -141,26 +106,13 @@ void* Onivd::TunnelThread(void *para)
                 if(oe.occured()){
                     continue;
                 }
-                switch(packet.type())
-                {
-                case OnivPacketType::TUN_KA_REQ:
-                    oniv->ProcessTunKeyAgrReq(packet);
-                    break;
-                case OnivPacketType::TUN_KA_RES:
-                    oniv->ProcessTunKeyAgrRes(packet);
-                    break;
-                case OnivPacketType::TUN_KA_FIN:
-                    break;
-                case OnivPacketType::TUN_KA_FAIL:
-                    break;
-                case OnivPacketType::TUN_IV_ERR:
-                    break;
-                case OnivPacketType::ONIV_RECORD:
-                    oniv->ProcessTunRecord(packet);
-                    break;
-                default:
-                    break;
+                if(OnivGlobal::EnableTun()){
+                    oniv->ProcessTunnelDecapusulation(packet);
                 }
+                else{
+                    oniv->ProcessTunnelForwarding(packet);
+                }
+                
             }
         }
     }
@@ -499,7 +451,144 @@ OnivErr Onivd::ProcessCommand(const char *cmd, size_t length)
     return ParseCmdError;
 }
 
-OnivErr Onivd::ProcessTunKeyAgrReq(const OnivPacket &packet)
+OnivErr Onivd::ProcessBroadcast(OnivFrame &frame)
+{
+    bool FromTunnel = false;
+    for(TunnelIter iter = ++tunnels.begin(); iter != tunnels.end(); iter++)
+    {
+        if(frame.IngressPort() == &(*iter)){
+            FromTunnel = true;
+        }
+        else if(iter->BroadcastDomain() == frame.IngressPort()->BroadcastDomain()){
+            iter->EnSendingQueue(frame); // 唤醒发送线程
+        }
+    }
+    if(FromTunnel){
+        for(AdapterIter iter = adapters.begin(); iter != adapters.end(); iter++)
+        {
+            if(iter->BroadcastDomain() == frame.IngressPort()->BroadcastDomain()){
+                iter->EnSendingQueue(frame); // 唤醒发送线程
+            }
+        }
+    }
+    fdb.update(frame); // 更新转发表
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
+OnivErr Onivd::ProcessLnkForwarding(OnivFrame &frame)
+{
+    const OnivForwardingEntry *forent = fdb.search(frame);
+    if(forent == nullptr){
+        return OnivErr(OnivErrCode::ERROR_NO_FORWARD_ENTRY);
+    }
+    forent->egress->EnSendingQueue(frame); // 唤醒发送线程
+    fdb.update(frame); // 更新转发表
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
+OnivErr Onivd::ProcessLnkEncapusulation(OnivFrame &frame)
+{
+    const OnivForwardingEntry *forent = fdb.search(frame);
+    if(forent == nullptr){
+        return OnivErr(OnivErrCode::ERROR_NO_FORWARD_ENTRY);
+    }
+    AdapterIter iter = find_if(adapters.begin(), adapters.end(), [&frame](const OnivAdapter &adapter)
+    {
+        // TODO 新的判断链路起点的逻辑
+        return adapter.address() == frame.SrcIPAddr(); // 根据IP地址判断链路起点
+    }
+    );
+    if(iter != adapters.end()){ // 链路起点
+        vector<OnivFrame> fragemenmts = frame.fragement(frame.IngressPort()->MTU() - OnivGlobal::LinkExtra);
+        OnivKeyEntry *keyent = kdb.SearchTo(frame.DestIPAddr());
+        if(keyent == nullptr){
+            OnivLnkReq req(frame); // 根据要发送的数据帧构造链路密钥协商请求
+            forent->egress->EnSendingQueue(req.request()); // 唤醒发送线程
+            for(const OnivFrame &fragement : fragemenmts)
+            {
+                bq.enqueue(fragement);
+            }
+        }
+        else{
+            for(const OnivFrame &fragement : fragemenmts)
+            {
+                OnivLnkRecord rec(fragement, keyent);
+                forent->egress->EnSendingQueue(rec.record()); // 唤醒发送线程
+                keyent->UpdateOnSend();
+            }
+        }
+    }
+    else{
+        forent->egress->EnSendingQueue(frame); // 唤醒发送线程
+    }
+    fdb.update(frame); // 更新转发表
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
+OnivErr Onivd::ProcessTunnelForwarding(OnivPacket &packet)
+{
+    OnivErr oe;
+    OnivTunnel *AcceptTunnel;
+    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
+    {
+        return tunnel.RemotePortNo() == packet.RemotePortNo()
+            && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
+    }
+    );
+    if(iter == tunnels.end()){ // 没有找到反向隧道
+        oe = AuxAddTunnel(packet.RemoteIPAddress(), packet.RemotePortNo(), packet.BroadcastDomain(), OnivGlobal::TunnelMTU);
+        if(oe.occured()){
+            return oe;
+        }
+        AcceptTunnel = &tunnels.back();
+    }
+    else{ // 找到了反向隧道
+        AcceptTunnel = &*iter;
+    }
+    packet.DiapatchIngressTunnel(AcceptTunnel); // 设置数据包的接收隧道
+    AcceptTunnel->UpdateSocket(packet); // 更新隧道地址
+    OnivTunRecord rec(packet);
+    OnivFrame frame(rec.frame(), rec.FrameSize(), packet.IngressPort(), packet.EntryTime());
+    if(frame.IsBroadcast()){ // 发送到广播域
+        ProcessBroadcast(frame);
+    }
+    else{
+        if(OnivGlobal::EnableLnk()){
+            ProcessLnkDecapusulation(frame);
+        }
+        else{
+            ProcessLnkForwarding(frame);
+        }
+    }
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
+OnivErr Onivd::ProcessTunnelDecapusulation(OnivPacket &packet)
+{
+    switch(packet.type())
+    {
+    case OnivPacketType::TUN_KA_REQ:
+        ProcessTunKeyAgrReq(packet);
+        break;
+    case OnivPacketType::TUN_KA_RES:
+        ProcessTunKeyAgrRes(packet);
+        break;
+    case OnivPacketType::TUN_KA_FIN:
+        break;
+    case OnivPacketType::TUN_KA_FAIL:
+        break;
+    case OnivPacketType::TUN_IV_ERR:
+        break;
+    case OnivPacketType::ONIV_RECORD:
+        ProcessTunRecord(packet);
+        break;
+    default:
+        break;
+    }
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
+OnivErr Onivd::ProcessTunKeyAgrReq(OnivPacket &packet)
 {
     // TODO 处理重复的隧道密钥协商请求消息
     OnivErr oe;
@@ -528,7 +617,7 @@ OnivErr Onivd::ProcessTunKeyAgrReq(const OnivPacket &packet)
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::ProcessTunKeyAgrRes(const OnivPacket &packet)
+OnivErr Onivd::ProcessTunKeyAgrRes(OnivPacket &packet)
 {
     // TODO 处理重复的隧道密钥协商响应消息
     OnivErr oe;
@@ -568,74 +657,72 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
     AcceptTunnel->UpdateSocket(packet); // 更新隧道地址
 
     OnivKeyEntry *keyent = AcceptTunnel->KeyEntry();
-    OnivTunRecord rec(packet); // 隧道身份验证
+    OnivTunRecord rec(packet);
     keyent->UpdateOnRecvTunRec(rec);
-    if(!rec.VerifyIdentity(keyent)){
+    if(!rec.VerifyIdentity(keyent)){ // 隧道身份验证
         // 构造隧道身份验证失败报文，添加到发送队列
         return OnivErr(OnivErrCode::ERROR_TUNNEL_VERIFICATION);
     }
-    OnivFrame frame(rec.frame(), rec.FrameSize(), packet.IngressPort());
+    OnivFrame frame(rec.frame(), rec.FrameSize(), packet.IngressPort(), packet.EntryTime());
     if(frame.IsBroadcast()){ // 发送到广播域
-        for(AdapterIter iter = adapters.begin(); iter != adapters.end(); iter++)
-        {
-            if(iter->BroadcastDomain() == packet.BroadcastDomain()){
-                iter->EnSendingQueue(frame); // 唤醒发送线程
-            }
-        }
-        for(TunnelIter iter = ++tunnels.begin(); iter != tunnels.end(); iter++)
-        {
-            if(AcceptTunnel != &(*iter) && iter->BroadcastDomain() == packet.BroadcastDomain()){
-                iter->EnSendingQueue(frame); // 唤醒发送线程
-            }
-        }
-        fdb.update(frame); // 更新转发表
+        ProcessBroadcast(frame);
     }
     else{
-        if(!frame.IsLayer4Oniv()){
-            return OnivErr(OnivErrCode::ERROR_UNKNOWN);
+        if(OnivGlobal::EnableLnk()){
+            ProcessLnkDecapusulation(frame);
         }
-        // TODO 新的判断链路终点逻辑
-        AdapterIter iter = find_if(adapters.begin(), adapters.end(), [&frame](const OnivAdapter &adapter)
-        {
-            // 根据IP地址判断链路终点
-            return adapter.address() == frame.DestIPAddr();
+        else{
+            ProcessLnkForwarding(frame);
         }
-        );
-        if(iter != adapters.end()){ // 链路终点为本机
-            switch(frame.type())
-            {
-            case OnivPacketType::LNK_KA_REQ:
-                ProcessLnkKeyAgrReq(frame);
-                break;
-            case OnivPacketType::LNK_KA_RES:
-                ProcessLnkKeyAgrRes(frame);
-                break;
-            case OnivPacketType::LNK_KA_FIN:
-                break;
-            case OnivPacketType::LNK_KA_FAIL:
-                break;
-            case OnivPacketType::LNK_IV_ERR:
-                break;
-            case OnivPacketType::ONIV_RECORD:
-                ProcessLnkRecord(frame);
-                break;
-            default:
-                break;
-            }
-        }
-        else{ // 链路终点不是本机
-            const OnivForwardingEntry *forent = fdb.search(frame);
-            if(forent == nullptr){
-                return OnivErr(OnivErrCode::ERROR_NO_FORWARD_ENTRY);
-            }
-            forent->egress->EnSendingQueue(frame); // 唤醒发送线程
-        }
-        fdb.update(frame); // 更新转发表
     }
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::ProcessLnkKeyAgrReq(const OnivFrame &frame)
+OnivErr Onivd::ProcessLnkDecapusulation(OnivFrame &frame)
+{
+    if(!frame.IsLayer4Oniv()){
+        return OnivErr(OnivErrCode::ERROR_UNKNOWN);
+    }
+    AdapterIter iter = find_if(adapters.begin(), adapters.end(), [&frame](const OnivAdapter &adapter)
+    {
+        // TODO 新的判断链路终点逻辑
+        return adapter.address() == frame.DestIPAddr(); // 根据IP地址判断链路终点
+    }
+    );
+    if(iter != adapters.end()){ // 链路终点为本机
+        switch(frame.type())
+        {
+        case OnivPacketType::LNK_KA_REQ:
+            ProcessLnkKeyAgrReq(frame);
+            break;
+        case OnivPacketType::LNK_KA_RES:
+            ProcessLnkKeyAgrRes(frame);
+            break;
+        case OnivPacketType::LNK_KA_FIN:
+            break;
+        case OnivPacketType::LNK_KA_FAIL:
+            break;
+        case OnivPacketType::LNK_IV_ERR:
+            break;
+        case OnivPacketType::ONIV_RECORD:
+            ProcessLnkRecord(frame);
+            break;
+        default:
+            return OnivErr(OnivErrCode::ERROR_UNKNOWN);
+        }
+    }
+    else{ // 链路终点不是本机
+        const OnivForwardingEntry *forent = fdb.search(frame);
+        if(forent == nullptr){
+            return OnivErr(OnivErrCode::ERROR_NO_FORWARD_ENTRY);
+        }
+        forent->egress->EnSendingQueue(frame); // 唤醒发送线程
+    }
+    fdb.update(frame); // 更新转发表
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
+OnivErr Onivd::ProcessLnkKeyAgrReq(OnivFrame &frame)
 {
     OnivFragementEntry *frgent = rdb.AddFragement(frame);
     if(frgent == nullptr){
@@ -662,7 +749,7 @@ OnivErr Onivd::ProcessLnkKeyAgrReq(const OnivFrame &frame)
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::ProcessLnkKeyAgrRes(const OnivFrame &frame)
+OnivErr Onivd::ProcessLnkKeyAgrRes(OnivFrame &frame)
 {
     OnivFragementEntry *frgent = rdb.AddFragement(frame);
     if(frgent == nullptr){
@@ -680,7 +767,7 @@ OnivErr Onivd::ProcessLnkKeyAgrRes(const OnivFrame &frame)
             for(const OnivFrame &bf: BlockingFrames)
             {
                 OnivLnkRecord rec(bf, keyent);
-                frame.IngressPort()->EnSendingQueue(rec.record());
+                frame.IngressPort()->EnSendingQueue(rec.record()); // 唤醒发送线程
                 keyent->UpdateOnSend();
             }
         }
@@ -694,7 +781,7 @@ OnivErr Onivd::ProcessLnkKeyAgrRes(const OnivFrame &frame)
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::ProcessLnkRecord(const OnivFrame &frame)
+OnivErr Onivd::ProcessLnkRecord(OnivFrame &frame)
 {
     const OnivForwardingEntry *forent = fdb.search(frame);
     if(forent == nullptr){

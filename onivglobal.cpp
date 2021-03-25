@@ -29,6 +29,16 @@ bool OnivGlobal::LoadConfiguration(const string &file)
         config[key] = value;
     }
     conf.close();
+    if(config.find("link_verification") != config.end()){
+        if(config.at("link_verification") == "true"){
+            EnableLinkVerification = true;
+        }
+    }
+    if(config.find("tunnel_verification") != config.end()){
+        if(config.at("tunnel_verification") == "true"){
+            EnableTunnelVerification = true;
+        }
+    }
     return true;
 }
 
@@ -59,18 +69,31 @@ vector<string> OnivGlobal::CertsFile()
     return files;
 }
 
-map<string, string> OnivGlobal::config;
+bool OnivGlobal::EnableLnk()
+{
+    return EnableLinkVerification;
+}
 
+bool OnivGlobal::EnableTun()
+{
+    return EnableTunnelVerification;
+}
+
+map<string, string> OnivGlobal::config;
 const set<string> OnivGlobal::keywords = { 
+    "link_verification", "tunnel_verification",
     "private_key_file", "cert_path", "cert_chain", "tunnel_interface",
-    "verification_algorithm", "key_agreement_algorithm"
+    "verification_algorithm", "key_agreement_algorithm",
     };
+bool OnivGlobal::EnableLinkVerification = false;
+bool OnivGlobal::EnableTunnelVerification = false;
 
 const string OnivGlobal::SwitchServerPath("/var/run/oniv");
 const size_t OnivGlobal::SwitchServerCmdBufSize = 1024;
 const size_t OnivGlobal::MaxEpollEvents = 32;
-const int OnivGlobal::LinkExtra= 300;
-const int OnivGlobal::AdapterMTU = 1300;
+const int OnivGlobal::LinkExtra= 300; // 第一种身份信息占用的数据包空间
+const int OnivGlobal::AdapterMinMTU = 600;
+const int OnivGlobal::AdapterMaxMTU = 1300;
 const int OnivGlobal::AdapterExtraMTU = 14; // mtu不包含以太网头部
 const int OnivGlobal::TunnelMTU = 1458; // 1500 - 14 - 20 - 8
 const uint16_t OnivGlobal::OnivPort = 8888;

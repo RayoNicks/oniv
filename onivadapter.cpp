@@ -1,9 +1,10 @@
 #include "onivadapter.h"
 
+using std::chrono::system_clock;
 using std::min;
 
-OnivAdapter::OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu)
-    : OnivPort(min(mtu, OnivGlobal::AdapterMTU), vni),
+OnivAdapter::OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t bdi, int mtu)
+    : OnivPort(min(mtu, OnivGlobal::AdapterMaxMTU), bdi),
     fd(-1), ctrl(-1), AdapterName(name), addr(address), NetMask(mask)
 {
     // 创建隧道设备
@@ -95,7 +96,7 @@ OnivErr OnivAdapter::recv(OnivFrame &frame)
     if(FrameSize < 0){
         return OnivErr(OnivErrCode::ERROR_RECV_ADAPTER);
     }
-    frame = OnivFrame(buf, FrameSize, this);
+    frame = OnivFrame(buf, FrameSize, this, system_clock::now());
 
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }

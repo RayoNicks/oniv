@@ -1,6 +1,7 @@
 #ifndef _ONIV_PACKET_H_
 #define _ONIV_PACKET_H_
 
+#include <chrono>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
@@ -11,6 +12,8 @@
 
 #include "oniv.h"
 
+using std::chrono::system_clock;
+using std::chrono::time_point;
 using std::string;
 
 class OnivTunnel;
@@ -21,6 +24,7 @@ private:
     string packet;
     OnivTunnel *ingress;
     sockaddr_in remote;
+    time_point<system_clock> tp;
 public:
     OnivPacket();
     OnivPacket(const OnivPacket &op);
@@ -28,10 +32,11 @@ public:
     OnivPacket& operator=(const OnivPacket &op);
     OnivPacket& operator=(OnivPacket &&op);
     ~OnivPacket();
-    OnivPacket(const char *buf, const size_t size, OnivTunnel *tunnel, const sockaddr_in &RemoteSocketAddress);
+    OnivPacket(const char *buf, const size_t size, OnivTunnel *tunnel, const sockaddr_in &RemoteSocketAddress, const time_point<system_clock> &tp);
 
     void dump() const;
     OnivTunnel* IngressPort() const;
+    const time_point<system_clock> EntryTime() const;
     string SenderID() const;
     in_port_t RemotePortNo() const;
     in_addr_t RemoteIPAddress() const;

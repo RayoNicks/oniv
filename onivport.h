@@ -19,12 +19,12 @@ class OnivPort
 {
 protected:
     int mtu;
-    uint32_t vni;
+    uint32_t bdi;
     OnivSendingQueue sq;
     int event;
     mutex mtx;
 public:
-    OnivPort(const int mtu, const uint32_t vni);
+    OnivPort(const int mtu, const uint32_t bdi);
     OnivPort() = delete;
     OnivPort(const OnivPort &port) = delete;
     OnivPort& operator=(const OnivPort &port) = delete;

@@ -12,27 +12,29 @@ OnivFrame::OnivFrame() : ingress(nullptr)
 
 }
 
-OnivFrame::OnivFrame(const OnivFrame &of) : frame(of.frame), ingress(of.ingress)
+OnivFrame::OnivFrame(const OnivFrame &of) : frame(of.frame), ingress(of.ingress), tp(of.tp)
 {
 
 }
 
-OnivFrame::OnivFrame(OnivFrame &&of) : frame(of.frame), ingress(of.ingress)
+OnivFrame::OnivFrame(OnivFrame &&of) : frame(of.frame), ingress(of.ingress), tp(of.tp)
 {
 
 }
 
 OnivFrame& OnivFrame::operator=(const OnivFrame &of)
 {
-    this->frame = of.frame;
+    frame = of.frame;
     ingress = of.ingress;
+    tp = of.tp;
     return *this;
 }
 
 OnivFrame& OnivFrame::operator=(OnivFrame &&of)
 {
-    this->frame = of.frame;
+    frame = of.frame;
     ingress = of.ingress;
+    tp = of.tp;
     return *this;
 }
 
@@ -41,8 +43,8 @@ OnivFrame::~OnivFrame()
 
 }
 
-OnivFrame::OnivFrame(const char *buf, const size_t size, OnivPort *port)
-    : frame(buf, size), ingress(port)
+OnivFrame::OnivFrame(const char *buf, const size_t size, OnivPort *port, const time_point<system_clock> &tp)
+    : frame(buf, size), ingress(port), tp(tp)
 {
 
 }
@@ -63,6 +65,11 @@ void OnivFrame::dump() const
 OnivPort* OnivFrame::IngressPort() const
 {
     return ingress;
+}
+
+const time_point<system_clock> OnivFrame::EntryTime() const
+{
+    return tp;
 }
 
 bool OnivFrame::empty() const
@@ -225,7 +232,7 @@ void OnivFrame::append(const char *p, size_t n)
     frame.append(p, n);
 }
 
-vector<OnivFrame> OnivFrame::fragement(int mtu)
+vector<OnivFrame> OnivFrame::fragement(int mtu) const
 {
     vector<OnivFrame> frames;
     if(!IsIP()){
@@ -239,7 +246,7 @@ vector<OnivFrame> OnivFrame::fragement(int mtu)
     mf = ntohs(*(uint16_t*)(IPHdr + 6)) & (1 << 13);
     base = ntohs(*(uint16_t*)(IPHdr + 6)) << 3;
     while(offset + len < total){
-        frames.push_back(OnivFrame(Layer2Hdr(), Layer3Hdr() - Layer2Hdr(), ingress));
+        frames.push_back(OnivFrame(Layer2Hdr(), Layer3Hdr() - Layer2Hdr(), ingress, tp));
         *(uint16_t*)(IPHdr + 2) = htons(HdrLen + len); // IP首部长度字段
         *(uint16_t*)(IPHdr + 6) = htons((1 << 13) + ((base + offset) >> 3)); // 分片字段
         *(uint16_t*)(IPHdr + 10) = 0;
@@ -249,7 +256,7 @@ vector<OnivFrame> OnivFrame::fragement(int mtu)
         offset += len;
     }
     len = total - offset;
-    frames.push_back(OnivFrame(Layer2Hdr(), Layer3Hdr() - Layer2Hdr(), ingress));
+    frames.push_back(OnivFrame(Layer2Hdr(), Layer3Hdr() - Layer2Hdr(), ingress, tp));
     *(uint16_t*)(IPHdr + 2) = htons(HdrLen + len);
     *(uint16_t*)(IPHdr + 6) = htons(mf + ((base + offset) >> 3));
     *(uint16_t*)(IPHdr + 10) = 0;

@@ -2,6 +2,7 @@
 #define _ONIV_TUNNEL_H_
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <string>
 
@@ -26,9 +27,11 @@ private:
     bool ValidSignature;
     OnivKeyEntry keyent;
     in_addr_t AdapterNameToAddr(const string &TunnelAdapterName);
+    OnivErr EnableSend();
+    OnivErr DisableSend();
 public:
     OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int mtu);
-    OnivTunnel(in_addr_t address, in_port_t PortNo,  uint32_t vni, int mtu);
+    OnivTunnel(in_addr_t address, in_port_t PortNo,  uint32_t bdi, int mtu);
     OnivTunnel() = delete;
     OnivTunnel(const OnivTunnel &tunnel) = delete;
     OnivTunnel& operator=(const OnivTunnel &tunnel) = delete;

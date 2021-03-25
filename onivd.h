@@ -51,12 +51,12 @@ private:
     // server线程使用的函数
     OnivErr CreateSwitchServerSocket(const string &ControllerSocketPath);
 
-    OnivErr AuxAddAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu);
+    OnivErr AuxAddAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t bdi, int mtu);
     OnivErr AddAdapter(const char *cmd, size_t length);
     OnivErr DelAdapter(const char *cmd, size_t length);
     OnivErr ClrAdapter();
 
-    OnivErr AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int mtu);
+    OnivErr AuxAddTunnel(in_addr_t address, in_port_t PortNo, uint32_t bdi, int mtu);
     OnivErr AddTunnel(const char *cmd, size_t length);
     OnivErr DelTunnel(const char *cmd, size_t length);
     OnivErr ClrTunnel();
@@ -67,14 +67,22 @@ private:
 
     OnivErr ProcessCommand(const char *cmd, size_t length);
 
-    // 隧道接收线程使用的函数
-    OnivErr ProcessTunKeyAgrReq(const OnivPacket &packet);
-    OnivErr ProcessTunKeyAgrRes(const OnivPacket &packet);
+    OnivErr ProcessBroadcast(OnivFrame &frame);
+
+    OnivErr ProcessLnkForwarding(OnivFrame &frame);
+    OnivErr ProcessLnkEncapusulation(OnivFrame &frame);
+
+    OnivErr ProcessTunnelForwarding(OnivPacket &packet);
+    OnivErr ProcessTunnelDecapusulation(OnivPacket &packet);
+
+    OnivErr ProcessTunKeyAgrReq(OnivPacket &packet);
+    OnivErr ProcessTunKeyAgrRes(OnivPacket &packet);
     OnivErr ProcessTunRecord(OnivPacket &packet);
-    // 隧道记录协议使用的函数
-    OnivErr ProcessLnkKeyAgrReq(const OnivFrame &frame);
-    OnivErr ProcessLnkKeyAgrRes(const OnivFrame &frame);
-    OnivErr ProcessLnkRecord(const OnivFrame &frame);
+
+    OnivErr ProcessLnkDecapusulation(OnivFrame &frame);
+    OnivErr ProcessLnkKeyAgrReq(OnivFrame &frame);
+    OnivErr ProcessLnkKeyAgrRes(OnivFrame &frame);
+    OnivErr ProcessLnkRecord(OnivFrame &frame);
 
     OnivErr CreateSwitchServer();
     OnivErr CreateAdapterThread();

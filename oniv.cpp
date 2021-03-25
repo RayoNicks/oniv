@@ -102,7 +102,7 @@ template <> OnivPacketType CastFrom16<OnivPacketType>(uint16_t u)
     case CastTo16<OnivPacketType>(OnivPacketType::LNK_IV_ERR):
         return OnivPacketType::LNK_IV_ERR;
     default:
-        return OnivPacketType::UNKNOWN;
+        return OnivPacketType::ONIV_FRAME;
     }
 }
 

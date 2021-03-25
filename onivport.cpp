@@ -1,7 +1,7 @@
 #include "onivport.h"
 #include "onivframe.h"
 
-OnivPort::OnivPort(int mtu, uint32_t vni) : mtu(mtu), vni(vni)
+OnivPort::OnivPort(int mtu, uint32_t bdi) : mtu(mtu), bdi(bdi)
 {
     event = eventfd(0, 0);
 }
@@ -18,7 +18,7 @@ int OnivPort::MTU() const
 
 uint32_t OnivPort::BroadcastDomain() const
 {
-    return vni;
+    return bdi;
 }
 
 void OnivPort::EnSendingQueue(const OnivFrame &frame)

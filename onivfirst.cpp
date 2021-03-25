@@ -88,9 +88,9 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
 
     certs.linearization(p);
 
-    // 分片
+    // 分片，请求进入交换机的时间为请求进入交换机的时间
     lka.offset = 0;
-    lka.FrgSize = OnivGlobal::AdapterMTU - HdrSizeWithOnivHdr;
+    lka.FrgSize = frame.IngressPort()->MTU() - HdrSizeWithOnivHdr;
     while(lka.offset + lka.FrgSize < lka.total){
         OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, OnivCommon::count(),
             frame.SrcIPAddr(), frame.DestIPAddr(),
@@ -98,7 +98,7 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
             OnivLnkKA::LinearSize() + lka.FrgSize);
         lka.common.len = OnivLnkKA::LinearSize() - OnivCommon::LinearSize() + lka.FrgSize;
         lka.linearization(hdr + EncapHdrSize);
-        frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr));
+        frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr, frame.EntryTime()));
         frames.back().append((char*)(buf + lka.offset), lka.FrgSize);
         lka.offset += lka.FrgSize;
     }
@@ -109,7 +109,7 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
             OnivLnkKA::LinearSize() + lka.FrgSize);
     lka.common.len = OnivLnkKA::LinearSize() - OnivCommon::LinearSize() + lka.FrgSize;
     lka.linearization(hdr + EncapHdrSize);
-    frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr));
+    frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr, frame.EntryTime()));
     frames.back().append((char*)(buf + lka.offset), lka.FrgSize);
 }
 
@@ -236,9 +236,9 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf
 
     certs.linearization(p);
 
-    // 分片
+    // 分片，响应进入交换机的时间为请求进入交换机的时间
     lka.offset = 0;
-    lka.FrgSize = OnivGlobal::AdapterMTU - HdrSizeWithOnivHdr;
+    lka.FrgSize = frame.IngressPort()->MTU() - HdrSizeWithOnivHdr;
     while(lka.offset + lka.FrgSize < lka.total){
         OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, OnivCommon::count(),
             frame.DestIPAddr(), frame.SrcIPAddr(),
@@ -246,7 +246,7 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf
             OnivLnkKA::LinearSize() + lka.FrgSize);
         lka.common.len = OnivLnkKA::LinearSize() - OnivCommon::LinearSize() + lka.FrgSize;
         lka.linearization(hdr + EncapHdrSize);
-        frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr));
+        frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr, frame.EntryTime()));
         frames.back().append((char*)(buf + lka.offset), lka.FrgSize);
         lka.offset += lka.FrgSize;
     }
@@ -257,7 +257,7 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf
             OnivLnkKA::LinearSize() + lka.FrgSize);
     lka.common.len = OnivLnkKA::LinearSize() - OnivCommon::LinearSize() + lka.FrgSize;
     lka.linearization(hdr + EncapHdrSize);
-    frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr));
+    frames.push_back(OnivFrame((char*)hdr, HdrSizeWithOnivHdr, nullptr, frame.EntryTime()));
     frames.back().append((char*)(buf + lka.offset), lka.FrgSize);
 }
 
@@ -328,6 +328,8 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     }
 
     common.type = CastTo16<OnivPacketType>(OnivPacketType::ONIV_RECORD);
+    common.identifier = OnivCommon::count();
+
     if(keyent->UpdPk){
         common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK);
         UpdTs = (uint64_t)system_clock::to_time_t(system_clock::now());
@@ -417,7 +419,7 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
 
     memcpy(p, data.c_str(), data.length());
 
-    output.append((char*)hdr, HdrSizeWithOnivHdr);
+    output = OnivFrame((char*)hdr, HdrSizeWithOnivHdr, frame.IngressPort(), frame.EntryTime());
     output.append((char*)buf, common.len);
 }
 
@@ -477,7 +479,7 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
     uint8_t hdr[HdrSize] = { 0 };
     memcpy(hdr, frame.Layer2Hdr(), HdrSize);
     *(uint16_t*)(hdr + 12) = htons(OriginProtocol);
-    output.append((char*)hdr, HdrSize);
+    output = OnivFrame((char*)hdr, HdrSize, frame.IngressPort(), frame.EntryTime());
     output.append(data.c_str(), data.length());
 }
 

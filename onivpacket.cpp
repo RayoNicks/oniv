@@ -12,28 +12,30 @@ OnivPacket::OnivPacket() : ingress(nullptr)
 
 }
 
-OnivPacket::OnivPacket(const OnivPacket &op) : packet(op.packet), ingress(op.ingress)
+OnivPacket::OnivPacket(const OnivPacket &op) : packet(op.packet), ingress(op.ingress), tp(op.tp)
 {
     memcpy(&remote, &op.remote, sizeof(struct sockaddr_in));
 }
 
-OnivPacket::OnivPacket(OnivPacket &&op) : packet(op.packet), ingress(op.ingress)
+OnivPacket::OnivPacket(OnivPacket &&op) : packet(op.packet), ingress(op.ingress), tp(op.tp)
 {
     memcpy(&remote, &op.remote, sizeof(struct sockaddr_in));
 }
 
 OnivPacket& OnivPacket::operator=(const OnivPacket &op)
 {
-    this->packet = op.packet;
+    packet = op.packet;
     ingress = op.ingress;
+    tp = op.tp;
     memcpy(&remote, &op.remote, sizeof(struct sockaddr_in));
     return *this;
 }
 
 OnivPacket& OnivPacket::operator=(OnivPacket &&op)
 {
-    this->packet = op.packet;
+    packet = op.packet;
     ingress = op.ingress;
+    tp = op.tp;
     memcpy(&remote, &op.remote, sizeof(struct sockaddr_in));
     return *this;
 }
@@ -43,8 +45,8 @@ OnivPacket::~OnivPacket()
 
 }
 
-OnivPacket::OnivPacket(const char *buf, const size_t size, OnivTunnel *tunnel, const sockaddr_in &RemoteSocketAddress)
-    : packet(buf, size), ingress(tunnel)
+OnivPacket::OnivPacket(const char *buf, const size_t size, OnivTunnel *tunnel, const sockaddr_in &RemoteSocketAddress, const time_point<system_clock> &tp)
+    : packet(buf, size), ingress(tunnel), tp(tp)
 {
     memcpy(&remote, &RemoteSocketAddress, sizeof(struct sockaddr_in));
 }
@@ -65,6 +67,11 @@ void OnivPacket::dump() const
 OnivTunnel* OnivPacket::IngressPort() const
 {
     return ingress;
+}
+
+const time_point<system_clock> OnivPacket::EntryTime() const
+{
+    return tp;
 }
 
 string OnivPacket::SenderID() const

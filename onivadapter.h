@@ -2,6 +2,7 @@
 #define _ONIV_ADAPTER_H_
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <string>
 
@@ -25,7 +26,7 @@ private:
     in_addr_t addr, NetMask;
     string HwAddr;
 public:
-    OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t vni, int mtu);
+    OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t bdi, int mtu);
     OnivAdapter() = delete;
     OnivAdapter(const OnivAdapter &adapter) = delete;
     OnivAdapter& operator=(const OnivAdapter &adapter) = delete;

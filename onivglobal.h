@@ -19,12 +19,13 @@ class OnivGlobal
 private:
     static map<string, string> config;
     static const set<string> keywords;
+    static bool EnableLinkVerification, EnableTunnelVerification;
 public:
     static const string SwitchServerPath;
     static const size_t SwitchServerCmdBufSize;
     static const size_t MaxEpollEvents;
     static const int LinkExtra;
-    static const int AdapterMTU;
+    static const int AdapterMinMTU, AdapterMaxMTU;
     static const int AdapterExtraMTU;
     static const int TunnelMTU;
     static const uint16_t OnivPort;
@@ -32,6 +33,8 @@ public:
     static bool LoadConfiguration(const string &file);
     static string GetConfig(const string &key);
     static vector<string> CertsFile();
+    static bool EnableLnk();
+    static bool EnableTun();
 };
 
 #endif

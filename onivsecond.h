@@ -38,7 +38,7 @@ public:
     OnivSigAlg SigAlg;
     OnivVariableData signature;
     OnivCertChain certs;
-    OnivTunReq(uint32_t vni); // 发送方构造函数
+    OnivTunReq(uint32_t bdi); // 发送方构造函数
     OnivTunReq(const OnivPacket &packet); // 接收方构造函数
     OnivTunReq(const OnivTunReq &req) = delete;
     OnivTunReq& operator=(const OnivTunReq &req) = delete;
@@ -60,7 +60,7 @@ public:
     OnivSigAlg SigAlg;
     OnivVariableData pk, signature;
     OnivCertChain certs;
-    OnivTunRes(uint32_t vni, const OnivKeyEntry *keyent); // 发送方构造函数
+    OnivTunRes(uint32_t bdi, const OnivKeyEntry *keyent); // 发送方构造函数
     OnivTunRes(const OnivPacket &packet); // 接收方构造函数
     OnivTunRes(const OnivTunRes &res) = delete;
     OnivTunRes& operator=(const OnivTunRes &res) = delete;
@@ -81,8 +81,7 @@ public:
     OnivKeyAgrAlg KeyAgrAlg;
     OnivVariableData pk, code;
     string data;
-    OnivPort *ingress;
-    OnivTunRecord(uint32_t vni, const OnivFrame &frame, const OnivKeyEntry *keyent); // 发送方构造函数
+    OnivTunRecord(uint32_t bdi, const OnivFrame &frame, const OnivKeyEntry *keyent); // 发送方构造函数
     OnivTunRecord(const OnivPacket &packet); // 接收方构造函数
     OnivTunRecord(const OnivTunRecord &rec) = delete;
     OnivTunRecord& operator=(const OnivTunRecord &rec) = delete;

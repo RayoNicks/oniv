@@ -17,7 +17,7 @@ using std::vector;
 
 enum class OnivPacketType : uint16_t
 {
-    UNKNOWN,
+    ONIV_FRAME,
     TUN_KA_REQ,
     TUN_KA_RES,
     TUN_KA_FIN,
@@ -36,7 +36,7 @@ enum class OnivPacketFlag : uint16_t
     NONE = 0x0000,
     UPD_ID = 0x0001,
     UPD_PK = 0x0002,
-    ACK_ID = 0x00010,
+    ACK_ID = 0x0010,
     ACK_PK = 0x0020,
 };
 

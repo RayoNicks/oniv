@@ -1,6 +1,7 @@
 #include "onivtunnel.h"
 #include "onivpacket.h"
 
+using std::chrono::system_clock;
 using std::min;
 
 in_addr_t OnivTunnel::AdapterNameToAddr(const string &TunnelAdapterName)
@@ -17,6 +18,54 @@ in_addr_t OnivTunnel::AdapterNameToAddr(const string &TunnelAdapterName)
         err(EXIT_FAILURE,"%s", OnivErr(OnivErrCode::ERROR_CREATE_TUNNEL_SOCKET).ErrMsg().c_str());
     }
     return ((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr.s_addr;
+}
+
+OnivErr OnivTunnel::EnableSend()
+{
+    if(keyent.RemoteUUID.empty()){ // 构造隧道密钥协商请求
+        OnivTunReq req(bdi);
+        sendto(LocalTunnelSocket, req.request(), req.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+        BlockSendingQueue(); // 暂时阻塞发送队列
+    }
+    else if(ValidSignature){
+        if(keyent.SessionKey.empty()){ // 构造隧道密钥协商响应
+            OnivTunRes res(bdi, &keyent);
+            sendto(LocalTunnelSocket, res.response(), res.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+            BlockSendingQueue(); // 暂时阻塞发送队列
+        }
+        else{
+            OnivFrame frame;
+            while(1){
+                sq.dequeue(frame);
+                if(frame.empty()){
+                    break;
+                }
+                OnivTunRecord rec(bdi, frame, &keyent);
+                sendto(LocalTunnelSocket, rec.record(), rec.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+                keyent.UpdateOnSend();
+            }
+            BlockSendingQueue();
+        }
+    }
+    else{
+        // 发送隧道密钥协商失败消息
+    }
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
+}
+
+OnivErr OnivTunnel::DisableSend()
+{
+    OnivFrame frame;
+    while(1){
+        sq.dequeue(frame);
+        if(frame.empty()){
+            break;
+        }
+        OnivTunRecord rec(bdi, frame, nullptr);
+        sendto(LocalTunnelSocket, rec.record(), rec.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
+    }
+    BlockSendingQueue();
+    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
 OnivTunnel::OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int mtu)
@@ -36,11 +85,11 @@ OnivTunnel::OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int mt
         err(EXIT_FAILURE, "%s", OnivErr(OnivErrCode::ERROR_BIND_TUNNEL_SOCKET).ErrMsg().c_str());
     }
 
-    vni = UINT32_MAX;
+    bdi = UINT32_MAX;
 }
 
-OnivTunnel::OnivTunnel(in_addr_t address, in_port_t PortNo, uint32_t vni, int mtu)
-    : OnivPort(mtu, vni)
+OnivTunnel::OnivTunnel(in_addr_t address, in_port_t PortNo, uint32_t bdi, int mtu)
+    : OnivPort(mtu, bdi)
 {
     memset(&RemoteSocket, 0, sizeof(struct sockaddr_in));
     RemoteSocket.sin_family = AF_INET;
@@ -55,35 +104,12 @@ OnivTunnel::~OnivTunnel()
 
 OnivErr OnivTunnel::send()
 {
-    if(keyent.RemoteUUID.empty()){ // 构造隧道密钥协商请求
-        OnivTunReq req(vni);
-        sendto(LocalTunnelSocket, req.request(), req.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
-        BlockSendingQueue(); // 暂时阻塞发送队列
-    }
-    else if(ValidSignature){
-        if(keyent.SessionKey.empty()){ // 构造隧道密钥协商响应
-            OnivTunRes res(vni, &keyent);
-            sendto(LocalTunnelSocket, res.response(), res.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
-            BlockSendingQueue(); // 暂时阻塞发送队列
-        }
-        else{
-            OnivFrame frame;
-            while(1){
-                sq.dequeue(frame);
-                if(frame.empty()){
-                    break;
-                }
-                OnivTunRecord rec(vni, frame, &keyent);
-                sendto(LocalTunnelSocket, rec.record(), rec.size(), 0, (const struct sockaddr*)&RemoteSocket, sizeof(struct sockaddr_in));
-                keyent.UpdateOnSend();
-            }
-            BlockSendingQueue();
-        }
+    if(OnivGlobal::EnableTun()){
+        return EnableSend();
     }
     else{
-        // 发送隧道密钥协商失败消息
+        return DisableSend();
     }
-    return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
 OnivErr OnivTunnel::recv(OnivPacket &packet)
@@ -96,7 +122,7 @@ OnivErr OnivTunnel::recv(OnivPacket &packet)
     if(PacketSize < 0){
         return OnivErr(OnivErrCode::ERROR_RECV_TUNNEL);
     }
-    packet = OnivPacket(buf, PacketSize, this, remote);
+    packet = OnivPacket(buf, PacketSize, this, remote, system_clock::now());
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
