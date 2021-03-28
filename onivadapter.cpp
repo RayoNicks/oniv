@@ -81,6 +81,7 @@ OnivErr OnivAdapter::send()
         if(frame.empty()){
             break;
         }
+        OnivLog::LogFrameLatency(frame);
         write(handle(), frame.buffer(), frame.size());
     }
 

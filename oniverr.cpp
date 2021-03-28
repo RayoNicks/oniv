@@ -1,6 +1,11 @@
 #include "oniverr.h"
 
-OnivErr::OnivErr(const OnivErrCode &ec) : Code(ec)
+OnivErr::OnivErr() : code(OnivErrCode::ERROR_SUCCESSFUL)
+{
+
+}
+
+OnivErr::OnivErr(const OnivErrCode &ec) : code(ec)
 {
 
 }
@@ -13,21 +18,22 @@ const string& OnivErr::ErrCodeToErrMsg(const OnivErrCode &ec)
 
 const OnivErrCode OnivErr::ErrCode()
 {
-    return Code;
+    return code;
 }
 
 const string& OnivErr::ErrMsg()
 {
-    return ErrCodeToErrMsg(Code);
+    return ErrCodeToErrMsg(code);
 }
 
 bool OnivErr::occured()
 {
-    return Code != OnivErrCode::ERROR_SUCCESSFUL;
+    return code != OnivErrCode::ERROR_SUCCESSFUL;
 }
 
 const vector<string> OnivErr::ErrMsgs = {
     "Successful",
+    "Become daemon error",
     "Create tunnel socket failed",
     "Bind tunnel socket failed",
     "Add tunnel to epoll failed",

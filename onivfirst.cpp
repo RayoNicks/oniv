@@ -1,8 +1,6 @@
 #include "onivfirst.h"
 #include "oniventry.h"
 
-using std::chrono::system_clock;
-
 void OnivLnkKA::linearization(uint8_t *p)
 {
     common.linearization(p), p += OnivCommon::LinearSize();
@@ -36,18 +34,18 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
     lka.common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
     lka.common.identifier = OnivCommon::count();
 
-    ts = (uint64_t)system_clock::to_time_t(system_clock::now());
-    lka.total = sizeof(ts);
+    tp = system_clock::now();
+    lka.total = sizeof(tp);
 
-    PreVerifyAlg = OnivCrypto::PreVerifyAlg();
-    SupVerifyAlgSet.insert(OnivCrypto::ListVerifyAlg());
+    PreVerifyAlg = OnivCrypto::LocalAlg<OnivVerifyAlg>();
+    SupVerifyAlgSet.insert(OnivCrypto::ListAlg<OnivVerifyAlg>());
     lka.total += sizeof(PreVerifyAlg) + SupVerifyAlgSet.LinearSize();
 
-    PreKeyAgrAlg = OnivCrypto::PreKeyAgrAlg();
-    SupKeyAgrAlgSet.insert(OnivCrypto::ListKeyAgrAlg());
+    PreKeyAgrAlg = OnivCrypto::LocalAlg<OnivKeyAgrAlg>();
+    SupKeyAgrAlgSet.insert(OnivCrypto::ListAlg<OnivKeyAgrAlg>());
     lka.total += sizeof(PreKeyAgrAlg) + SupKeyAgrAlgSet.LinearSize();
 
-    SigAlg = OnivCrypto::SigAlg();
+    SigAlg = OnivCrypto::LocalAlg<OnivSigAlg>();
     signature.data(OnivCrypto::GenSignature(OnivCrypto::UUID()));
     lka.total += sizeof(SigAlg) + signature.LinearSize();
 
@@ -68,8 +66,8 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
     buf = new uint8_t[lka.total];
     uint8_t *p = buf;
 
-    *(uint64_t*)p = ts;
-    p += sizeof(ts);
+    *(uint64_t*)p = tp.time_since_epoch().count();
+    p += sizeof(tp);
 
     *(uint16_t*)p = htons(CastTo16<OnivVerifyAlg>(PreVerifyAlg));
     p += sizeof(PreVerifyAlg);
@@ -88,7 +86,7 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
 
     certs.linearization(p);
 
-    // 分片，请求进入交换机的时间为请求进入交换机的时间
+    // 分片，数据帧进入交换机的时间为请求进入交换机的时间
     lka.offset = 0;
     lka.FrgSize = frame.IngressPort()->MTU() - HdrSizeWithOnivHdr;
     while(lka.offset + lka.FrgSize < lka.total){
@@ -132,8 +130,8 @@ OnivLnkReq::OnivLnkReq(const char *OnivHdr, size_t OnivSize) : buf(nullptr)
     memcpy(buf, OnivHdr, OnivSize);
     p = buf + OnivLnkKA::LinearSize();
 
-    ts = *(uint64_t*)p;
-    p += sizeof(ts);
+    tp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));
+    p += sizeof(tp);
 
     PreVerifyAlg = CastFrom16<OnivVerifyAlg>(ntohs(*(uint16_t*)p));
     p += sizeof(PreVerifyAlg);
@@ -177,8 +175,9 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf
     lka.common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
     lka.common.identifier = OnivCommon::count();
 
-    ReqTs = keyent->ts, ResTs = (uint64_t)system_clock::to_time_t(system_clock::now());
-    lka.total = sizeof(ReqTs) + sizeof(ResTs);
+    ReqTp = keyent->tp;
+    ResTp = system_clock::now();
+    lka.total = sizeof(ReqTp) + sizeof(ResTp);
 
     RmdTp = 0, AppTp = 1; // 选择根证书作为托管第三方
     lka.total += sizeof(RmdTp) + sizeof(AppTp);
@@ -189,7 +188,7 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf
     pk.data(keyent->LocalPubKey);
     lka.total += pk.LinearSize();
 
-    SigAlg = OnivCrypto::SigAlg();
+    SigAlg = OnivCrypto::LocalAlg<OnivSigAlg>();
     signature.data(OnivCrypto::GenSignature(OnivCrypto::UUID() + pk.data())),
     lka.total += sizeof(SigAlg) + signature.LinearSize();
 
@@ -211,10 +210,10 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf
     buf = new uint8_t[lka.total];
     uint8_t *p = buf;
 
-    *(uint64_t*)p = ReqTs;
-    p += sizeof(ReqTs);
-    *(uint64_t*)p = ResTs;
-    p += sizeof(ResTs);
+    *(uint64_t*)p = ReqTp.time_since_epoch().count();
+    p += sizeof(ReqTp);
+    *(uint64_t*)p = ResTp.time_since_epoch().count();
+    p += sizeof(ResTp);
 
     *(uint16_t*)p = htons(RmdTp);
     p += sizeof(RmdTp);
@@ -280,10 +279,10 @@ OnivLnkRes::OnivLnkRes(const char *OnivHdr, size_t OnivSize) : buf(nullptr)
     memcpy(buf, OnivHdr, OnivSize);
     p = buf + OnivLnkKA::LinearSize();
 
-    ReqTs = *(uint64_t*)p;
-    p += sizeof(ReqTs);
-    ResTs = *(uint64_t*)p;
-    p += sizeof(ResTs);
+    ReqTp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));
+    p += sizeof(ReqTp);
+    ResTp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));
+    p += sizeof(ResTp);
 
     RmdTp = ntohs(*(uint16_t*)p);
     p += sizeof(RmdTp);
@@ -332,16 +331,16 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
 
     if(keyent->UpdPk){
         common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK);
-        UpdTs = (uint64_t)system_clock::to_time_t(system_clock::now());
+        UpdTp = system_clock::now();
         KeyAgrAlg = keyent->KeyAgrAlg;
         pk.data(keyent->LocalPubKey);
-        common.len = sizeof(UpdTs) + sizeof(KeyAgrAlg) + pk.LinearSize();
+        common.len = sizeof(UpdTp) + sizeof(KeyAgrAlg) + pk.LinearSize();
     }
     else if(keyent->AckPk){
         common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_PK);
-        UpdTs = keyent->ts;
-        AckTs = (uint64_t)system_clock::to_time_t(system_clock::now());
-        common.len = sizeof(UpdTs) + sizeof(AckTs);
+        UpdTp = keyent->tp;
+        AckTp = system_clock::now();
+        common.len = sizeof(UpdTp) + sizeof(AckTp);
     }
     else{
         common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
@@ -359,7 +358,7 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     VerifyAlg = keyent->VerifyAlg;
     common.len += sizeof(VerifyAlg);
 
-    code.data(string(OnivCrypto::MsgAuchCodeSize(), '\0')); // 占位
+    code.data(string(OnivCrypto::MsgAuthCodeSize(), '\0')); // 占位
     trustee.data(OnivCrypto::GetSubject(keyent->ThirdCert));
     escrow.data(OnivCrypto::GenEscrowData(keyent->ThirdCert, keyent->SessionKey, string()));
     data = frame.OriginUserData(); // data中包含原始的IP首部和四层首部
@@ -377,7 +376,7 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     *(uint16_t*)(hdr + 12) = htons(0x0800);
     OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, OnivCommon::count(),
         frame.SrcIPAddr(), frame.DestIPAddr(),
-        htons(OnivGlobal::OnivPort), keyent->RemotePort,
+        htons(OnivGlobal::OnivPort), keyent->RemoteAddress.sin_port,
         OnivCommon::LinearSize() + common.len);
     common.linearization(hdr + EncapHdrSize);
 
@@ -386,18 +385,18 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     uint8_t *p = buf;
 
     if(keyent->UpdPk){
-        *(uint64_t*)p = UpdTs;
-        p += sizeof(UpdTs);
+        *(uint64_t*)p = UpdTp.time_since_epoch().count();
+        p += sizeof(UpdTp);
         *(uint16_t*)p = htons(CastTo16<OnivKeyAgrAlg>(KeyAgrAlg));
         p += sizeof(KeyAgrAlg);
         pk.linearization(p);
         p += pk.LinearSize();
     }
     else if(keyent->AckPk){
-        *(uint64_t*)p = UpdTs;
-        p += sizeof(UpdTs);
-        *(uint64_t*)p = AckTs;
-        p += sizeof(AckTs);
+        *(uint64_t*)p = UpdTp.time_since_epoch().count();
+        p += sizeof(UpdTp);
+        *(uint64_t*)p = AckTp.time_since_epoch().count();
+        p += sizeof(AckTp);
     }
 
     *(uint16_t*)p = htons(OriginProtocol);
@@ -448,17 +447,17 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
     p = buf + OnivCommon::LinearSize();
 
     if((common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK)) != 0){
-        UpdTs = *(uint64_t*)p;
-        p += sizeof(UpdTs);
+        UpdTp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));;
+        p += sizeof(UpdTp);
         KeyAgrAlg = CastFrom16<OnivKeyAgrAlg>(ntohs(*(uint16_t*)p));
         p += sizeof(KeyAgrAlg);
         p += pk.structuration(p);
     }
     else if((common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_PK)) != 0){
-        UpdTs = *(uint64_t*)p;
-        p += sizeof(UpdTs);
-        AckTs = *(uint64_t*)p;
-        p += sizeof(AckTs);
+        UpdTp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));;
+        p += sizeof(UpdTp);
+        AckTp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));;
+        p += sizeof(AckTp);
     }
 
     OriginProtocol = ntohs(*(uint16_t*)p);

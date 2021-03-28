@@ -25,7 +25,7 @@ class OnivFrame
 private:
     string frame;
     OnivPort *ingress;
-    time_point<system_clock> tp;
+    time_point<system_clock> entry;
 public:
     OnivFrame();
     OnivFrame(const OnivFrame &of);
@@ -58,6 +58,7 @@ public:
     uint8_t IPHdrLen() const;
     in_addr_t SrcIPAddr() const;
     in_addr_t DestIPAddr() const;
+    bool IsICMP() const;
     bool IsTCP() const;
     bool IsUDP() const;
     in_port_t SrcPort() const;

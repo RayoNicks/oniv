@@ -1,8 +1,6 @@
 #include "onivsecond.h"
 #include "oniventry.h"
 
-using std::chrono::system_clock;
-
 void OnivTunCommon::linearization(uint8_t *p)
 {
     common.linearization(p), p += OnivCommon::LinearSize();
@@ -30,18 +28,18 @@ OnivTunReq::OnivTunReq(uint32_t bdi) : buf(nullptr)
     tc.bdi = bdi;
     tc.common.len = sizeof(tc.bdi);
 
-    ts = (uint64_t)system_clock::to_time_t(system_clock::now());
-    tc.common.len += sizeof(ts);
+    tp = system_clock::now();
+    tc.common.len += sizeof(tp);
 
-    PreVerifyAlg = OnivCrypto::PreVerifyAlg();
-    SupVerifyAlgSet.insert(OnivCrypto::ListVerifyAlg());
+    PreVerifyAlg = OnivCrypto::LocalAlg<OnivVerifyAlg>();
+    SupVerifyAlgSet.insert(OnivCrypto::ListAlg<OnivVerifyAlg>());
     tc.common.len += sizeof(PreVerifyAlg) + SupVerifyAlgSet.LinearSize();
 
-    PreKeyAgrAlg = OnivCrypto::PreKeyAgrAlg();
-    SupKeyAgrAlgSet.insert(OnivCrypto::ListKeyAgrAlg());
+    PreKeyAgrAlg = OnivCrypto::LocalAlg<OnivKeyAgrAlg>();
+    SupKeyAgrAlgSet.insert(OnivCrypto::ListAlg<OnivKeyAgrAlg>());
     tc.common.len += sizeof(PreKeyAgrAlg) + SupKeyAgrAlgSet.LinearSize();
 
-    SigAlg = OnivCrypto::SigAlg();
+    SigAlg = OnivCrypto::LocalAlg<OnivSigAlg>();
     signature.data(OnivCrypto::GenSignature(OnivCrypto::UUID()));
     tc.common.len += sizeof(SigAlg) + signature.LinearSize();
 
@@ -55,8 +53,8 @@ OnivTunReq::OnivTunReq(uint32_t bdi) : buf(nullptr)
     tc.linearization(p);
     p += OnivTunCommon::LinearSize();
 
-    *(uint64_t*)p = ts;
-    p += sizeof(ts);
+    *(uint64_t*)p = tp.time_since_epoch().count();
+    p += sizeof(tp);
 
     *(uint16_t*)p = htons(CastTo16<OnivVerifyAlg>(PreVerifyAlg));
     p += sizeof(PreVerifyAlg);
@@ -95,8 +93,8 @@ OnivTunReq::OnivTunReq(const OnivPacket &packet) : buf(nullptr)
     memcpy(buf, packet.buffer(), packet.size());
     p = buf + OnivTunCommon::LinearSize();
 
-    ts = *(uint64_t*)p;
-    p += sizeof(ts);
+    tp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));
+    p += sizeof(tp);
 
     PreVerifyAlg = CastFrom16<OnivVerifyAlg>(ntohs(*(uint16_t*)p));
     p += sizeof(PreVerifyAlg);
@@ -144,8 +142,9 @@ OnivTunRes::OnivTunRes(uint32_t bdi, const OnivKeyEntry *keyent) : buf(nullptr)
     tc.bdi = bdi;
     tc.common.len = sizeof(tc.bdi);
 
-    ReqTs = keyent->ts, ResTs = (uint64_t)system_clock::to_time_t(system_clock::now());
-    tc.common.len += sizeof(ReqTs) + sizeof(ResTs);
+    ReqTp = keyent->tp;
+    ResTp = system_clock::now();
+    tc.common.len += sizeof(ReqTp) + sizeof(ResTp);
 
     VerifyAlg = keyent->VerifyAlg, KeyAgrAlg = keyent->KeyAgrAlg;
     tc.common.len += sizeof(VerifyAlg) + sizeof(KeyAgrAlg);
@@ -153,7 +152,7 @@ OnivTunRes::OnivTunRes(uint32_t bdi, const OnivKeyEntry *keyent) : buf(nullptr)
     pk.data(keyent->LocalPubKey);
     tc.common.len += pk.LinearSize();
 
-    SigAlg = OnivCrypto::SigAlg();
+    SigAlg = OnivCrypto::LocalAlg<OnivSigAlg>();
     signature.data(OnivCrypto::GenSignature(OnivCrypto::UUID() + pk.data()));
     tc.common.len += sizeof(SigAlg) + signature.LinearSize();
 
@@ -168,11 +167,11 @@ OnivTunRes::OnivTunRes(uint32_t bdi, const OnivKeyEntry *keyent) : buf(nullptr)
     tc.linearization(p);
     p += OnivTunCommon::LinearSize();
 
-    *(uint64_t*)p = ReqTs;
-    p += sizeof(ReqTs);
-    *(uint64_t*)p = ResTs;
-    p += sizeof(ResTs);
-    
+    *(uint64_t*)p = ReqTp.time_since_epoch().count();
+    p += sizeof(ReqTp);
+    *(uint64_t*)p = ResTp.time_since_epoch().count();
+    p += sizeof(ResTp);
+
     *(uint16_t*)p = htons(CastTo16<OnivVerifyAlg>(VerifyAlg));
     p += sizeof(VerifyAlg);
     *(uint16_t*)p = htons(CastTo16<OnivKeyAgrAlg>(KeyAgrAlg));
@@ -208,10 +207,10 @@ OnivTunRes::OnivTunRes(const OnivPacket &packet) : buf(nullptr)
     memcpy(buf, packet.buffer(), packet.size());
     p = buf + OnivTunCommon::LinearSize();
 
-    ReqTs = *(uint64_t*)p;
-    p += sizeof(ReqTs);
-    ResTs = *(uint64_t*)p;
-    p += sizeof(ResTs);
+    ReqTp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));
+    p += sizeof(ReqTp);
+    ResTp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));
+    p += sizeof(ResTp);
 
     VerifyAlg = CastFrom16<OnivVerifyAlg>(ntohs(*(uint16_t*)p));
     p += sizeof(VerifyAlg);
@@ -265,16 +264,16 @@ OnivTunRecord::OnivTunRecord(uint32_t bdi, const OnivFrame &frame, const OnivKey
     if(keyent != nullptr){
         if(keyent->UpdPk){
             tc.common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK);
-            UpdTs = (uint64_t)system_clock::to_time_t(system_clock::now());
+            UpdTp = system_clock::now();
             KeyAgrAlg = keyent->KeyAgrAlg;
             pk.data(keyent->LocalPubKey);
-            tc.common.len += sizeof(UpdTs) + sizeof(KeyAgrAlg) + pk.LinearSize();
+            tc.common.len += sizeof(UpdTp) + sizeof(KeyAgrAlg) + pk.LinearSize();
         }
         else if(keyent->AckPk){
             tc.common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_PK);
-            UpdTs = keyent->ts;
-            AckTs = (uint64_t)system_clock::to_time_t(system_clock::now());
-            tc.common.len += sizeof(UpdTs) + sizeof(AckTs);
+            UpdTp = keyent->tp;
+            AckTp = system_clock::now();
+            tc.common.len += sizeof(UpdTp) + sizeof(AckTp);
         }
         else{
             tc.common.flag = CastTo16<OnivPacketFlag>(OnivPacketFlag::NONE);
@@ -282,7 +281,7 @@ OnivTunRecord::OnivTunRecord(uint32_t bdi, const OnivFrame &frame, const OnivKey
         }
         VerifyAlg = keyent->VerifyAlg;
         tc.common.len += sizeof(VerifyAlg);
-        code.data(string(OnivCrypto::MsgAuchCodeSize(), '\0')); // 占位
+        code.data(string(OnivCrypto::MsgAuthCodeSize(), '\0')); // 占位
         tc.common.len += code.LinearSize();
     }
     else{
@@ -303,18 +302,18 @@ OnivTunRecord::OnivTunRecord(uint32_t bdi, const OnivFrame &frame, const OnivKey
 
     if(keyent != nullptr){
         if(keyent->UpdPk){
-            *(uint64_t*)p = UpdTs;
-            p += sizeof(UpdTs);
+            *(uint64_t*)p = UpdTp.time_since_epoch().count();
+            p += sizeof(UpdTp);
             *(uint16_t*)p = htons(CastTo16<OnivKeyAgrAlg>(KeyAgrAlg));
             p += sizeof(KeyAgrAlg);
             pk.linearization(p);
             p += pk.LinearSize();
         }
         else if(keyent->AckPk){
-            *(uint64_t*)p = UpdTs;
-            p += sizeof(UpdTs);
-            *(uint64_t*)p = AckTs;
-            p += sizeof(AckTs);
+            *(uint64_t*)p = UpdTp.time_since_epoch().count();
+            p += sizeof(UpdTp);
+            *(uint64_t*)p = AckTp.time_since_epoch().count();
+            p += sizeof(AckTp);
         }
 
         *(uint16_t*)p = htons(CastTo16<OnivVerifyAlg>(VerifyAlg));
@@ -353,17 +352,17 @@ OnivTunRecord::OnivTunRecord(const OnivPacket &packet) : buf(nullptr)
 
     if(tc.common.type == CastTo16<OnivPacketType>(OnivPacketType::ONIV_RECORD)){
         if((tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK)) != 0){
-            UpdTs = *(uint64_t*)p;
-            p += sizeof(UpdTs);
+            UpdTp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));;
+            p += sizeof(UpdTp);
             KeyAgrAlg = CastFrom16<OnivKeyAgrAlg>(ntohs(*(uint16_t*)p));
             p += sizeof(KeyAgrAlg);
             p += pk.structuration(p);
         }
         else if((tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_PK)) != 0){
-            UpdTs = *(uint64_t*)p;
-            p += sizeof(UpdTs);
-            AckTs = *(uint64_t*)p;
-            p += sizeof(AckTs);
+            UpdTp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));
+            p += sizeof(UpdTp);
+            AckTp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));
+            p += sizeof(AckTp);
         }
 
         VerifyAlg = CastFrom16<OnivVerifyAlg>(ntohs(*(uint16_t*)p));

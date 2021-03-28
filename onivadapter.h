@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "onivglobal.h"
+#include "onivlog.h"
 #include "onivport.h"
 
 using std::string;

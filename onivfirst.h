@@ -9,6 +9,7 @@
 #include "onivcrypto.h"
 #include "onivframe.h"
 
+using std::chrono::system_clock;
 using std::string;
 using std::vector;
 
@@ -37,7 +38,7 @@ private:
     vector<OnivFrame> frames;
 public:
     OnivLnkKA lka;
-    uint64_t ts;
+    time_point<system_clock> tp;
     OnivVerifyAlg PreVerifyAlg;
     OnivIDSet<OnivVerifyAlg> SupVerifyAlgSet;
     OnivKeyAgrAlg PreKeyAgrAlg;
@@ -61,7 +62,7 @@ private:
     vector<OnivFrame> frames;
 public:
     OnivLnkKA lka;
-    uint64_t ReqTs, ResTs;
+    time_point<system_clock> ReqTp, ResTp;
     uint16_t RmdTp, AppTp;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
@@ -84,7 +85,7 @@ private:
     OnivFrame output;
 public:
     OnivCommon common;
-    uint64_t UpdTs, AckTs;
+    time_point<system_clock> UpdTp, AckTp;
     uint16_t OriginProtocol;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;

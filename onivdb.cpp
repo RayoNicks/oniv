@@ -29,7 +29,7 @@ OnivKeyEntry* OnivKDB::SearchTo(in_addr_t DestAddr)
 {
     for(auto iter = KeyTable.begin(); iter != KeyTable.end(); iter++)
     {
-        if(iter->second.RemoteAddress == DestAddr){
+        if(iter->second.RemoteAddress.sin_addr.s_addr == DestAddr){
             return &iter->second;
         }
     }
@@ -49,19 +49,14 @@ OnivKeyEntry* OnivKDB::SearchFrom(const string &RemoteUUID)
 
 OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkReq &req)
 {
-    OnivKeyEntry ent;
-    ent.RemoteAddress = frame.SrcIPAddr();
-    ent.RemotePort = frame.SrcPort();
-    ent.RemoteUUID.assign((char*)req.lka.common.UUID, sizeof(req.lka.common.UUID));
-    ent.VerifyAlg = OnivCrypto::SelectVerifyAlg(req.PreVerifyAlg, req.SupVerifyAlgSet);
-    ent.KeyAgrAlg = OnivCrypto::SelectKeyAgrAlg(req.PreKeyAgrAlg, req.SupKeyAgrAlgSet);
-    ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
-    ent.LocalPubKey = OnivCrypto::GenPubKey(ent.LocalPriKey);
-    ent.ts = req.ts;
+    OnivKeyEntry keyent;
+    keyent.RemoteAddress.sin_port = frame.SrcPort();
+    keyent.RemoteAddress.sin_addr.s_addr = frame.SrcIPAddr();
+    keyent.UpdateOnRecvLnkReq(req);
 
     mtx.lock();
-    KeyTable.erase(ent.RemoteUUID);
-    auto ret = KeyTable.insert(make_pair(ent.RemoteUUID, ent));
+    KeyTable.erase(keyent.RemoteUUID);
+    auto ret = KeyTable.insert(make_pair(keyent.RemoteUUID, keyent));
     mtx.unlock();
     if(ret.second){
         return &ret.first->second;
@@ -73,24 +68,14 @@ OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkReq &req)
 
 OnivKeyEntry* OnivKDB::update(const OnivFrame &frame, const OnivLnkRes &res)
 {
-    OnivKeyEntry ent;
-    ent.RemoteAddress = frame.SrcIPAddr();
-    ent.RemotePort = frame.SrcPort();
-    ent.RemoteUUID.assign((char*)res.lka.common.UUID, sizeof(res.lka.common.UUID));
-    ent.VerifyAlg = res.VerifyAlg;
-    ent.KeyAgrAlg = res.KeyAgrAlg;
-    ent.RemotePubKey = res.pk.data();
-    ent.LocalPriKey = OnivCrypto::GenPriKey(ent.KeyAgrAlg);
-    ent.LocalPubKey = OnivCrypto::GenPubKey(ent.LocalPriKey);
-    ent.SessionKey = OnivCrypto::ComputeSessionKey(ent.RemotePubKey, ent.LocalPriKey);
-    ent.ThirdCert = OnivCrypto::SelectTrusteeCert(res.RmdTp, res.AppTp);
-    ent.UpdPk = true;
-    ent.AckPk = false;
-    ent.ts = res.ResTs;
+    OnivKeyEntry keyent;
+    keyent.RemoteAddress.sin_port = frame.SrcPort();
+    keyent.RemoteAddress.sin_addr.s_addr = frame.SrcIPAddr();
+    keyent.UpdateOnRecvLnkRes(res);
 
     mtx.lock();
-    KeyTable.erase(ent.RemoteUUID);
-    auto ret = KeyTable.insert(make_pair(ent.RemoteUUID, ent));
+    KeyTable.erase(keyent.RemoteUUID);
+    auto ret = KeyTable.insert(make_pair(keyent.RemoteUUID, keyent));
     mtx.unlock();
     if(ret.second){
         return &ret.first->second;

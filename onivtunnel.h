@@ -12,6 +12,8 @@
 #include <sys/socket.h>
 
 #include "oniventry.h"
+#include "onivglobal.h"
+#include "onivlog.h"
 #include "onivport.h"
 #include "onivsecond.h"
 
@@ -23,7 +25,6 @@ class OnivTunnel : public OnivPort
 {
 private:
     static int LocalTunnelSocket;
-    sockaddr_in RemoteSocket;
     bool ValidSignature;
     OnivKeyEntry keyent;
     in_addr_t AdapterNameToAddr(const string &TunnelAdapterName);

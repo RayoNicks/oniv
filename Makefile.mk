@@ -10,6 +10,7 @@ HEADERS = \
 		onivfirst.h \
 		onivframe.h \
 		onivglobal.h \
+		onivlog.h \
 		onivpacket.h \
 		onivport.h \
 		onivqueue.h \
@@ -30,6 +31,7 @@ SOURCES = \
 		onivfirst.cpp \
 		onivframe.cpp \
 		onivglobal.cpp \
+		onivlog.cpp \
 		onivpacket.cpp \
 		onivport.cpp \
 		onivqueue.cpp \
@@ -49,6 +51,7 @@ ONIVD_OBJECTS = \
 		onivfirst.o \
 		onivframe.o \
 		onivglobal.o \
+		onivlog.o \
 		onivpacket.o \
 		onivport.o \
 		onivqueue.o \

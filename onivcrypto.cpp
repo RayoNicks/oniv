@@ -2,6 +2,7 @@
 #include "libonivcrypto/libonivcrypto.h"
 
 using namespace libonivcrypto;
+using std::transform;
 using std::ifstream;
 
 string OnivCrypto::ReadFile(const string &subject, int type)
@@ -29,17 +30,71 @@ const string& OnivCrypto::UUID()
     return uuid;
 }
 
-OnivVerifyAlg OnivCrypto::PreVerifyAlg()
+template<typename T> string OnivCrypto::AuxConvAlgNum(const unordered_map<string, T> &algs, T num)
 {
-    return OnivCrypto::VerifyAlg;
+    for(auto iter = algs.begin(); iter != algs.end(); iter++)
+    {
+        if(iter->second == num){
+            return iter->first;
+        }
+    }
+    return string();
 }
 
-OnivKeyAgrAlg OnivCrypto::PreKeyAgrAlg()
+template<typename T> T OnivCrypto::AuxConvAlgName(const unordered_map<string, T> &algs, const string &name)
 {
-    return OnivCrypto::KeyAgrAlg;
+    string LowerName(name.size(), '\0');
+    transform(name.begin(), name.end(), LowerName.begin(), [](const char c){ return tolower(c); });
+    auto iter = algs.find(LowerName);
+    if(iter != algs.end()){
+        return iter->second;
+    }
+    else{
+        return CastFrom16<T>(0);
+    }
 }
 
-OnivSigAlg OnivCrypto::SigAlg()
+template<> string OnivCrypto::ConvAlgNum(OnivVerifyAlg num)
+{
+    return AuxConvAlgNum(VerifyAlgs, num);
+}
+
+template<> string OnivCrypto::ConvAlgNum(OnivKeyAgrAlg num)
+{
+    return AuxConvAlgNum(KeyAgrAlgs, num);
+}
+
+template<> string OnivCrypto::ConvAlgNum(OnivSigAlg num)
+{
+    return AuxConvAlgNum(SigAlgs, num);
+}
+
+template<> OnivVerifyAlg OnivCrypto::ConvAlgName(const string &name)
+{
+    return AuxConvAlgName(VerifyAlgs, name);
+}
+
+template<> OnivKeyAgrAlg OnivCrypto::ConvAlgName(const string &name)
+{
+    return AuxConvAlgName(KeyAgrAlgs, name);
+}
+
+template<> OnivSigAlg OnivCrypto::ConvAlgName(const string &name)
+{
+    return AuxConvAlgName(SigAlgs, name);
+}
+
+template<> OnivVerifyAlg OnivCrypto::LocalAlg()
+{
+    return OnivCrypto::PreVerifyAlg;
+}
+
+template<> OnivKeyAgrAlg OnivCrypto::LocalAlg()
+{
+    return OnivCrypto::PreKeyAgrAlg;
+}
+
+template<> OnivSigAlg OnivCrypto::LocalAlg()
 {
     const char *name = GetCurveName(crts.back().c_str(), crts.back().length(), FORMAT_ASN1);
     if(string(name) == "secp384r1"){
@@ -53,7 +108,7 @@ OnivSigAlg OnivCrypto::SigAlg()
     }
 }
 
-initializer_list<OnivVerifyAlg> OnivCrypto::ListVerifyAlg()
+template<> initializer_list<OnivVerifyAlg> OnivCrypto::ListAlg()
 {
     return {
             OnivVerifyAlg::IV_AES_128_GCM_SHA256,
@@ -61,17 +116,17 @@ initializer_list<OnivVerifyAlg> OnivCrypto::ListVerifyAlg()
             OnivVerifyAlg::IV_AES_128_CCM_SHA256 };
 }
 
-initializer_list<OnivKeyAgrAlg> OnivCrypto::ListKeyAgrAlg()
+template<> initializer_list<OnivKeyAgrAlg> OnivCrypto::ListAlg()
 {
     return { OnivKeyAgrAlg::KA_SECP384R1, OnivKeyAgrAlg::KA_SECP521R1 };
 }
 
-OnivVerifyAlg OnivCrypto::SelectVerifyAlg(OnivVerifyAlg pre, const OnivIDSet<OnivVerifyAlg> &sup)
+template<> OnivVerifyAlg OnivCrypto::SelectAlg(OnivVerifyAlg pre, const OnivIDSet<OnivVerifyAlg> &sups)
 {
     return pre;
 }
 
-OnivKeyAgrAlg OnivCrypto::SelectKeyAgrAlg(OnivKeyAgrAlg pre, const OnivIDSet<OnivKeyAgrAlg> &sup)
+template<> OnivKeyAgrAlg OnivCrypto::SelectAlg(OnivKeyAgrAlg pre, const OnivIDSet<OnivKeyAgrAlg> &sups)
 {
     return pre;
 }
@@ -143,7 +198,7 @@ string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg,
                     InitVector.c_str(), InitVector.length(),
                     AssData.c_str(), AssData.length(), cipher, UserData.length(),
                     tag, sizeof(tag));
-        return string(tag, MsgAuchCodeSize());
+        return string(tag, MsgAuthCodeSize());
     }
     else if(VerifyAlg == OnivVerifyAlg::IV_AES_256_GCM_SHA384){
         GCMEncryption("aes-256-gcm", SessionKey.c_str(), SessionKey.length(),
@@ -151,7 +206,7 @@ string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg,
                     InitVector.c_str(), InitVector.length(),
                     AssData.c_str(), AssData.length(), cipher, UserData.length(),
                     tag, sizeof(tag));
-        return string(tag, MsgAuchCodeSize());
+        return string(tag, MsgAuthCodeSize());
     }
     else if(VerifyAlg == OnivVerifyAlg::IV_AES_128_CCM_SHA256){
         CCMEncryption(SessionKey.c_str(), SessionKey.length(),
@@ -159,14 +214,14 @@ string OnivCrypto::MsgAuthCode(OnivVerifyAlg VerifyAlg,
                     InitVector.c_str(), InitVector.length(),
                     AssData.c_str(), AssData.length(), cipher, UserData.length(),
                     tag, sizeof(tag));
-        return string(tag, MsgAuchCodeSize());
+        return string(tag, MsgAuthCodeSize());
     }
     else{
         return string();
     }
 }
 
-size_t OnivCrypto::MsgAuchCodeSize()
+size_t OnivCrypto::MsgAuthCodeSize()
 {
     return 16;
 }
@@ -241,36 +296,37 @@ bool OnivCrypto::LoadIdentity()
         return false;
     }
 
-    string VerifyAlgName = OnivGlobal::GetConfig("verification_algorithm");
-    if(VerifyAlgName == "AES-128-GCM-SHA256"){
-        VerifyAlg = OnivVerifyAlg::IV_AES_128_GCM_SHA256;
-    }
-    else if(VerifyAlgName == "AES-256-GCM-SHA384"){
-        VerifyAlg = OnivVerifyAlg::IV_AES_256_GCM_SHA384;
-    }
-    else if(VerifyAlgName == "AES-128-CCM-SHA256"){
-        VerifyAlg = OnivVerifyAlg::IV_AES_128_CCM_SHA256;
-    }
-    else{
-        VerifyAlg = OnivVerifyAlg::IV_AES_128_GCM_SHA256;
+    string AlgName;
+    AlgName = OnivGlobal::GetConfig("verification_algorithm");
+    PreVerifyAlg = ConvAlgName<OnivVerifyAlg>(AlgName);
+    if(PreVerifyAlg == OnivVerifyAlg::UNKNOWN){
+        PreVerifyAlg = OnivVerifyAlg::IV_AES_128_GCM_SHA256;
     }
 
-    string KeyAgrAlgName = OnivGlobal::GetConfig("key_agreement_algorithm");
-    if(KeyAgrAlgName == "secp384r1"){
-        KeyAgrAlg = OnivKeyAgrAlg::KA_SECP384R1;
-    }
-    else if(KeyAgrAlgName == "secp521r1"){
-        KeyAgrAlg = OnivKeyAgrAlg::KA_SECP521R1;
-    }
-    else{
-        KeyAgrAlg = OnivKeyAgrAlg::KA_SECP384R1;
+    AlgName = OnivGlobal::GetConfig("key_agreement_algorithm");
+    PreKeyAgrAlg = ConvAlgName<OnivKeyAgrAlg>(AlgName);
+    if(PreKeyAgrAlg == OnivKeyAgrAlg::UNKNOWN){
+        PreKeyAgrAlg = OnivKeyAgrAlg::KA_SECP384R1;
     }
 
     return true;
 }
 
+unordered_map<string, OnivVerifyAlg> OnivCrypto::VerifyAlgs = {
+    { "aes-128-gcm-sha256", OnivVerifyAlg::IV_AES_128_GCM_SHA256 },
+    { "aes-256-gcm-sha384", OnivVerifyAlg::IV_AES_256_GCM_SHA384 },
+    { "aes-128-ccm-sha256", OnivVerifyAlg::IV_AES_128_CCM_SHA256 },
+};
+unordered_map<string, OnivKeyAgrAlg> OnivCrypto::KeyAgrAlgs = {
+    { "ecdhe-secp384r1" , OnivKeyAgrAlg::KA_SECP384R1 },
+    { "ecdhe-secp521r1" , OnivKeyAgrAlg::KA_SECP521R1 },
+};
+unordered_map<string, OnivSigAlg> OnivCrypto::SigAlgs = {
+    { "ecdsa-secp384R1-sha384", OnivSigAlg::ECDSA_SECP384R1_SHA384 },
+    { "ecdsa-secp521R1-sha512", OnivSigAlg::ECDSA_SECP521R1_SHA512 },
+};
+OnivVerifyAlg OnivCrypto::PreVerifyAlg;
+OnivKeyAgrAlg OnivCrypto::PreKeyAgrAlg;
 string OnivCrypto::uuid;
 string OnivCrypto::sk;
-OnivVerifyAlg OnivCrypto::VerifyAlg;
-OnivKeyAgrAlg OnivCrypto::KeyAgrAlg;
 vector<string> OnivCrypto::crts;

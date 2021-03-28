@@ -11,8 +11,8 @@ void* Onivd::SwitchServerThread(void *para)
         char cmd[OnivGlobal::SwitchServerCmdBufSize] = { 0 };
         AcceptSocket = accept(oniv->ListenSocket, NULL, NULL);
         if(AcceptSocket == -1){
+            OnivLog::LogOnivErr(OnivErr(OnivErrCode::ERROR_ACCEPT_CONTROLLER_CONNECTION));
             continue;
-            err(EXIT_FAILURE, "%s", OnivErr(OnivErrCode::ERROR_ACCEPT_CONTROLLER_CONNECTION).ErrMsg().c_str());
         }
         if((ReadNumber = read(AcceptSocket, cmd, sizeof(cmd))) > 0){
             oe = oniv->ProcessCommand(cmd, ReadNumber);
@@ -24,7 +24,7 @@ void* Onivd::SwitchServerThread(void *para)
             }
         }
         else{
-            warn("%s", OnivErr(OnivErrCode::ERROR_READ_CONTROLLER_CMD).ErrMsg().c_str());
+            OnivLog::LogOnivErr(OnivErrCode::ERROR_READ_CONTROLLER_CMD);
         }
         close(AcceptSocket);
     }
@@ -49,7 +49,7 @@ void* Onivd::AdapterThread(void *para)
                 continue;
             }
             else{
-                err(EXIT_FAILURE, "%s", OnivErr(OnivErrCode::ERROR_WAIT_EPOLL).ErrMsg().c_str());
+                OnivLog::LogOnivErr(OnivErr(OnivErrCode::ERROR_WAIT_EPOLL));
             }
         }
         for(i = 0; i < ready; i++)
@@ -93,7 +93,7 @@ void* Onivd::TunnelThread(void *para)
                 continue;
             }
             else{
-                err(EXIT_FAILURE, "%s", OnivErr(OnivErrCode::ERROR_WAIT_EPOLL).ErrMsg().c_str());
+                OnivLog::LogOnivErr(OnivErr(OnivErrCode::ERROR_WAIT_EPOLL));
             }
         }
         for(i = 0; i < ready; i++)
@@ -131,7 +131,7 @@ void* Onivd::EgressThread(void *para)
                 continue;
             }
             else{
-                err(EXIT_FAILURE, "%s", OnivErr(OnivErrCode::ERROR_WAIT_EPOLL).ErrMsg().c_str());
+                OnivLog::LogOnivErr(OnivErr(OnivErrCode::ERROR_WAIT_EPOLL));
             }
         }
         for(i = 0; i < ready; i++)
@@ -403,9 +403,10 @@ OnivErr Onivd::ProcessCommand(const char *cmd, size_t length)
     {
     case COMMAND_STOP:
         if(length == 1){
-            printf("stopped\n");
-            // pthread_cancel();
-            exit(EXIT_SUCCESS);
+            pthread_cancel(AdapterThreadID);
+            pthread_cancel(TunnelThreadID);
+            pthread_cancel(EgressThreadID);
+            pthread_cancel(ServerThreadID);
         }
         break;
     case COMMAND_ADD_ADP:
@@ -503,6 +504,7 @@ OnivErr Onivd::ProcessLnkEncapusulation(OnivFrame &frame)
         OnivKeyEntry *keyent = kdb.SearchTo(frame.DestIPAddr());
         if(keyent == nullptr){
             OnivLnkReq req(frame); // 根据要发送的数据帧构造链路密钥协商请求
+            OnivLog::LogLnkReq(frame.DestIPAddr());
             forent->egress->EnSendingQueue(req.request()); // 唤醒发送线程
             for(const OnivFrame &fragement : fragemenmts)
             {
@@ -513,8 +515,8 @@ OnivErr Onivd::ProcessLnkEncapusulation(OnivFrame &frame)
             for(const OnivFrame &fragement : fragemenmts)
             {
                 OnivLnkRecord rec(fragement, keyent);
+                keyent->UpdateOnSendLnkRec();
                 forent->egress->EnSendingQueue(rec.record()); // 唤醒发送线程
-                keyent->UpdateOnSend();
             }
         }
     }
@@ -737,6 +739,7 @@ OnivErr Onivd::ProcessLnkKeyAgrReq(OnivFrame &frame)
         const OnivKeyEntry *keyent = kdb.update(frame, req);
         if(keyent != nullptr){
             OnivLnkRes res(frame, keyent);
+            OnivLog::LogRes(*keyent, OnivKeyAgrType::LNK_KA);
             frame.IngressPort()->EnSendingQueue(res.response()); // 唤醒发送线程
         }
         else{
@@ -763,12 +766,12 @@ OnivErr Onivd::ProcessLnkKeyAgrRes(OnivFrame &frame)
     if(res.VerifySignature()){
         OnivKeyEntry *keyent = kdb.update(frame, res);
         if(keyent != nullptr){ // 发送阻塞队列中的数据帧
-            vector<OnivFrame> BlockingFrames = bq.ConditionDequeue(keyent->RemoteAddress);
+            vector<OnivFrame> BlockingFrames = bq.ConditionDequeue(keyent->RemoteAddress.sin_addr.s_addr);
             for(const OnivFrame &bf: BlockingFrames)
             {
                 OnivLnkRecord rec(bf, keyent);
+                keyent->UpdateOnSendLnkRec();
                 frame.IngressPort()->EnSendingQueue(rec.record()); // 唤醒发送线程
-                keyent->UpdateOnSend();
             }
         }
         else{
@@ -856,7 +859,7 @@ OnivErr Onivd::CreateTunnelThread(const string &TunnelAdapterName)
 OnivErr Onivd::CreateEgressThread()
 {
     if((EpollEgress = epoll_create(6)) == -1){
-        err(EXIT_FAILURE, "%s", OnivErr(OnivErrCode::ERROR_CREATE_EPOLL_INSTANCE).ErrMsg().c_str());
+        OnivLog::LogOnivErr(OnivErr(OnivErrCode::ERROR_CREATE_EPOLL_INSTANCE));
     }
     if(pthread_create(&EgressThreadID, NULL, EgressThread, this) != 0){
         return OnivErr(OnivErrCode::ERROR_CREATE_TUNNEL_THREAD);
@@ -867,6 +870,9 @@ OnivErr Onivd::CreateEgressThread()
 Onivd::Onivd(const string &TunnelAdapterName)
 {
     OnivErr oe;
+    if(daemon(1, 1) == -1){
+        err(EXIT_FAILURE, "%s", OnivErr(OnivErrCode::ERROR_BECOME_DAEMMON).ErrMsg().c_str());
+    }
     oe = CreateSwitchServer();
     if(oe.occured()){
         err(EXIT_FAILURE, "%s", oe.ErrMsg().c_str());
@@ -885,8 +891,20 @@ Onivd::Onivd(const string &TunnelAdapterName)
     }
 }
 
+Onivd::~Onivd()
+{
+    struct sockaddr_un ServerAddress;
+    socklen_t len = sizeof(ServerAddress);
+    memset(&ServerAddress, 0, sizeof(ServerAddress));
+    getsockname(ListenSocket, (sockaddr*)&ServerAddress, &len);
+    remove(ServerAddress.sun_path);
+    OnivLog::log("onivd stopped", LOG_NOTICE);
+    OnivLog::ExitLogSystem();
+}
+
 void Onivd::run()
 {
+    OnivLog::log("onivd started", LOG_NOTICE);
     pthread_join(ServerThreadID, NULL);
     pthread_join(AdapterThreadID, NULL);
     pthread_join(TunnelThreadID, NULL);

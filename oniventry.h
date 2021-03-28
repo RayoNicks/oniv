@@ -1,6 +1,7 @@
 #ifndef _ONIV_ENTRY_H_
 #define _ONIV_ENTRY_H_
 
+#include <chrono>
 #include <functional>
 #include <list>
 #include <mutex>
@@ -12,8 +13,11 @@
 #include "onivcrypto.h"
 #include "onivfirst.h"
 #include "onivframe.h"
+#include "onivlog.h"
 #include "onivport.h"
+#include "onivsecond.h"
 
+using std::chrono::system_clock;
 using std::equal_to;
 using std::hash;
 using std::list;
@@ -56,23 +60,33 @@ struct OnivKeyEntry
 {
 private:
     mutex mtx;
-    void UpdatePublibKey(const string &pk, uint64_t UpdTs);
-    void UpdateAcknowledge(uint64_t AckTs);
+    void UpdatePublibKey(const string &pk, time_point<system_clock> UpdTp);
+    void UpdateAcknowledge(time_point<system_clock> AckTp);
 public:
-    in_addr_t RemoteAddress;
-    in_port_t RemotePort;
-    string RemoteUUID, RemotePubKey, LocalPriKey, LocalPubKey, SessionKey, ThirdCert;
+    sockaddr_in RemoteAddress;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
+    string RemoteUUID, RemoteCert;
+    string RemotePubKey, LocalPriKey, LocalPubKey, SessionKey;
+    string ThirdCert;
     bool UpdPk, AckPk;
-    uint64_t ts;
+    time_point<system_clock> tp;
     OnivKeyEntry();
     OnivKeyEntry(const OnivKeyEntry &keyent);
     OnivKeyEntry& operator=(const OnivKeyEntry &keyent);
     void lock();
     void unlock();
-    void UpdateOnSend();
+    void UpdateOnSendLnkReq();
+    void UpdateOnRecvLnkReq(const OnivLnkReq &req);
+    void UpdateOnSendTunReq();
+    void UpdateOnRecvTunReq(const OnivTunReq &req);
+    void UpdateOnSendLnkRes();
+    void UpdateOnRecvLnkRes(const OnivLnkRes &res);
+    void UpdateOnSendTunRes();
+    void UpdateOnRecvTunRes(const OnivTunRes &res);
+    void UpdateOnSendLnkRec();
     void UpdateOnRecvLnkRec(const OnivLnkRecord &record);
+    void UpdateOnSendTunRec();
     void UpdateOnRecvTunRec(const OnivTunRecord &record);
 };
 

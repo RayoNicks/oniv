@@ -10,6 +10,7 @@
 #include "onivframe.h"
 #include "onivpacket.h"
 
+using std::chrono::system_clock;
 using std::string;
 using std::vector;
 
@@ -30,7 +31,7 @@ private:
     uint8_t *buf;
 public:
     OnivTunCommon tc;
-    uint64_t ts;
+    time_point<system_clock> tp;
     OnivVerifyAlg PreVerifyAlg;
     OnivIDSet<OnivVerifyAlg> SupVerifyAlgSet;
     OnivKeyAgrAlg PreKeyAgrAlg;
@@ -54,7 +55,7 @@ private:
     uint8_t *buf;
 public:
     OnivTunCommon tc;
-    uint64_t ReqTs, ResTs;
+    time_point<system_clock> ReqTp, ResTp;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     OnivSigAlg SigAlg;
@@ -76,7 +77,7 @@ private:
     uint8_t *buf;
 public:
     OnivTunCommon tc;
-    uint64_t UpdTs, AckTs;
+    time_point<system_clock> UpdTp, AckTp;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     OnivVariableData pk, code;

@@ -10,6 +10,7 @@ using std::vector;
 enum OnivErrCode
 {
     ERROR_SUCCESSFUL,
+    ERROR_BECOME_DAEMMON,
     ERROR_CREATE_TUNNEL_SOCKET,
     ERROR_BIND_TUNNEL_SOCKET,
     ERROR_EPOLL_TUNNEL,
@@ -45,7 +46,7 @@ enum OnivErrCode
     ERROR_NO_FRAGEMENT_ENTRY,
     ERROR_REASSEMBLING_FRAGEMENTS,
     // verification error
-    ERROR_SIGNATURE,
+    ERROR_WRONG_SIGNATURE,
     ERROR_TUNNEL_VERIFICATION,
     ERROR_LINK_VERIFICATION,
 
@@ -56,10 +57,10 @@ class OnivErr
 {
 private:
     static const vector<string> ErrMsgs;
-    OnivErrCode Code;
+    OnivErrCode code;
     const string& ErrCodeToErrMsg(const OnivErrCode &ec);
 public:
-    OnivErr() = default;
+    OnivErr();
     OnivErr(const OnivErrCode &ec);
     const OnivErrCode ErrCode();
     const string& ErrMsg();

@@ -11,6 +11,7 @@
 #include <net/route.h>
 #include <pthread.h>
 #include <sys/epoll.h>
+#include <unistd.h>
 
 #include "onivadapter.h"
 #include "onivcmd.h"
@@ -90,6 +91,7 @@ private:
     OnivErr CreateEgressThread();
 public:
     Onivd(const string &TunnelAdapterName);
+    ~Onivd();
     void run();
 };
 
