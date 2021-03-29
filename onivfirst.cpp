@@ -88,7 +88,7 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
 
     // 分片，数据帧进入交换机的时间为请求进入交换机的时间
     lka.offset = 0;
-    lka.FrgSize = frame.IngressPort()->MTU() - HdrSizeWithOnivHdr;
+    lka.FrgSize = OnivGlobal::AdapterMaxMTU - HdrSizeWithOnivHdr;
     while(lka.offset + lka.FrgSize < lka.total){
         OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, OnivCommon::count(),
             frame.SrcIPAddr(), frame.DestIPAddr(),
@@ -235,9 +235,9 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf
 
     certs.linearization(p);
 
-    // 分片，响应进入交换机的时间为请求进入交换机的时间
+    // 分片，请求进入交换机的时间为响应进入交换机的时间
     lka.offset = 0;
-    lka.FrgSize = frame.IngressPort()->MTU() - HdrSizeWithOnivHdr;
+    lka.FrgSize = OnivGlobal::AdapterMaxMTU - HdrSizeWithOnivHdr;
     while(lka.offset + lka.FrgSize < lka.total){
         OnivCommon::ConstructEncapHdr(hdr + Layer2HdrSize, OnivCommon::count(),
             frame.DestIPAddr(), frame.SrcIPAddr(),
