@@ -549,6 +549,7 @@ OnivErr Onivd::ProcessTunnelForwarding(OnivPacket &packet)
     }
     packet.DiapatchIngressTunnel(AcceptTunnel); // 设置数据包的接收隧道
     AcceptTunnel->UpdateSocket(packet); // 更新隧道地址
+
     OnivTunRecord rec(packet);
     OnivFrame frame(rec.frame(), rec.FrameSize(), packet.IngressPort(), packet.EntryTime());
     if(frame.IsBroadcast()){ // 发送到广播域
@@ -656,10 +657,10 @@ OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
     }
     AcceptTunnel = &*iter;
     packet.DiapatchIngressTunnel(AcceptTunnel); // 设置数据包的接收隧道
-    AcceptTunnel->UpdateSocket(packet); // 更新隧道地址
 
-    OnivKeyEntry *keyent = AcceptTunnel->KeyEntry();
     OnivTunRecord rec(packet);
+    OnivKeyEntry *keyent = AcceptTunnel->KeyEntry();
+    keyent->UpdateAddress(packet.RemotePortNo(), packet.RemoteIPAddress()); // 更新隧道地址
     keyent->UpdateOnRecvTunRec(rec);
     if(!rec.VerifyIdentity(keyent)){ // 隧道身份验证
         // 构造隧道身份验证失败报文，添加到发送队列
@@ -794,6 +795,7 @@ OnivErr Onivd::ProcessLnkRecord(OnivFrame &frame)
     OnivLnkRecord rec(frame);
     OnivKeyEntry *keyent = kdb.SearchFrom(string((char*)rec.common.UUID, sizeof(rec.common.UUID)));
     if(keyent != nullptr){
+        keyent->UpdateAddress(frame.SrcPort(), frame.SrcIPAddr());
         keyent->UpdateOnRecvLnkRec(rec);
         if(rec.VerifyIdentity(keyent)){
             forent->egress->EnSendingQueue(rec.frame()); // 唤醒发送线程

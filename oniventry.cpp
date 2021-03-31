@@ -225,6 +225,12 @@ void OnivKeyEntry::UpdateOnRecvTunRec(const OnivTunRecord &record)
     }
 }
 
+void OnivKeyEntry::UpdateAddress(in_port_t port, in_addr_t address)
+{
+    RemoteAddress.sin_port = port;
+    RemoteAddress.sin_addr.s_addr = address;
+}
+
 bool OnivFragementEntry::reassemble(uint16_t offset, uint16_t len)
 {
     for(auto iter = unreached.begin(); iter != unreached.end(); iter++)

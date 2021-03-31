@@ -88,6 +88,7 @@ public:
     void UpdateOnRecvLnkRec(const OnivLnkRecord &record);
     void UpdateOnSendTunRec();
     void UpdateOnRecvTunRec(const OnivTunRecord &record);
+    void UpdateAddress(in_port_t port, in_addr_t address);
 };
 
 struct OnivFragementEntry

@@ -180,8 +180,7 @@ in_addr_t OnivTunnel::RemoteIPAddress() const
 
 void OnivTunnel::UpdateSocket(const OnivPacket &packet)
 {
-    keyent.RemoteAddress.sin_port = packet.RemotePortNo();
-    keyent.RemoteAddress.sin_addr.s_addr = packet.RemoteIPAddress();
+    keyent.UpdateAddress(packet.RemotePortNo(), packet.RemoteIPAddress());
 }
 
 OnivKeyEntry* OnivTunnel::KeyEntry()
