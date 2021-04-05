@@ -124,9 +124,9 @@ void TestECDH()
     char ska[512] = { 0 }, pka[512] = { 0 }, skb[512] = { 0 }, pkb[512] = { 0 };
     char SessionBuffa[128] = { 0 }, SessionBuffb[128] = { 0 };
     size_t skalen, pkalen, skblen, pkblen, SessionLena, SessionLenb;
-    skalen = GenECPrivateKey("secp384r1", ska, sizeof(ska), FORMAT_PEM);
+    skalen = GenECPrivateKey("secp521r1", ska, sizeof(ska), FORMAT_PEM);
     pkalen = GetECPublicKey(ska, skalen, pka, sizeof(pka), FORMAT_PEM);
-    skblen = GenECPrivateKey("secp384r1", skb, sizeof(skb), FORMAT_PEM);
+    skblen = GenECPrivateKey("secp521r1", skb, sizeof(skb), FORMAT_PEM);
     pkblen = GetECPublicKey(skb, skblen, pkb, sizeof(pkb), FORMAT_PEM);
 
     cout << "private keya is:\n" << ska << endl;
@@ -178,7 +178,7 @@ void TestEncAndDec()
     }
     cout << "certificate is:\n" << certificate << endl;
 
-    sk.open("../ecc/secp384r1/private/guest2.pem", ifstream::in | ifstream::binary);
+    sk.open("../ecc/secp384r1/private/guest2-sk.pem", ifstream::in | ifstream::binary);
     if(!sk){
         return;
     }

@@ -46,13 +46,13 @@ OnivLnkReq::OnivLnkReq(const OnivFrame &frame) : buf(nullptr)
     lka.total += sizeof(PreKeyAgrAlg) + SupKeyAgrAlgSet.LinearSize();
 
     SigAlg = OnivCrypto::LocalAlg<OnivSigAlg>();
-    signature.data(OnivCrypto::GenSignature(OnivCrypto::UUID()));
+    signature.data(OnivCrypto::GenSignature(OnivCrypto::LocalUUID()));
     lka.total += sizeof(SigAlg) + signature.LinearSize();
 
     certs.assign(OnivCrypto::CertChain());
     lka.total += certs.LinearSize();
 
-    memcpy(lka.common.UUID, OnivCrypto::UUID().c_str(), sizeof(lka.common.UUID));
+    memcpy(lka.common.UUID, OnivCrypto::LocalUUID().c_str(), sizeof(lka.common.UUID));
 
     // 使用自构建的IP协议封装
     size_t Layer2HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
@@ -189,13 +189,13 @@ OnivLnkRes::OnivLnkRes(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf
     lka.total += pk.LinearSize();
 
     SigAlg = OnivCrypto::LocalAlg<OnivSigAlg>();
-    signature.data(OnivCrypto::GenSignature(OnivCrypto::UUID() + pk.data())),
+    signature.data(OnivCrypto::GenSignature(OnivCrypto::LocalUUID() + pk.data())),
     lka.total += sizeof(SigAlg) + signature.LinearSize();
 
     certs.assign(OnivCrypto::CertChain());
     lka.total += certs.LinearSize();
 
-    memcpy(lka.common.UUID, OnivCrypto::UUID().c_str(), sizeof(lka.common.UUID));
+    memcpy(lka.common.UUID, OnivCrypto::LocalUUID().c_str(), sizeof(lka.common.UUID));
 
     // 使用自构建的IP协议封装
     size_t Layer2HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();
@@ -359,13 +359,13 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     common.len += sizeof(VerifyAlg);
 
     code.data(string(OnivCrypto::MsgAuthCodeSize(), '\0')); // 占位
-    trustee.data(OnivCrypto::GetSubject(keyent->ThirdCert));
-    escrow.data(OnivCrypto::GenEscrowData(keyent->ThirdCert, keyent->SessionKey, string()));
+    trustee.data(OnivCrypto::GetUUID(keyent->ThirdCert));
+    escrow.data(keyent->EscrowData);
     data = frame.OriginUserData(); // data中包含原始的IP首部和四层首部
     common.len += code.LinearSize() + trustee.LinearSize() + escrow.LinearSize();
     common.len += data.length();
 
-    memcpy(common.UUID, OnivCrypto::UUID().c_str(), sizeof(common.UUID));
+    memcpy(common.UUID, OnivCrypto::LocalUUID().c_str(), sizeof(common.UUID));
 
     // 使用自构建的IP协议封装
     size_t Layer2HdrSize = frame.Layer3Hdr() - frame.Layer2Hdr();

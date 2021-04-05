@@ -16,12 +16,9 @@ void* Onivd::SwitchServerThread(void *para)
         }
         if((ReadNumber = read(AcceptSocket, cmd, sizeof(cmd))) > 0){
             oe = oniv->ProcessCommand(cmd, ReadNumber);
-            if(oe.occured()){
-                write(AcceptSocket, oe.ErrMsg().c_str(), oe.ErrMsg().length());
-            }
-            else{
-                write(AcceptSocket, "success", strlen("success"));
-            }
+            if(write(AcceptSocket, oe.ErrMsg().c_str(), oe.ErrMsg().length()) != ssize_t(oe.ErrMsg().length())){
+                OnivLog::LogOnivErr(OnivErr(OnivErrCode::ERROR_WRITE_BACK_CONTROLLER));
+            };
         }
         else{
             OnivLog::LogOnivErr(OnivErrCode::ERROR_READ_CONTROLLER_CMD);

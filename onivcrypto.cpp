@@ -25,7 +25,7 @@ string OnivCrypto::ReadFile(const string &subject, int type)
     return der;
 }
 
-const string& OnivCrypto::UUID()
+const string& OnivCrypto::LocalUUID()
 {
     return uuid;
 }
@@ -171,7 +171,7 @@ string OnivCrypto::GenPriKey(OnivKeyAgrAlg KeyAgrAlg)
     }
 }
 
-string OnivCrypto::GenPubKey(const string &PrivateKey)
+string OnivCrypto::GetPubKeyFromPriKey(const string &PrivateKey)
 {
     char PublicKey[256] = { 0 };
     int size = GetECPublicKey(PrivateKey.c_str(), PrivateKey.length(), PublicKey, sizeof(PublicKey), FORMAT_ASN1);
@@ -252,20 +252,27 @@ bool OnivCrypto::VerifySignature(const vector<string> &CertChain, const string &
     return ValidChain && ValidSignature;
 }
 
-string OnivCrypto::GetSubject(const string &cert)
+const string OnivCrypto::GetSubject(const string &cert)
 {
     char subject[512] = { 0 };
     int size = GetSubjectName(cert.c_str(), cert.length(), subject, sizeof(subject), FORMAT_ASN1);
     return string(subject, size);
 }
 
-string OnivCrypto::GetCertFromSubject(const string &subject)
+const string OnivCrypto::GetUUID(const string &cert)
+{
+    char buf[16] = { 0 };
+    if(!uuid5(cert.c_str(), cert.length(), buf, sizeof(buf), FORMAT_ASN1)){
+        return string();
+    }
+    return string(buf, sizeof(buf));
+}
+
+const string OnivCrypto::GetCertFromUUID(const string &uuid)
 {
     for(const string &cert : crts)
     {
-        char subject[512] = { 0 };
-        int size = GetSubjectName(cert.c_str(), cert.length(), subject, sizeof(subject), FORMAT_ASN1);
-        if(string(subject, size) == subject){
+        if(uuid == GetUUID(cert)){
             return cert;
         }
     }
@@ -285,11 +292,10 @@ bool OnivCrypto::LoadIdentity()
         }
     }
 
-    char buf[16] = { 0 };
-    if(!uuid5(crts.back().c_str(), crts.back().length(), buf, sizeof(buf), FORMAT_ASN1)){
+    uuid = GetUUID(crts.back());
+    if(uuid.empty()){
         return false;
     }
-    uuid.assign(buf, sizeof(buf));
 
     sk = ReadFile(OnivGlobal::GetConfig("private_key_file"), OBJECT_ECC_PRI);
     if(sk.empty()){

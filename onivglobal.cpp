@@ -82,8 +82,9 @@ bool OnivGlobal::EnableTun()
 map<string, string> OnivGlobal::config;
 const set<string> OnivGlobal::keywords = { 
     "link_verification", "tunnel_verification",
-    "private_key_file", "cert_path", "cert_chain", "tunnel_interface",
+    "private_key_file", "cert_path", "cert_chain",
     "verification_algorithm", "key_agreement_algorithm",
+    "tunnel_interface",
     };
 bool OnivGlobal::EnableLinkVerification = false;
 bool OnivGlobal::EnableTunnelVerification = false;
@@ -91,7 +92,7 @@ bool OnivGlobal::EnableTunnelVerification = false;
 const string OnivGlobal::SwitchServerPath("/var/run/oniv");
 const size_t OnivGlobal::SwitchServerCmdBufSize = 1024;
 const size_t OnivGlobal::MaxEpollEvents = 32;
-const int OnivGlobal::LinkExtra= 300; // 第一种身份信息占用的数据包空间
+const int OnivGlobal::LinkExtra = 300; // 第一种身份信息占用的数据包空间
 const int OnivGlobal::AdapterMinMTU = 600;
 const int OnivGlobal::AdapterMaxMTU = 1300;
 const int OnivGlobal::AdapterExtraMTU = 14; // mtu不包含以太网头部

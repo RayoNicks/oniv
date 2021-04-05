@@ -156,11 +156,12 @@ int main(int argc, char *argv[])
 
     ClientSocket = ConnectSwitchServerSocket(OnivGlobal::SwitchServerPath.c_str());
     if((WriteNumber = write(ClientSocket, CmdBuf.c_str(), CmdBuf.size()) < 0)){
-        err(EXIT_FAILURE, "Write command failed");
+        err(EXIT_FAILURE, "Send command failed");
     }
 
-    read(ClientSocket, result, sizeof(result));
-    cout << result << endl;
+    if(read(ClientSocket, result, sizeof(result)) > 0){
+        cout << result << endl;
+    }
 
     return 0;
 }

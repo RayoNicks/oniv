@@ -45,7 +45,8 @@ const vector<string> OnivErr::ErrMsgs = {
     "Listen on server socket failed",
     "Accept controller connection failed",
     "Read controller command failed",
-    "Parse controller command",
+    "Parse controller command failed",
+    "Write back to controller failed",
     "Create adapter failed",
     "Adapter exists",
     "Unknown adapter",
@@ -60,6 +61,8 @@ const vector<string> OnivErr::ErrMsgs = {
     // tunnel thread error
     "Create tunnel thread failed",
     "Receive packet from tunnel failed",
+    // egress thread error
+    "Send frame to adapter failed",
     // switch message
     "Create epoll instance failed",
     "Wait epoll failed",

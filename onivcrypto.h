@@ -29,7 +29,7 @@ private:
     template<typename T> static string AuxConvAlgNum(const unordered_map<string, T> &algs, T num);
     template<typename T> static T AuxConvAlgName(const unordered_map<string, T> &algs, const string &name);
 public:
-    static const string& UUID();
+    static const string& LocalUUID();
 
     template<typename T> static string ConvAlgNum(T num);
     template<typename T> static T ConvAlgName(const string &name);
@@ -45,7 +45,7 @@ public:
     static bool VerifySignature(const vector<string> &CertChain, const string &data, const string &signature);
 
     static string GenPriKey(OnivKeyAgrAlg KeyAgrAlg);
-    static string GenPubKey(const string &PrivateKey);
+    static string GetPubKeyFromPriKey(const string &PrivateKey);
     static string ComputeSessionKey(const string &PublibKey, const string &PrivateKey);
 
     static string MsgAuthCode(OnivVerifyAlg VerifyAlg,
@@ -54,8 +54,10 @@ public:
     static size_t MsgAuthCodeSize();
     static string GenEscrowData(const string &cert, const string &SessionKey, const string &aux);
 
-    static string GetSubject(const string &cert);
-    static string GetCertFromSubject(const string &subject);
+    static const string GetSubject(const string &cert);
+
+    static const string GetUUID(const string &cert);
+    static const string GetCertFromUUID(const string &uuid);
 
     static bool LoadIdentity();
 };

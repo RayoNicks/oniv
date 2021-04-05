@@ -82,7 +82,9 @@ OnivErr OnivAdapter::send()
             break;
         }
         OnivLog::LogFrameLatency(frame);
-        write(handle(), frame.buffer(), frame.size());
+        if(write(handle(), frame.buffer(), frame.size()) != ssize_t(frame.size())){
+            return OnivErr(OnivErrCode::ERROR_SEND_ADAPTER);
+        };
     }
 
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);

@@ -62,13 +62,14 @@ private:
     mutex mtx;
     void UpdatePublibKey(const string &pk, time_point<system_clock> UpdTp);
     void UpdateAcknowledge(time_point<system_clock> AckTp);
+    void UpdateEscrow(const string &trustee);
 public:
     sockaddr_in RemoteAddress;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     string RemoteUUID, RemoteCert;
     string RemotePubKey, LocalPriKey, LocalPubKey, SessionKey;
-    string ThirdCert;
+    string ThirdCert, EscrowData;
     bool UpdPk, AckPk;
     time_point<system_clock> tp;
     OnivKeyEntry();

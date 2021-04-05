@@ -41,6 +41,14 @@ void OnivKeyEntry::UpdateAcknowledge(time_point<system_clock> AckTp)
     unlock();
 }
 
+void OnivKeyEntry::UpdateEscrow(const string &trustee)
+{
+    lock();
+    ThirdCert = OnivCrypto::GetCertFromUUID(trustee);
+    EscrowData = OnivCrypto::GenEscrowData(ThirdCert, SessionKey, string());
+    unlock();
+}
+
 OnivKeyEntry::OnivKeyEntry()
     : VerifyAlg(OnivVerifyAlg::UNKNOWN), KeyAgrAlg(OnivKeyAgrAlg::UNKNOWN),
     UpdPk(false), AckPk(false)
@@ -54,7 +62,7 @@ OnivKeyEntry::OnivKeyEntry(const OnivKeyEntry &keyent)
     RemoteUUID(keyent.RemoteUUID), RemoteCert(keyent.RemoteCert),
     RemotePubKey(keyent.RemotePubKey), LocalPriKey(keyent.LocalPriKey),
     LocalPubKey(keyent.LocalPubKey), SessionKey(keyent.SessionKey),
-    ThirdCert(keyent.ThirdCert),
+    ThirdCert(keyent.ThirdCert), EscrowData(keyent.EscrowData),
     UpdPk(keyent.UpdPk), AckPk(keyent.AckPk), tp(keyent.tp)
 {
     memcpy(&RemoteAddress, &keyent.RemoteAddress, sizeof(RemoteAddress));
@@ -72,6 +80,7 @@ OnivKeyEntry& OnivKeyEntry::operator=(const OnivKeyEntry &keyent)
     LocalPubKey = keyent.LocalPubKey;
     SessionKey = keyent.SessionKey;
     ThirdCert = keyent.ThirdCert;
+    EscrowData = keyent.EscrowData;
     UpdPk = keyent.UpdPk;
     AckPk = keyent.AckPk;
     tp = keyent.tp;
@@ -100,7 +109,7 @@ void OnivKeyEntry::UpdateOnRecvLnkReq(const OnivLnkReq &req)
     RemoteUUID.assign((char*)req.lka.common.UUID, sizeof(req.lka.common.UUID));
     RemoteCert = req.certs.CertChain.back();
     LocalPriKey = OnivCrypto::GenPriKey(KeyAgrAlg);
-    LocalPubKey = OnivCrypto::GenPubKey(LocalPriKey);
+    LocalPubKey = OnivCrypto::GetPubKeyFromPriKey(LocalPriKey);
     tp = req.tp;
     OnivLog::LogLnkReq(*this);
 }
@@ -118,7 +127,7 @@ void OnivKeyEntry::UpdateOnRecvTunReq(const OnivTunReq &req)
     RemoteUUID.assign((char*)req.tc.common.UUID, sizeof(req.tc.common.UUID));
     RemoteCert = req.certs.CertChain.back();
     LocalPriKey = OnivCrypto::GenPriKey(KeyAgrAlg);
-    LocalPubKey = OnivCrypto::GenPubKey(LocalPriKey);
+    LocalPubKey = OnivCrypto::GetPubKeyFromPriKey(LocalPriKey);
     tp = req.tp;
     unlock();
     OnivLog::LogTunReq(*this);
@@ -138,9 +147,10 @@ void OnivKeyEntry::UpdateOnRecvLnkRes(const OnivLnkRes &res)
     RemoteCert = res.certs.CertChain.back();
     RemotePubKey = res.pk.data();
     LocalPriKey = OnivCrypto::GenPriKey(KeyAgrAlg);
-    LocalPubKey = OnivCrypto::GenPubKey(LocalPriKey);
+    LocalPubKey = OnivCrypto::GetPubKeyFromPriKey(LocalPriKey);
     SessionKey = OnivCrypto::ComputeSessionKey(RemotePubKey, LocalPriKey);
     ThirdCert = OnivCrypto::SelectTrusteeCert(res.RmdTp, res.AppTp);
+    EscrowData = OnivCrypto::GenEscrowData(ThirdCert, SessionKey, string());
     UpdPk = true;
     AckPk = false;
     tp = res.ReqTp; // 记录请求时间
@@ -162,7 +172,7 @@ void OnivKeyEntry::UpdateOnRecvTunRes(const OnivTunRes &res)
     RemoteCert = res.certs.CertChain.back();
     RemotePubKey = res.pk.data();
     LocalPriKey = OnivCrypto::GenPriKey(KeyAgrAlg);
-    LocalPubKey = OnivCrypto::GenPubKey(LocalPriKey);
+    LocalPubKey = OnivCrypto::GetPubKeyFromPriKey(LocalPriKey);
     SessionKey = OnivCrypto::ComputeSessionKey(RemotePubKey, LocalPriKey);
     UpdPk = true;
     AckPk = false;
@@ -189,15 +199,13 @@ void OnivKeyEntry::UpdateOnRecvLnkRec(const OnivLnkRecord &record)
 {
     if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK)){
         UpdatePublibKey(record.pk.data(), record.UpdTp);
+        UpdateEscrow(record.trustee.data());
         OnivLog::LogUpd(*this, OnivKeyAgrType::LNK_KA);
     }
     else if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::ACK_PK)){
         UpdateAcknowledge(record.AckTp);
         OnivLog::LogAck(*this, OnivKeyAgrType::LNK_KA);
     }
-    lock();
-    ThirdCert = OnivCrypto::GetCertFromSubject(record.trustee.data());
-    unlock();
 }
 
 void OnivKeyEntry::UpdateOnSendTunRec()

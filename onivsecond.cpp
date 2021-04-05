@@ -40,12 +40,12 @@ OnivTunReq::OnivTunReq(uint32_t bdi) : buf(nullptr)
     tc.common.len += sizeof(PreKeyAgrAlg) + SupKeyAgrAlgSet.LinearSize();
 
     SigAlg = OnivCrypto::LocalAlg<OnivSigAlg>();
-    signature.data(OnivCrypto::GenSignature(OnivCrypto::UUID()));
+    signature.data(OnivCrypto::GenSignature(OnivCrypto::LocalUUID()));
     tc.common.len += sizeof(SigAlg) + signature.LinearSize();
 
     certs.assign(OnivCrypto::CertChain());
     tc.common.len += certs.LinearSize();
-    memcpy(tc.common.UUID, OnivCrypto::UUID().c_str(), sizeof(tc.common.UUID));
+    memcpy(tc.common.UUID, OnivCrypto::LocalUUID().c_str(), sizeof(tc.common.UUID));
 
     // 以网络字节序线性化
     buf = new uint8_t[size()];
@@ -153,13 +153,13 @@ OnivTunRes::OnivTunRes(uint32_t bdi, const OnivKeyEntry *keyent) : buf(nullptr)
     tc.common.len += pk.LinearSize();
 
     SigAlg = OnivCrypto::LocalAlg<OnivSigAlg>();
-    signature.data(OnivCrypto::GenSignature(OnivCrypto::UUID() + pk.data()));
+    signature.data(OnivCrypto::GenSignature(OnivCrypto::LocalUUID() + pk.data()));
     tc.common.len += sizeof(SigAlg) + signature.LinearSize();
 
     certs.assign(OnivCrypto::CertChain());
     tc.common.len += certs.LinearSize();
 
-    memcpy(tc.common.UUID, OnivCrypto::UUID().c_str(), sizeof(tc.common.UUID));
+    memcpy(tc.common.UUID, OnivCrypto::LocalUUID().c_str(), sizeof(tc.common.UUID));
 
     // 以网络字节序线性化
     buf = new uint8_t[size()];
@@ -292,7 +292,7 @@ OnivTunRecord::OnivTunRecord(uint32_t bdi, const OnivFrame &frame, const OnivKey
     data.assign(frame.buffer(), frame.size());
     tc.common.len += data.length();
 
-    memcpy(tc.common.UUID, OnivCrypto::UUID().c_str(), sizeof(tc.common.UUID));
+    memcpy(tc.common.UUID, OnivCrypto::LocalUUID().c_str(), sizeof(tc.common.UUID));
 
     // 以网络字节序线性化
     buf = new uint8_t[size()];

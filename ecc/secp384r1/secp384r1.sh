@@ -39,9 +39,9 @@ openssl req -new -out request/guest3.csr -key private/guest3-sk.pem -sha384 \
     -subj "/C=CN/ST=Hubei/L=Wuhan/O=WHU/OU=SCSE/CN=guest3"
 openssl x509 -req -in request/guest3.csr -CA cert/root.crt -CAkey private/root-sk.pem \
     -out cert/guest3-2nd.crt -sha384
-openssl x509 -req -in request/guest3.csr -CA cert/proxy.crt -CAkey private/proxy-sk.pem 
+openssl x509 -req -in request/guest3.csr -CA cert/proxy.crt -CAkey private/proxy-sk.pem \
     -out cert/guest3-3rd.crt -sha384
 
 # 合并根证书文件
-cat root.crt > chain.crt
-cat proxy.crt >> chain.crt
+cat cert/root.crt > cert/chain.crt
+cat cert/proxy.crt >> cert/chain.crt
