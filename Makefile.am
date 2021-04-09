@@ -56,5 +56,6 @@ onivd_LDADD = -lcrypto -lpthread
 EXTRA_DIST = README.md guest1.sh guest2.sh guest3.sh guest4.sh \
 	oniv.conf \
 	ecc/secp384r1/* ecc/secp521r1/* \
+	ecc/openssl.conf \
 	Makefile.mk libonivcrypto/Makefile.mk socket/Makefile.mk
 
