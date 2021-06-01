@@ -1,8 +1,22 @@
 #include "onivtunnel.h"
-#include "onivpacket.h"
+
+#include <algorithm>
+#include <cstring>
+
+#include <err.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+
+#include "onivframe.h"
+#include "onivglobal.h"
+#include "onivlog.h"
+#include "onivmessage.h"
+#include "onivsecond.h"
 
 using std::chrono::system_clock;
 using std::min;
+using std::string;
 
 in_addr_t OnivTunnel::AdapterNameToAddr(const string &TunnelAdapterName)
 {
@@ -42,7 +56,7 @@ OnivErr OnivTunnel::EnableSend()
                 if(frame.empty()){
                     break;
                 }
-                OnivTunRecord rec(bdi, frame, &keyent);
+                OnivTunRec rec(bdi, frame, &keyent);
                 keyent.UpdateOnSendTunRec();
                 OnivLog::LogFrameLatency(frame);
                 sendto(LocalTunnelSocket, rec.record(), rec.size(), 0, (const struct sockaddr*)&keyent.RemoteAddress, sizeof(keyent.RemoteAddress));
@@ -64,7 +78,7 @@ OnivErr OnivTunnel::DisableSend()
         if(frame.empty()){
             break;
         }
-        OnivTunRecord rec(bdi, frame, nullptr);
+        OnivTunRec rec(bdi, frame, nullptr);
         OnivLog::LogFrameLatency(frame);
         sendto(LocalTunnelSocket, rec.record(), rec.size(), 0, (const struct sockaddr*)&keyent.RemoteAddress, sizeof(keyent.RemoteAddress));
     }
@@ -115,7 +129,7 @@ OnivErr OnivTunnel::send()
     }
 }
 
-OnivErr OnivTunnel::recv(OnivPacket &packet)
+OnivErr OnivTunnel::recv(OnivMessage &message)
 {
     sockaddr_in remote;
     socklen_t len = sizeof(remote);
@@ -125,14 +139,14 @@ OnivErr OnivTunnel::recv(OnivPacket &packet)
     if(PacketSize < 0){
         return OnivErr(OnivErrCode::ERROR_RECV_TUNNEL);
     }
-    packet = OnivPacket(buf, PacketSize, this, remote, system_clock::now());
+    message = OnivMessage(buf, PacketSize, this, remote, system_clock::now());
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr OnivTunnel::VerifySignature(const OnivPacket &packet)
+OnivErr OnivTunnel::VerifySignature(const OnivMessage &message)
 {
-    if(packet.type() == OnivPacketType::TUN_KA_REQ){
-        OnivTunReq req(packet);
+    if(message.type() == OnivPacketType::TUN_KA_REQ){
+        OnivTunReq req(message);
         ValidSignature = req.VerifySignature();
         if(ValidSignature){
             keyent.UpdateOnRecvTunReq(req);
@@ -142,8 +156,8 @@ OnivErr OnivTunnel::VerifySignature(const OnivPacket &packet)
             return OnivErr(OnivErrCode::ERROR_WRONG_SIGNATURE);
         }
     }
-    else if(packet.type() == OnivPacketType::TUN_KA_RES){
-        OnivTunRes res(packet);
+    else if(message.type() == OnivPacketType::TUN_KA_RES){
+        OnivTunRes res(message);
         ValidSignature = res.VerifySignature();
         if(ValidSignature){
             keyent.UpdateOnRecvTunRes(res);
@@ -178,9 +192,9 @@ in_addr_t OnivTunnel::RemoteIPAddress() const
     return keyent.RemoteAddress.sin_addr.s_addr;
 }
 
-void OnivTunnel::UpdateSocket(const OnivPacket &packet)
+void OnivTunnel::UpdateSocket(const OnivMessage &message)
 {
-    keyent.UpdateAddress(packet.RemotePortNo(), packet.RemoteIPAddress());
+    keyent.UpdateAddress(message.RemotePortNo(), message.RemoteIPAddress());
 }
 
 OnivKeyEntry* OnivTunnel::KeyEntry()

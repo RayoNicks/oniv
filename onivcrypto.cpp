@@ -1,9 +1,18 @@
 #include "onivcrypto.h"
+
+#include <algorithm>
+#include <fstream>
+
 #include "libonivcrypto/libonivcrypto.h"
+#include "onivglobal.h"
 
 using namespace libonivcrypto;
-using std::transform;
+using std::initializer_list;
 using std::ifstream;
+using std::string;
+using std::transform;
+using std::unordered_map;
+using std::vector;
 
 string OnivCrypto::ReadFile(const string &subject, int type)
 {

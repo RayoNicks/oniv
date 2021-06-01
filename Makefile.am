@@ -18,7 +18,7 @@ onivd_SOURCES = main.cpp \
 	onivframe.cpp \
 	onivglobal.cpp \
 	onivlog.cpp \
-	onivpacket.cpp \
+	onivmessage.cpp \
 	onivport.cpp \
 	onivqueue.cpp \
 	onivsecond.cpp \
@@ -43,7 +43,7 @@ noinst_HEADERS = \
 	onivframe.h \
 	onivglobal.h \
 	onivlog.h \
-	onivpacket.h \
+	onivmessage.h \
 	onivport.h \
 	onivqueue.h \
 	onivsecond.h \

@@ -1,13 +1,26 @@
 #include "onivlog.h"
 
+#include <chrono>
+#include <iomanip>
+#include <sstream>
+
+#include <arpa/inet.h>
+
+#include "oniv.h"
+#include "onivcrypto.h"
+#include "onivframe.h"
+#include "oniventry.h"
+
 using std::chrono::duration_cast;
 using std::chrono::microseconds;
 using std::chrono::milliseconds;
 using std::chrono::system_clock;
+using std::chrono::time_point;
 using std::hex;
 using std::ostringstream;
 using std::setfill;
 using std::setw;
+using std::string;
 
 char* OnivLog::Net2Asc(in_addr_t address)
 {

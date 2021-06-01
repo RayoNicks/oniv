@@ -7,19 +7,16 @@
 #include <unordered_set>
 
 #include "oniventry.h"
-#include "onivfirst.h"
-#include "onivframe.h"
 
-using std::mutex;
-using std::string;
-using std::unordered_map;
-using std::unordered_set;
+class OnivFrame;
+class OnivLnkReq;
+class OnivLnkRes;
 
 class OnivFDB
 {
 private:
-    unordered_set<OnivForwardingEntry> ForwardingTable;
-    mutex mtx;
+    std::unordered_set<OnivForwardingEntry> ForwardingTable;
+    std::mutex mtx;
 public:
     OnivFDB() = default;
     const OnivForwardingEntry* search(const OnivFrame &frame);
@@ -29,12 +26,12 @@ public:
 class OnivKDB
 {
 private:
-    unordered_map<string, OnivKeyEntry> KeyTable;
-    mutex mtx;
+    std::unordered_map<std::string, OnivKeyEntry> KeyTable;
+    std::mutex mtx;
 public:
     OnivKDB() = default;
     OnivKeyEntry* SearchTo(in_addr_t DestAddr);
-    OnivKeyEntry* SearchFrom(const string &RemoteUUID);
+    OnivKeyEntry* SearchFrom(const std::string &RemoteUUID);
     OnivKeyEntry* update(const OnivFrame &frame, const OnivLnkReq &req);
     OnivKeyEntry* update(const OnivFrame &frame, const OnivLnkRes &res);
 };
@@ -42,8 +39,8 @@ public:
 class OnivRDB
 {
 private:
-    unordered_map<string, OnivFragementEntry> FragTable;
-    mutex mtx;
+    std::unordered_map<std::string, OnivFragementEntry> FragTable;
+    std::mutex mtx;
 public:
     OnivRDB() = default;
     OnivFragementEntry* AddFragement(const OnivFrame &frame);

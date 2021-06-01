@@ -1,6 +1,30 @@
 #include "onivd.h"
 
+#include <algorithm>
+#include <cstring>
+
+#include <err.h>
+#include <linux/un.h>
+#include <net/if.h>
+#include <net/route.h>
+#include <sys/epoll.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+
+#include "onivadapter.h"
+#include "onivcmd.h"
+#include "onivfirst.h"
+#include "onivframe.h"
+#include "onivglobal.h"
+#include "onivlog.h"
+#include "onivmessage.h"
+#include "onivsecond.h"
+#include "onivtunnel.h"
+
 using std::find_if;
+using std::list;
+using std::string;
+using std::vector;
 
 void* Onivd::SwitchServerThread(void *para)
 {
@@ -31,7 +55,7 @@ void* Onivd::SwitchServerThread(void *para)
     创建三种类型的线程：
         - 一种类型的线程处理所有的写操作
         - 一种类型的线程读取并处理网卡的数据帧
-        - 一种类型的线程读取并处理隧道的数据包
+        - 一种类型的线程读取并处理隧道的报文
 */
 
 void* Onivd::AdapterThread(void *para)
@@ -98,16 +122,16 @@ void* Onivd::TunnelThread(void *para)
             if(evlist[i].events & EPOLLIN){
                 OnivErr oe;
                 OnivTunnel *ListenTunnel = (OnivTunnel*)evlist[i].data.ptr;
-                OnivPacket packet;
-                oe = ListenTunnel->recv(packet);
+                OnivMessage message;
+                oe = ListenTunnel->recv(message);
                 if(oe.occured()){
                     continue;
                 }
                 if(OnivGlobal::EnableTun()){
-                    oniv->ProcessTunnelDecapusulation(packet);
+                    oniv->ProcessTunnelDecapusulation(message);
                 }
                 else{
-                    oniv->ProcessTunnelForwarding(packet);
+                    oniv->ProcessTunnelForwarding(message);
                 }
                 
             }
@@ -511,7 +535,7 @@ OnivErr Onivd::ProcessLnkEncapusulation(OnivFrame &frame)
         else{
             for(const OnivFrame &fragement : fragemenmts)
             {
-                OnivLnkRecord rec(fragement, keyent);
+                OnivLnkRec rec(fragement, keyent);
                 keyent->UpdateOnSendLnkRec();
                 forent->egress->EnSendingQueue(rec.record()); // 唤醒发送线程
             }
@@ -524,18 +548,18 @@ OnivErr Onivd::ProcessLnkEncapusulation(OnivFrame &frame)
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::ProcessTunnelForwarding(OnivPacket &packet)
+OnivErr Onivd::ProcessTunnelForwarding(OnivMessage &message)
 {
     OnivErr oe;
     OnivTunnel *AcceptTunnel;
-    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
+    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&message](const OnivTunnel &tunnel)
     {
-        return tunnel.RemotePortNo() == packet.RemotePortNo()
-            && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
+        return tunnel.RemotePortNo() == message.RemotePortNo()
+            && tunnel.RemoteIPAddress() == message.RemoteIPAddress();
     }
     );
     if(iter == tunnels.end()){ // 没有找到反向隧道
-        oe = AuxAddTunnel(packet.RemoteIPAddress(), packet.RemotePortNo(), packet.BroadcastDomain(), OnivGlobal::TunnelMTU);
+        oe = AuxAddTunnel(message.RemoteIPAddress(), message.RemotePortNo(), message.BroadcastDomain(), OnivGlobal::TunnelMTU);
         if(oe.occured()){
             return oe;
         }
@@ -544,11 +568,11 @@ OnivErr Onivd::ProcessTunnelForwarding(OnivPacket &packet)
     else{ // 找到了反向隧道
         AcceptTunnel = &*iter;
     }
-    packet.DiapatchIngressTunnel(AcceptTunnel); // 设置数据包的接收隧道
-    AcceptTunnel->UpdateSocket(packet); // 更新隧道地址
+    message.DiapatchIngressTunnel(AcceptTunnel); // 设置报文的接收隧道
+    AcceptTunnel->UpdateSocket(message); // 更新隧道地址
 
-    OnivTunRecord rec(packet);
-    OnivFrame frame(rec.frame(), rec.FrameSize(), packet.IngressPort(), packet.EntryTime());
+    OnivTunRec rec(message);
+    OnivFrame frame(rec.frame(), rec.FrameSize(), message.IngressPort(), message.EntryTime());
     if(frame.IsBroadcast()){ // 发送到广播域
         ProcessBroadcast(frame);
     }
@@ -563,15 +587,15 @@ OnivErr Onivd::ProcessTunnelForwarding(OnivPacket &packet)
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::ProcessTunnelDecapusulation(OnivPacket &packet)
+OnivErr Onivd::ProcessTunnelDecapusulation(OnivMessage &message)
 {
-    switch(packet.type())
+    switch(message.type())
     {
     case OnivPacketType::TUN_KA_REQ:
-        ProcessTunKeyAgrReq(packet);
+        ProcessTunKeyAgrReq(message);
         break;
     case OnivPacketType::TUN_KA_RES:
-        ProcessTunKeyAgrRes(packet);
+        ProcessTunKeyAgrRes(message);
         break;
     case OnivPacketType::TUN_KA_FIN:
         break;
@@ -580,7 +604,7 @@ OnivErr Onivd::ProcessTunnelDecapusulation(OnivPacket &packet)
     case OnivPacketType::TUN_IV_ERR:
         break;
     case OnivPacketType::ONIV_RECORD:
-        ProcessTunRecord(packet);
+        ProcessTunRecord(message);
         break;
     default:
         break;
@@ -588,19 +612,19 @@ OnivErr Onivd::ProcessTunnelDecapusulation(OnivPacket &packet)
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::ProcessTunKeyAgrReq(OnivPacket &packet)
+OnivErr Onivd::ProcessTunKeyAgrReq(OnivMessage &message)
 {
     // TODO 处理重复的隧道密钥协商请求消息
     OnivErr oe;
     OnivTunnel *AcceptTunnel;
-    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
+    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&message](const OnivTunnel &tunnel)
     {
-        return tunnel.RemotePortNo() == packet.RemotePortNo()
-            && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
+        return tunnel.RemotePortNo() == message.RemotePortNo()
+            && tunnel.RemoteIPAddress() == message.RemoteIPAddress();
     }
     );
     if(iter == tunnels.end()){ // 没有找到反向隧道
-        oe = AuxAddTunnel(packet.RemoteIPAddress(), packet.RemotePortNo(), packet.BroadcastDomain(), OnivGlobal::TunnelMTU);
+        oe = AuxAddTunnel(message.RemoteIPAddress(), message.RemotePortNo(), message.BroadcastDomain(), OnivGlobal::TunnelMTU);
         if(oe.occured()){
             return oe;
         }
@@ -609,7 +633,7 @@ OnivErr Onivd::ProcessTunKeyAgrReq(OnivPacket &packet)
     else{ // 找到了反向隧道
         AcceptTunnel = &*iter;
     }
-    oe = AcceptTunnel->VerifySignature(packet);
+    oe = AcceptTunnel->VerifySignature(message);
     if(oe.occured()){
         return oe;
     }
@@ -617,22 +641,22 @@ OnivErr Onivd::ProcessTunKeyAgrReq(OnivPacket &packet)
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::ProcessTunKeyAgrRes(OnivPacket &packet)
+OnivErr Onivd::ProcessTunKeyAgrRes(OnivMessage &message)
 {
     // TODO 处理重复的隧道密钥协商响应消息
     OnivErr oe;
     OnivTunnel *AcceptTunnel;
-    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
+    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&message](const OnivTunnel &tunnel)
     {
-        return tunnel.RemotePortNo() == packet.RemotePortNo()
-            && tunnel.RemoteIPAddress() == packet.RemoteIPAddress();
+        return tunnel.RemotePortNo() == message.RemotePortNo()
+            && tunnel.RemoteIPAddress() == message.RemoteIPAddress();
     }
     );
     if(iter == tunnels.end()){
         return OnivErr(OnivErrCode::ERROR_UNKNOWN);
     }
     AcceptTunnel = &*iter;
-    oe = AcceptTunnel->VerifySignature(packet);
+    oe = AcceptTunnel->VerifySignature(message);
     if(oe.occured()){
         return oe;
     }
@@ -640,30 +664,30 @@ OnivErr Onivd::ProcessTunKeyAgrRes(OnivPacket &packet)
     return OnivErr(OnivErrCode::ERROR_SUCCESSFUL);
 }
 
-OnivErr Onivd::ProcessTunRecord(OnivPacket &packet)
+OnivErr Onivd::ProcessTunRecord(OnivMessage &message)
 {
     OnivTunnel *AcceptTunnel;
-    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&packet](const OnivTunnel &tunnel)
+    TunnelIter iter = find_if(tunnels.begin(), tunnels.end(), [&message](const OnivTunnel &tunnel)
     {
         // 在接收数据之前一定已经进行了隧道密钥协商，可以根据身份标识区分隧道
-        return tunnel.RemoteID() == packet.SenderID();
+        return tunnel.RemoteID() == message.SenderID();
     }
     );
     if(iter == tunnels.end()){
         return OnivErr(OnivErrCode::ERROR_UNKNOWN);
     }
     AcceptTunnel = &*iter;
-    packet.DiapatchIngressTunnel(AcceptTunnel); // 设置数据包的接收隧道
+    message.DiapatchIngressTunnel(AcceptTunnel); // 设置报文的接收隧道
 
-    OnivTunRecord rec(packet);
+    OnivTunRec rec(message);
     OnivKeyEntry *keyent = AcceptTunnel->KeyEntry();
-    keyent->UpdateAddress(packet.RemotePortNo(), packet.RemoteIPAddress()); // 更新隧道地址
+    keyent->UpdateAddress(message.RemotePortNo(), message.RemoteIPAddress()); // 更新隧道地址
     keyent->UpdateOnRecvTunRec(rec);
     if(!rec.VerifyIdentity(keyent)){ // 隧道身份验证
         // 构造隧道身份验证失败报文，添加到发送队列
         return OnivErr(OnivErrCode::ERROR_TUNNEL_VERIFICATION);
     }
-    OnivFrame frame(rec.frame(), rec.FrameSize(), packet.IngressPort(), packet.EntryTime());
+    OnivFrame frame(rec.frame(), rec.FrameSize(), message.IngressPort(), message.EntryTime());
     if(frame.IsBroadcast()){ // 发送到广播域
         ProcessBroadcast(frame);
     }
@@ -767,7 +791,7 @@ OnivErr Onivd::ProcessLnkKeyAgrRes(OnivFrame &frame)
             vector<OnivFrame> BlockingFrames = bq.ConditionDequeue(keyent->RemoteAddress.sin_addr.s_addr);
             for(const OnivFrame &bf: BlockingFrames)
             {
-                OnivLnkRecord rec(bf, keyent);
+                OnivLnkRec rec(bf, keyent);
                 keyent->UpdateOnSendLnkRec();
                 frame.IngressPort()->EnSendingQueue(rec.record()); // 唤醒发送线程
             }
@@ -789,7 +813,7 @@ OnivErr Onivd::ProcessLnkRecord(OnivFrame &frame)
         return OnivErr(OnivErrCode::ERROR_NO_FORWARD_ENTRY);
     }
 
-    OnivLnkRecord rec(frame);
+    OnivLnkRec rec(frame);
     OnivKeyEntry *keyent = kdb.SearchFrom(string((char*)rec.common.UUID, sizeof(rec.common.UUID)));
     if(keyent != nullptr){
         keyent->UpdateAddress(frame.SrcPort(), frame.SrcIPAddr());

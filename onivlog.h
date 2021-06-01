@@ -1,21 +1,15 @@
 #ifndef _ONIV_LOG_
 #define _ONIV_LOG_
 
-#include <chrono>
-#include <iomanip>
-#include <sstream>
 #include <string>
 
-#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <syslog.h>
 
-#include "oniv.h"
-#include "onivcrypto.h"
-#include "oniventry.h"
 #include "oniverr.h"
-#include "onivframe.h"
 
-using std::string;
+class OnivFrame;
+class OnivKeyEntry;
 
 enum class OnivKeyAgrType
 {
@@ -27,12 +21,12 @@ class OnivLog
 {
 private:
     static char* Net2Asc(in_addr_t address);
-    static string Str2Hex(const string &str);
-    static string Str2Hex(const char *p, size_t len);
+    static std::string Str2Hex(const std::string &str);
+    static std::string Str2Hex(const char *p, size_t len);
 public:
     static void InitLogSystem();
     static void ExitLogSystem();
-    static void log(const string &log, int priority = LOG_INFO);
+    static void log(const std::string &log, int priority = LOG_INFO);
     static void LogOnivErr(OnivErr oe);
     static void LogFrameLatency(const OnivFrame &frame);
     static void LogLnkReq(in_addr_t address); // 发送方日志函数

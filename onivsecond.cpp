@@ -1,5 +1,15 @@
 #include "onivsecond.h"
+
+#include <cstring>
+
+#include "onivcrypto.h"
+#include "onivframe.h"
 #include "oniventry.h"
+#include "onivmessage.h"
+
+using std::chrono::time_point;
+using std::chrono::system_clock;
+using std::string;
 
 void OnivTunCommon::linearization(uint8_t *p)
 {
@@ -74,23 +84,23 @@ OnivTunReq::OnivTunReq(uint32_t bdi) : buf(nullptr)
     certs.linearization(p);
 }
 
-OnivTunReq::OnivTunReq(const OnivPacket &packet) : buf(nullptr)
+OnivTunReq::OnivTunReq(const OnivMessage &message) : buf(nullptr)
 {
-    if(packet.size() < OnivTunCommon::LinearSize()){
+    if(message.size() < OnivTunCommon::LinearSize()){
         return;
     }
 
-    const uint8_t *p = (uint8_t*)packet.buffer();
+    const uint8_t *p = (uint8_t*)message.buffer();
     tc.structuration(p);
     if(tc.common.type != CastTo16<OnivPacketType>(OnivPacketType::TUN_KA_REQ)){
         return;
     }
-    if(tc.common.len != packet.size() - OnivCommon::LinearSize()){
+    if(tc.common.len != message.size() - OnivCommon::LinearSize()){
         return;
     }
 
-    buf = new uint8_t[packet.size()];
-    memcpy(buf, packet.buffer(), packet.size());
+    buf = new uint8_t[message.size()];
+    memcpy(buf, message.buffer(), message.size());
     p = buf + OnivTunCommon::LinearSize();
 
     tp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));
@@ -188,23 +198,23 @@ OnivTunRes::OnivTunRes(uint32_t bdi, const OnivKeyEntry *keyent) : buf(nullptr)
     certs.linearization(p);
 }
 
-OnivTunRes::OnivTunRes(const OnivPacket &packet) : buf(nullptr)
+OnivTunRes::OnivTunRes(const OnivMessage &message) : buf(nullptr)
 {
-    if(packet.size() < OnivTunCommon::LinearSize()){
+    if(message.size() < OnivTunCommon::LinearSize()){
         return;
     }
 
-    const uint8_t *p = (uint8_t*)packet.buffer();
+    const uint8_t *p = (uint8_t*)message.buffer();
     tc.structuration(p);
     if(tc.common.type != CastTo16<OnivPacketType>(OnivPacketType::TUN_KA_RES)){
         return;
     }
-    if(tc.common.len != packet.size() - OnivCommon::LinearSize()){
+    if(tc.common.len != message.size() - OnivCommon::LinearSize()){
         return;
     }
 
-    buf = new uint8_t[packet.size()];
-    memcpy(buf, packet.buffer(), packet.size());
+    buf = new uint8_t[message.size()];
+    memcpy(buf, message.buffer(), message.size());
     p = buf + OnivTunCommon::LinearSize();
 
     ReqTp = time_point<system_clock>(system_clock::duration(*(uint64_t*)p));
@@ -248,7 +258,7 @@ size_t OnivTunRes::size()
     return OnivCommon::LinearSize() + tc.common.len;
 }
 
-OnivTunRecord::OnivTunRecord(uint32_t bdi, const OnivFrame &frame, const OnivKeyEntry *keyent) : buf(nullptr)
+OnivTunRec::OnivTunRec(uint32_t bdi, const OnivFrame &frame, const OnivKeyEntry *keyent) : buf(nullptr)
 {
     if(keyent != nullptr){
         tc.common.type = CastTo16<OnivPacketType>(OnivPacketType::ONIV_RECORD);
@@ -330,24 +340,24 @@ OnivTunRecord::OnivTunRecord(uint32_t bdi, const OnivFrame &frame, const OnivKey
     memcpy(p, data.c_str(), data.length());
 }
 
-OnivTunRecord::OnivTunRecord(const OnivPacket &packet) : buf(nullptr)
+OnivTunRec::OnivTunRec(const OnivMessage &message) : buf(nullptr)
 {
-    if(packet.size() < OnivCommon::LinearSize()){
+    if(message.size() < OnivCommon::LinearSize()){
         return;
     }
 
-    const uint8_t *p = (uint8_t*)packet.buffer();
+    const uint8_t *p = (uint8_t*)message.buffer();
     tc.structuration(p);
     if(tc.common.type != CastTo16<OnivPacketType>(OnivPacketType::ONIV_FRAME)
         && tc.common.type != CastTo16<OnivPacketType>(OnivPacketType::ONIV_RECORD)){
         return;
     }
-    if(tc.common.len != packet.size() - OnivCommon::LinearSize()){
+    if(tc.common.len != message.size() - OnivCommon::LinearSize()){
         return;
     }
 
-    buf = new uint8_t[packet.size()];
-    memcpy(buf, packet.buffer(), packet.size());
+    buf = new uint8_t[message.size()];
+    memcpy(buf, message.buffer(), message.size());
     p = buf + OnivTunCommon::LinearSize();
 
     if(tc.common.type == CastTo16<OnivPacketType>(OnivPacketType::ONIV_RECORD)){
@@ -371,15 +381,15 @@ OnivTunRecord::OnivTunRecord(const OnivPacket &packet) : buf(nullptr)
         p += code.structuration(p);
     }
 
-    data.assign((char*)p, buf + packet.size() - p);
+    data.assign((char*)p, buf + message.size() - p);
 }
 
-OnivTunRecord::~OnivTunRecord()
+OnivTunRec::~OnivTunRec()
 {
     delete[] buf;
 }
 
-bool OnivTunRecord::VerifyIdentity(const OnivKeyEntry *keyent)
+bool OnivTunRec::VerifyIdentity(const OnivKeyEntry *keyent)
 {
     string AssData((char*)buf, OnivTunCommon::LinearSize());
     string InitVector((char*)tc.common.UUID, sizeof(tc.common.UUID));
@@ -389,22 +399,22 @@ bool OnivTunRecord::VerifyIdentity(const OnivKeyEntry *keyent)
                             data, InitVector, AssData);
 }
 
-const uint8_t* OnivTunRecord::record()
+const uint8_t* OnivTunRec::record()
 {
     return buf;
 }
 
-const char* OnivTunRecord::frame()
+const char* OnivTunRec::frame()
 {
     return data.c_str();
 }
 
-size_t OnivTunRecord::size()
+size_t OnivTunRec::size()
 {
     return OnivCommon::LinearSize() + tc.common.len;
 }
 
-size_t OnivTunRecord::FrameSize()
+size_t OnivTunRec::FrameSize()
 {
     return data.length();
 }

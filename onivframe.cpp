@@ -1,11 +1,21 @@
 #include "onivframe.h"
+
+#include <cstring>
+#include <iomanip>
+#include <iostream>
+
+#include "onivglobal.h"
 #include "onivport.h"
 
+using std::chrono::system_clock;
+using std::chrono::time_point;
 using std::cout;
 using std::endl;
 using std::hex;
 using std::setfill;
 using std::setw;
+using std::string;
+using std::vector;
 
 OnivFrame::OnivFrame() : ingress(nullptr)
 {

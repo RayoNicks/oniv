@@ -6,18 +6,15 @@
 #include <queue>
 #include <vector>
 
-#include "onivframe.h"
+#include <netinet/in.h>
 
-using std::list;
-using std::mutex;
-using std::queue;
-using std::vector;
+class OnivFrame;
 
 class OnivSendingQueue
 {
 private:
-    queue<OnivFrame> qf;
-    mutex mtx;
+    std::queue<OnivFrame> qf;
+    std::mutex mtx;
 public:
     OnivSendingQueue();
     OnivSendingQueue(const OnivSendingQueue &q) = delete;
@@ -30,15 +27,15 @@ public:
 class OnivBlockingQueue
 {
 private:
-    list<OnivFrame> lf;
-    mutex mtx;
+    std::list<OnivFrame> lf;
+    std::mutex mtx;
 public:
     OnivBlockingQueue();
     OnivBlockingQueue(const OnivBlockingQueue &q) = delete;
     OnivBlockingQueue& operator=(const OnivBlockingQueue &q) = delete;
     ~OnivBlockingQueue();
     void enqueue(const OnivFrame &frame);
-    vector<OnivFrame> ConditionDequeue(in_addr_t address);
+    std::vector<OnivFrame> ConditionDequeue(in_addr_t address);
 };
 
 #endif

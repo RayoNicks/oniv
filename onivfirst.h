@@ -6,12 +6,7 @@
 #include <vector>
 
 #include "oniv.h"
-#include "onivcrypto.h"
 #include "onivframe.h"
-
-using std::chrono::system_clock;
-using std::string;
-using std::vector;
 
 class OnivKeyEntry;
 
@@ -19,7 +14,7 @@ struct OnivLnkKA
 {
     OnivCommon common;
     /*
-        密钥协商消息中会传输的证书、签名和公钥会导致无法在一个数据包中发送全部信息，因此需要进行分片
+        密钥协商消息中会传输的证书、签名和公钥会导致无法在一个报文中发送全部信息，因此需要进行分片
         size表示OnivKACommon之后的密钥协商数据大小
         total表示完整的密钥协商消息大小
         offset表示OnivKACommon之后的数据在完整的密钥协商消息中的偏移
@@ -35,10 +30,10 @@ class OnivLnkReq
 {
 private:
     uint8_t *buf;
-    vector<OnivFrame> frames;
+    std::vector<OnivFrame> frames;
 public:
     OnivLnkKA lka;
-    time_point<system_clock> tp;
+    std::chrono::time_point<std::chrono::system_clock> tp;
     OnivVerifyAlg PreVerifyAlg;
     OnivIDSet<OnivVerifyAlg> SupVerifyAlgSet;
     OnivKeyAgrAlg PreKeyAgrAlg;
@@ -52,17 +47,17 @@ public:
     OnivLnkReq& operator=(const OnivLnkReq &req) = delete;
     ~OnivLnkReq();
     bool VerifySignature();
-    vector<OnivFrame> request();
+    std::vector<OnivFrame> request();
 };
 
 class OnivLnkRes
 {
 private:
     uint8_t *buf;
-    vector<OnivFrame> frames;
+    std::vector<OnivFrame> frames;
 public:
     OnivLnkKA lka;
-    time_point<system_clock> ReqTp, ResTp;
+    std::chrono::time_point<std::chrono::system_clock> ReqTp, ResTp;
     uint16_t RmdTp, AppTp;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
@@ -75,27 +70,27 @@ public:
     OnivLnkRes& operator=(const OnivLnkRes &res) = delete;
     ~OnivLnkRes();
     bool VerifySignature();
-    vector<OnivFrame> response();
+    std::vector<OnivFrame> response();
 };
 
-class OnivLnkRecord
+class OnivLnkRec
 {
 private:
     uint8_t *buf;
     OnivFrame output;
 public:
     OnivCommon common;
-    time_point<system_clock> UpdTp, AckTp;
+    std::chrono::time_point<std::chrono::system_clock> UpdTp, AckTp;
     uint16_t OriginProtocol;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     OnivVariableData pk, code, trustee, escrow;
-    string data;
-    OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent); // 发送方构造函数
-    OnivLnkRecord(const OnivFrame &frame); // 接收方构造函数
-    OnivLnkRecord(const OnivLnkRecord &rec) = delete;
-    OnivLnkRecord& operator=(const OnivLnkRecord &rec) = delete;
-    ~OnivLnkRecord();
+    std::string data;
+    OnivLnkRec(const OnivFrame &frame, const OnivKeyEntry *keyent); // 发送方构造函数
+    OnivLnkRec(const OnivFrame &frame); // 接收方构造函数
+    OnivLnkRec(const OnivLnkRec &rec) = delete;
+    OnivLnkRec& operator=(const OnivLnkRec &rec) = delete;
+    ~OnivLnkRec();
     bool VerifyIdentity(const OnivKeyEntry *keyent);
     OnivFrame record();
     OnivFrame frame();

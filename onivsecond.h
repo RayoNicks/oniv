@@ -3,18 +3,12 @@
 
 #include <chrono>
 #include <string>
-#include <vector>
 
 #include "oniv.h"
-#include "onivcrypto.h"
-#include "onivframe.h"
-#include "onivpacket.h"
 
-using std::chrono::system_clock;
-using std::string;
-using std::vector;
-
+class OnivFrame;
 class OnivKeyEntry;
+class OnivMessage;
 
 struct OnivTunCommon
 {
@@ -31,7 +25,7 @@ private:
     uint8_t *buf;
 public:
     OnivTunCommon tc;
-    time_point<system_clock> tp;
+    std::chrono::time_point<std::chrono::system_clock> tp;
     OnivVerifyAlg PreVerifyAlg;
     OnivIDSet<OnivVerifyAlg> SupVerifyAlgSet;
     OnivKeyAgrAlg PreKeyAgrAlg;
@@ -40,7 +34,7 @@ public:
     OnivVariableData signature;
     OnivCertChain certs;
     OnivTunReq(uint32_t bdi); // 发送方构造函数
-    OnivTunReq(const OnivPacket &packet); // 接收方构造函数
+    OnivTunReq(const OnivMessage &message); // 接收方构造函数
     OnivTunReq(const OnivTunReq &req) = delete;
     OnivTunReq& operator=(const OnivTunReq &req) = delete;
     ~OnivTunReq();
@@ -55,14 +49,14 @@ private:
     uint8_t *buf;
 public:
     OnivTunCommon tc;
-    time_point<system_clock> ReqTp, ResTp;
+    std::chrono::time_point<std::chrono::system_clock> ReqTp, ResTp;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     OnivSigAlg SigAlg;
     OnivVariableData pk, signature;
     OnivCertChain certs;
     OnivTunRes(uint32_t bdi, const OnivKeyEntry *keyent); // 发送方构造函数
-    OnivTunRes(const OnivPacket &packet); // 接收方构造函数
+    OnivTunRes(const OnivMessage &message); // 接收方构造函数
     OnivTunRes(const OnivTunRes &res) = delete;
     OnivTunRes& operator=(const OnivTunRes &res) = delete;
     ~OnivTunRes();
@@ -71,22 +65,22 @@ public:
     size_t size();
 };
 
-class OnivTunRecord
+class OnivTunRec
 {
 private:
     uint8_t *buf;
 public:
     OnivTunCommon tc;
-    time_point<system_clock> UpdTp, AckTp;
+    std::chrono::time_point<std::chrono::system_clock> UpdTp, AckTp;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
     OnivVariableData pk, code;
-    string data;
-    OnivTunRecord(uint32_t bdi, const OnivFrame &frame, const OnivKeyEntry *keyent); // 发送方构造函数
-    OnivTunRecord(const OnivPacket &packet); // 接收方构造函数
-    OnivTunRecord(const OnivTunRecord &rec) = delete;
-    OnivTunRecord& operator=(const OnivTunRecord &rec) = delete;
-    ~OnivTunRecord();
+    std::string data;
+    OnivTunRec(uint32_t bdi, const OnivFrame &frame, const OnivKeyEntry *keyent); // 发送方构造函数
+    OnivTunRec(const OnivMessage &message); // 接收方构造函数
+    OnivTunRec(const OnivTunRec &rec) = delete;
+    OnivTunRec& operator=(const OnivTunRec &rec) = delete;
+    ~OnivTunRec();
     bool VerifyIdentity(const OnivKeyEntry *keyent);
     const uint8_t* record();
     const char* frame();

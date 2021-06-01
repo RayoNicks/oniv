@@ -1,19 +1,11 @@
 #ifndef _ONIV_H_
 #define _ONIV_H_
 
-#include <cstring>
 #include <initializer_list>
-#include <mutex>
 #include <string>
 #include <vector>
 
 #include <netinet/in.h>
-
-#include "onivglobal.h"
-
-using std::initializer_list;
-using std::string;
-using std::vector;
 
 enum class OnivPacketType : uint16_t
 {
@@ -87,11 +79,11 @@ template <typename T> T CastFrom16(uint16_t u);
 
 template <typename T> struct OnivIDSet
 {
-    vector<T> IDSet;
+    std::vector<T> IDSet;
     OnivIDSet();
     OnivIDSet(const OnivIDSet &IDSet) = delete;
     OnivIDSet& operator=(const OnivIDSet &IDSet) = delete;
-    void insert(const initializer_list<T> &ids);
+    void insert(const std::initializer_list<T> &ids);
     size_t LinearSize();
     void linearization(uint8_t *p);
     size_t structuration(const uint8_t *p);
@@ -102,7 +94,7 @@ template <typename T> OnivIDSet<T>::OnivIDSet()
 
 }
 
-template <typename T> void OnivIDSet<T>::insert(const initializer_list<T> &ids)
+template <typename T> void OnivIDSet<T>::insert(const std::initializer_list<T> &ids)
 {
     IDSet.assign(ids.begin(), ids.end());
 }
@@ -139,14 +131,14 @@ template <typename T> size_t OnivIDSet<T>::structuration(const uint8_t *p)
 
 struct OnivVariableData
 {
-    string buf;
+    std::string buf;
     OnivVariableData();
-    OnivVariableData(const string &data);
+    OnivVariableData(const std::string &data);
     OnivVariableData(const OnivVariableData &vld) = delete;
     OnivVariableData& operator=(const OnivVariableData &vld) = delete;
-    void data(const string &data);
-    string& data();
-    const string& data() const;
+    void data(const std::string &data);
+    std::string& data();
+    const std::string& data() const;
     size_t LinearSize();
     void linearization(uint8_t *p);
     size_t structuration(const uint8_t *p);
@@ -154,11 +146,11 @@ struct OnivVariableData
 
 struct OnivCertChain
 {
-    vector<string> CertChain;
+    std::vector<std::string> CertChain;
     OnivCertChain();
     OnivCertChain(const OnivCertChain &CertChain) = delete;
     OnivCertChain& operator=(const OnivCertChain &CertChain) = delete;
-    void assign(const vector<string> &certs);
+    void assign(const std::vector<std::string> &certs);
     size_t LinearSize();
     void linearization(uint8_t *p);
     size_t structuration(const uint8_t *p);

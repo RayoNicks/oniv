@@ -1,6 +1,13 @@
 #include "oniv.h"
 
+#include <cstring>
+#include <mutex>
+
+#include "onivglobal.h"
+
 using std::mutex;
+using std::string;
+using std::vector;
 
 void OnivCommon::linearization(uint8_t *p)
 {

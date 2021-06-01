@@ -1,7 +1,22 @@
 #include "onivadapter.h"
 
+#include <algorithm>
+#include <chrono>
+#include <cstring>
+
+#include <fcntl.h>
+#include <linux/if_tun.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+
+#include "onivframe.h"
+#include "onivglobal.h"
+#include "onivlog.h"
+
 using std::chrono::system_clock;
 using std::min;
+using std::string;
 
 OnivAdapter::OnivAdapter(const string &name, in_addr_t address, in_addr_t mask, uint32_t bdi, int mtu)
     : OnivPort(min(mtu, OnivGlobal::AdapterMaxMTU), bdi),

@@ -4,9 +4,6 @@
 #include <string>
 #include <vector>
 
-using std::string;
-using std::vector;
-
 enum OnivErrCode
 {
     ERROR_SUCCESSFUL,
@@ -59,14 +56,14 @@ enum OnivErrCode
 class OnivErr
 {
 private:
-    static const vector<string> ErrMsgs;
+    static const std::vector<std::string> ErrMsgs;
     OnivErrCode code;
-    const string& ErrCodeToErrMsg(const OnivErrCode &ec);
+    const std::string& ErrCodeToErrMsg(const OnivErrCode &ec);
 public:
     OnivErr();
     OnivErr(const OnivErrCode &ec);
     const OnivErrCode ErrCode();
-    const string& ErrMsg();
+    const std::string& ErrMsg();
     bool occured();
 };
 

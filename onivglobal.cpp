@@ -1,7 +1,15 @@
 #include "onivglobal.h"
 
+#include <sstream>
+#include <iostream>
+#include <fstream>
+
 using std::ifstream;
 using std::istringstream;
+using std::map;
+using std::set;
+using std::string;
+using std::vector;
 
 bool OnivGlobal::LoadConfiguration(const string &file)
 {
@@ -92,7 +100,7 @@ bool OnivGlobal::EnableTunnelVerification = false;
 const string OnivGlobal::SwitchServerPath("/var/run/oniv");
 const size_t OnivGlobal::SwitchServerCmdBufSize = 1024;
 const size_t OnivGlobal::MaxEpollEvents = 32;
-const int OnivGlobal::LinkExtra = 300; // 第一种身份信息占用的数据包空间
+const int OnivGlobal::LinkExtra = 300; // 第一种身份信息占用的报文空间
 const int OnivGlobal::AdapterMinMTU = 600;
 const int OnivGlobal::AdapterMaxMTU = 1300;
 const int OnivGlobal::AdapterExtraMTU = 14; // mtu不包含以太网头部

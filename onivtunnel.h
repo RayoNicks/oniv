@@ -1,25 +1,13 @@
 #ifndef _ONIV_TUNNEL_H_
 #define _ONIV_TUNNEL_H_
 
-#include <algorithm>
 #include <chrono>
-#include <cstring>
 #include <string>
 
-#include <err.h>
-#include <net/if.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-
 #include "oniventry.h"
-#include "onivglobal.h"
-#include "onivlog.h"
 #include "onivport.h"
-#include "onivsecond.h"
 
-using std::string;
-
-class OnivPacket;
+class OnivMessage;
 
 class OnivTunnel : public OnivPort
 {
@@ -27,11 +15,11 @@ private:
     static int LocalTunnelSocket;
     bool ValidSignature;
     OnivKeyEntry keyent;
-    in_addr_t AdapterNameToAddr(const string &TunnelAdapterName);
+    in_addr_t AdapterNameToAddr(const std::string &TunnelAdapterName);
     OnivErr EnableSend();
     OnivErr DisableSend();
 public:
-    OnivTunnel(const string &TunnelAdapterName, in_port_t PortNo, int mtu);
+    OnivTunnel(const std::string &TunnelAdapterName, in_port_t PortNo, int mtu);
     OnivTunnel(in_addr_t address, in_port_t PortNo,  uint32_t bdi, int mtu);
     OnivTunnel() = delete;
     OnivTunnel(const OnivTunnel &tunnel) = delete;
@@ -39,15 +27,15 @@ public:
     virtual ~OnivTunnel() override;
     
     virtual OnivErr send() override;
-    OnivErr recv(OnivPacket &packet);
+    OnivErr recv(OnivMessage &message);
 
-    OnivErr VerifySignature(const OnivPacket &packet);
+    OnivErr VerifySignature(const OnivMessage &message);
 
     int handle() const;
-    string RemoteID() const;
+    std::string RemoteID() const;
     in_port_t RemotePortNo() const;
     in_addr_t RemoteIPAddress() const;
-    void UpdateSocket(const OnivPacket &packet);
+    void UpdateSocket(const OnivMessage &message);
     OnivKeyEntry* KeyEntry();
 };
 

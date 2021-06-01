@@ -7,32 +7,23 @@
 #include <mutex>
 #include <string>
 
-#include <netinet/in.h>
-
 #include "oniv.h"
-#include "onivcrypto.h"
-#include "onivfirst.h"
-#include "onivframe.h"
-#include "onivlog.h"
-#include "onivport.h"
-#include "onivsecond.h"
 
-using std::chrono::system_clock;
-using std::equal_to;
-using std::hash;
-using std::list;
-using std::mutex;
-using std::pair;
-using std::string;
-
-class OnivLnkRecord;
-class OnivTunRecord;
+class OnivFrame;
+class OnivLnkKA;
+class OnivLnkReq;
+class OnivLnkRes;
+class OnivLnkRec;
+class OnivPort;
+class OnivTunReq;
+class OnivTunRes;
+class OnivTunRec;
 
 struct OnivForwardingEntry
 {
-    string HwAddr;
+    std::string HwAddr;
     OnivPort *egress;
-    OnivForwardingEntry(const string &HwAddr, OnivPort *egress);
+    OnivForwardingEntry(const std::string &HwAddr, OnivPort *egress);
     OnivForwardingEntry(const OnivForwardingEntry &forent);
     OnivForwardingEntry& operator=(const OnivForwardingEntry &forent);
 };
@@ -43,7 +34,7 @@ namespace std{
     public:
         size_t operator()(const OnivForwardingEntry &ent) const noexcept
         {
-            return hash<string>()(ent.HwAddr);
+            return hash<std::string>()(ent.HwAddr);
         }
     };
     template<> class equal_to<OnivForwardingEntry>
@@ -51,7 +42,7 @@ namespace std{
     public:
         bool operator()(const OnivForwardingEntry &e1, const OnivForwardingEntry &e2) const
         {
-            return equal_to<string>()(e1.HwAddr, e2.HwAddr);
+            return equal_to<std::string>()(e1.HwAddr, e2.HwAddr);
         }
     };
 }
@@ -59,19 +50,19 @@ namespace std{
 struct OnivKeyEntry
 {
 private:
-    mutex mtx;
-    void UpdatePublibKey(const string &pk, time_point<system_clock> UpdTp);
-    void UpdateAcknowledge(time_point<system_clock> AckTp);
-    void UpdateEscrow(const string &trustee);
+    std::mutex mtx;
+    void UpdatePublibKey(const std::string &pk, std::chrono::time_point<std::chrono::system_clock> UpdTp);
+    void UpdateAcknowledge(std::chrono::time_point<std::chrono::system_clock> AckTp);
+    void UpdateEscrow(const std::string &trustee);
 public:
     sockaddr_in RemoteAddress;
     OnivVerifyAlg VerifyAlg;
     OnivKeyAgrAlg KeyAgrAlg;
-    string RemoteUUID, RemoteCert;
-    string RemotePubKey, LocalPriKey, LocalPubKey, SessionKey;
-    string ThirdCert, EscrowData;
+    std::string RemoteUUID, RemoteCert;
+    std::string RemotePubKey, LocalPriKey, LocalPubKey, SessionKey;
+    std::string ThirdCert, EscrowData;
     bool UpdPk, AckPk;
-    time_point<system_clock> tp;
+    std::chrono::time_point<std::chrono::system_clock> tp;
     OnivKeyEntry();
     OnivKeyEntry(const OnivKeyEntry &keyent);
     OnivKeyEntry& operator=(const OnivKeyEntry &keyent);
@@ -86,9 +77,9 @@ public:
     void UpdateOnSendTunRes();
     void UpdateOnRecvTunRes(const OnivTunRes &res);
     void UpdateOnSendLnkRec();
-    void UpdateOnRecvLnkRec(const OnivLnkRecord &record);
+    void UpdateOnRecvLnkRec(const OnivLnkRec &record);
     void UpdateOnSendTunRec();
-    void UpdateOnRecvTunRec(const OnivTunRecord &record);
+    void UpdateOnRecvTunRec(const OnivTunRec &record);
     void UpdateAddress(in_port_t port, in_addr_t address);
 };
 
@@ -97,11 +88,11 @@ struct OnivFragementEntry
 private:
     char *buffer, *fragment;
     size_t BufferSize;
-    list<pair<unsigned short, unsigned short>> unreached;
+    std::list<std::pair<unsigned short, unsigned short>> unreached;
     bool reassemble(uint16_t offset, uint16_t len);
 public:
-    string RemoteUUID;
-    OnivFragementEntry(const OnivFrame &frame, const OnivLnkKA &lka, const string &RemoteUUID);
+    std::string RemoteUUID;
+    OnivFragementEntry(const OnivFrame &frame, const OnivLnkKA &lka, const std::string &RemoteUUID);
     OnivFragementEntry(const OnivFragementEntry &frgent);
     OnivFragementEntry& operator=(const OnivFragementEntry &frgent);
     ~OnivFragementEntry();

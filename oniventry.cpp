@@ -1,8 +1,17 @@
 #include "oniventry.h"
+
+#include <cstring>
+
+#include "onivcrypto.h"
 #include "onivfirst.h"
+#include "onivframe.h"
+#include "onivlog.h"
 #include "onivsecond.h"
 
+using std::chrono::system_clock;
+using std::chrono::time_point;
 using std::make_pair;
+using std::string;
 
 OnivForwardingEntry::OnivForwardingEntry(const string &HwAddr, OnivPort *egress)
     : HwAddr(HwAddr), egress(egress)
@@ -195,7 +204,7 @@ void OnivKeyEntry::UpdateOnSendLnkRec()
     unlock();
 }
 
-void OnivKeyEntry::UpdateOnRecvLnkRec(const OnivLnkRecord &record)
+void OnivKeyEntry::UpdateOnRecvLnkRec(const OnivLnkRec &record)
 {
     if(record.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK)){
         UpdatePublibKey(record.pk.data(), record.UpdTp);
@@ -221,7 +230,7 @@ void OnivKeyEntry::UpdateOnSendTunRec()
     unlock();
 }
 
-void OnivKeyEntry::UpdateOnRecvTunRec(const OnivTunRecord &record)
+void OnivKeyEntry::UpdateOnRecvTunRec(const OnivTunRec &record)
 {
     if(record.tc.common.flag & CastTo16<OnivPacketFlag>(OnivPacketFlag::UPD_PK)){
         UpdatePublibKey(record.pk.data(), record.UpdTp);

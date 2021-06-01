@@ -1,5 +1,16 @@
 #include "onivfirst.h"
+
+#include <cstring>
+
+#include "onivcrypto.h"
 #include "oniventry.h"
+#include "onivframe.h"
+#include "onivglobal.h"
+
+using std::chrono::system_clock;
+using std::chrono::time_point;
+using std::string;
+using std::vector;
 
 void OnivLnkKA::linearization(uint8_t *p)
 {
@@ -320,7 +331,7 @@ vector<OnivFrame> OnivLnkRes::response()
     return frames;
 }
 
-OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf(nullptr)
+OnivLnkRec::OnivLnkRec(const OnivFrame &frame, const OnivKeyEntry *keyent) : buf(nullptr)
 {
     if(!frame.IsARP() && !frame.IsIP()){
         return;
@@ -422,7 +433,7 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame, const OnivKeyEntry *keyent)
     output.append((char*)buf, common.len);
 }
 
-OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
+OnivLnkRec::OnivLnkRec(const OnivFrame &frame) : buf(nullptr)
 {
     if(!frame.IsLayer4Oniv()){
         return;
@@ -482,12 +493,12 @@ OnivLnkRecord::OnivLnkRecord(const OnivFrame &frame) : buf(nullptr)
     output.append(data.c_str(), data.length());
 }
 
-OnivLnkRecord::~OnivLnkRecord()
+OnivLnkRec::~OnivLnkRec()
 {
     delete[] buf;
 }
 
-bool OnivLnkRecord::VerifyIdentity(const OnivKeyEntry *keyent)
+bool OnivLnkRec::VerifyIdentity(const OnivKeyEntry *keyent)
 {
     string AssData((char*)buf, OnivCommon::LinearSize());
     string InitVector((char*)common.UUID, sizeof(common.UUID));
@@ -497,12 +508,12 @@ bool OnivLnkRecord::VerifyIdentity(const OnivKeyEntry *keyent)
                             data, InitVector, AssData);
 }
 
-OnivFrame OnivLnkRecord::record()
+OnivFrame OnivLnkRec::record()
 {
     return output;
 }
 
-OnivFrame OnivLnkRecord::frame()
+OnivFrame OnivLnkRec::frame()
 {
     return output;
 }

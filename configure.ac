@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([oniv], [4.0], [289926968@qq.com])
+AC_INIT([oniv], [4.1], [289926968@qq.com])
 AC_CONFIG_SRCDIR([onivcrypto.h])
 AC_CONFIG_HEADERS([config.h])
 

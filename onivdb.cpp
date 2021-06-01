@@ -1,5 +1,10 @@
 #include "onivdb.h"
 
+#include "onivfirst.h"
+#include "onivframe.h"
+
+using std::string;
+
 const OnivForwardingEntry* OnivFDB::search(const OnivFrame &frame)
 {
     OnivForwardingEntry ent(frame.DestHwAddr(), nullptr);

@@ -1,5 +1,9 @@
 #include "onivqueue.h"
 
+#include "onivframe.h"
+
+using std::vector;
+
 OnivSendingQueue::OnivSendingQueue()
 {
 

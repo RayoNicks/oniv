@@ -1,5 +1,8 @@
 #include "oniverr.h"
 
+using std::string;
+using std::vector;
+
 OnivErr::OnivErr() : code(OnivErrCode::ERROR_SUCCESSFUL)
 {
 

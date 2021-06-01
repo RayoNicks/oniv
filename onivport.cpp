@@ -1,5 +1,11 @@
 #include "onivport.h"
+
+#include <sys/eventfd.h>
+#include <unistd.h>
+
 #include "onivframe.h"
+
+using std::vector;
 
 OnivPort::OnivPort(int mtu, uint32_t bdi) : mtu(mtu), bdi(bdi)
 {

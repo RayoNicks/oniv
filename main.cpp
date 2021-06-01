@@ -1,6 +1,8 @@
 #include <iostream>
 
+#include "onivcrypto.h"
 #include "onivd.h"
+#include "onivglobal.h"
 
 using namespace std;
 
